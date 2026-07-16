@@ -48,6 +48,7 @@ import type { StageIntent } from "@/components/studio/agent/intents";
 import { renderTurnToHtml } from "@/lib/agent/render-turn-html";
 import { RenderTurnSchema, type RenderTurn } from "@/lib/agent/ui-schema";
 import { useViewportBand } from "@/hooks/use-viewport-band";
+import { readSkillMd, writeSkillMd } from "@/lib/skills/skill-md.functions";
 import {
   AssetPickerDialog,
   type PickerResult,
@@ -706,6 +707,24 @@ export function AgentShell(props: AgentShellProps) {
   const visibleMessages = useMemo(() => mainStageMessages(messages), [messages]);
   const isEmpty = visibleMessages.length === 0;
 
+  // Derive the currently-selected skill from the latest successful
+  // `tool-select_app` output. Powers the debug pill under the Export button
+  // and the live skill.md editor.
+  const selectedApp = useMemo<{ appId: string; label: string } | null>(() => {
+    let hit: { appId: string; label: string } | null = null;
+    for (const m of messages) {
+      if (m.role !== "assistant") continue;
+      for (const p of toolPartsOf(m)) {
+        if (p.type !== "tool-select_app") continue;
+        if (p.state !== "output-available") continue;
+        const o = p.output as { appId?: string; label?: string; error?: string } | undefined;
+        if (!o || o.error || !o.label) continue;
+        hit = { appId: o.appId ?? o.label, label: o.label };
+      }
+    }
+    return hit;
+  }, [messages]);
+
   // Apply project patches + tool outputs exactly once each.
   const appliedPatchIds = useRef<Set<string>>(new Set());
   const appliedToolCallIds = useRef<Set<string>>(new Set());
@@ -1268,6 +1287,7 @@ export function AgentShell(props: AgentShellProps) {
   // Composer -----------------------------------------------------------------
   const [input, setInput] = useState("");
   const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const [skillEditorOpen, setSkillEditorOpen] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -1806,25 +1826,43 @@ export function AgentShell(props: AgentShellProps) {
       </div>
 
       {/* --- Top-right actions (outside shell) --- */}
-      <div className="fixed right-4 top-4 z-40 flex items-center gap-1">
-        <IconButton
-          label="Previous step"
-          icon={ChevronUp}
-          onClick={() => void dispatchIntent({ kind: "history", dir: "back" })}
-          disabled={busy || stageTurns.length < 2 || (cursor ?? liveIndex) <= 0}
-        />
-        <IconButton
-          label="Next step"
-          icon={ChevronDown}
-          onClick={() => void dispatchIntent({ kind: "history", dir: "forward" })}
-          disabled={busy || !browsing}
-        />
+      <div className="fixed right-4 top-4 z-40 flex flex-col items-end gap-2">
+        <div className="flex items-center gap-1">
+          <IconButton
+            label="Previous step"
+            icon={ChevronUp}
+            onClick={() => void dispatchIntent({ kind: "history", dir: "back" })}
+            disabled={busy || stageTurns.length < 2 || (cursor ?? liveIndex) <= 0}
+          />
+          <IconButton
+            label="Next step"
+            icon={ChevronDown}
+            onClick={() => void dispatchIntent({ kind: "history", dir: "forward" })}
+            disabled={busy || !browsing}
+          />
+          <button
+            type="button"
+            onClick={onExport}
+            className="btn-48 ml-1 bg-[color:var(--surface-dark-6)] text-[color:var(--content-dark-secondary)] transition hover:bg-[color:var(--surface-dark-5)]"
+          >
+            Export
+          </button>
+        </div>
+        {/* Debug pill — current skill; click to edit skill.md live. */}
         <button
           type="button"
-          onClick={onExport}
-          className="btn-48 ml-1 bg-[color:var(--surface-dark-6)] text-[color:var(--content-dark-secondary)] transition hover:bg-[color:var(--surface-dark-5)]"
+          onClick={() => setSkillEditorOpen((v) => !v)}
+          title={selectedApp ? `Edit ${selectedApp.appId}/skill.md` : "No skill selected yet"}
+          className={cn(
+            "flex items-center gap-1.5 rounded-full border border-border bg-card/80 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur transition hover:bg-card hover:text-foreground",
+            skillEditorOpen && "text-foreground",
+          )}
         >
-          Export
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+          <span className="uppercase tracking-wider opacity-60">Skill</span>
+          <span className="truncate max-w-[14rem]">
+            {selectedApp?.label ?? "None selected"}
+          </span>
         </button>
       </div>
 
@@ -1984,6 +2022,12 @@ export function AgentShell(props: AgentShellProps) {
         {transcriptOpen && (
           <TranscriptPanel messages={messages} onClose={() => setTranscriptOpen(false)} />
         )}
+        {skillEditorOpen && (
+          <SkillEditorPanel
+            selectedApp={selectedApp}
+            onClose={() => setSkillEditorOpen(false)}
+          />
+        )}
       </AnimatePresence>
     </>
   );
@@ -2004,28 +2048,35 @@ function TranscriptPanel({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const rows = messages
-    .map((m) => {
-      let text: string;
-      if (m.role === "assistant") {
-        // Parity with the stage: typed turns format from the same payload
-        // the stage rendered (ack + prose + block LABELS). Legacy messages
-        // fall back to the HTML-regex formatter.
-        const extract = extractRenderTurn(m);
-        text = extract
-          ? formatTurnTranscript(extract.turn)
-          : formatAssistantTranscript(renderableHtmlOf(m));
-      } else {
-        text = (m.parts ?? [])
-          .filter((p: { type: string }) => p.type === "text")
-          .map((p: { type: string; text?: string }) => p.text ?? "")
-          .join("")
-          .replace(INLINE_REWORK_MARKER, "")
-          .trim();
+  type Row = { id: string; role: "user" | "assistant" | "tool"; text: string };
+  const rows: Row[] = [];
+  for (const m of messages) {
+    if (m.role === "user") {
+      const text = (m.parts ?? [])
+        .filter((p: { type: string }) => p.type === "text")
+        .map((p: { type: string; text?: string }) => p.text ?? "")
+        .join("")
+        .replace(INLINE_REWORK_MARKER, "")
+        .trim();
+      if (text) rows.push({ id: m.id, role: "user", text });
+      continue;
+    }
+    if (m.role !== "assistant") continue;
+    // Walk parts in order, interleaving tool events with the final
+    // assistant render_turn / text so the log reads chronologically.
+    let toolIdx = 0;
+    for (const p of (m.parts as unknown as Array<{ type: string }> | undefined) ?? []) {
+      if (typeof p.type === "string" && p.type.startsWith("tool-")) {
+        const line = formatToolRow(p as unknown as ToolPart);
+        if (line) rows.push({ id: `${m.id}:t${toolIdx++}`, role: "tool", text: line });
       }
-      return { id: m.id, role: m.role, text };
-    })
-    .filter((r) => r.text.length > 0);
+    }
+    const extract = extractRenderTurn(m);
+    const text = extract
+      ? formatTurnTranscript(extract.turn)
+      : formatAssistantTranscript(renderableHtmlOf(m));
+    if (text) rows.push({ id: m.id, role: "assistant", text });
+  }
 
   // Docked debug panel — NOT a modal (no backdrop, doesn't block the stage).
   // Temporary home for the conversation transcript while agent instructions
@@ -2057,13 +2108,205 @@ function TranscriptPanel({
         ) : (
           rows.map((r) => (
             <div key={r.id} className="space-y-1">
-              <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                {r.role === "user" ? "You" : "Agent"}
+              <div
+                className={cn(
+                  "text-[11px] font-medium uppercase tracking-wide",
+                  r.role === "tool" ? "text-emerald-500" : "text-muted-foreground",
+                )}
+              >
+                {r.role === "user" ? "You" : r.role === "assistant" ? "Agent" : "Tool"}
               </div>
-              <div className="whitespace-pre-wrap text-sm text-foreground">{r.text}</div>
+              <div
+                className={cn(
+                  "whitespace-pre-wrap text-sm",
+                  r.role === "tool"
+                    ? "font-mono text-[12px] text-muted-foreground"
+                    : "text-foreground",
+                )}
+              >
+                {r.text}
+              </div>
             </div>
           ))
         )}
+      </div>
+    </motion.div>
+  );
+}
+
+// Compact one-line summary of a tool part for the transcript debug view.
+// Covers select_app (skill routing), render_turn (block list), and the
+// common producer tools — falls back to `<tool> · <state>` for anything else.
+function formatToolRow(p: ToolPart): string {
+  const name = p.type.replace(/^tool-/, "");
+  const state = p.state ?? "unknown";
+  const preview = (v: unknown, max = 140): string => {
+    if (v == null) return "";
+    let s: string;
+    try {
+      s = typeof v === "string" ? v : JSON.stringify(v);
+    } catch {
+      s = String(v);
+    }
+    s = s.replace(/\s+/g, " ");
+    return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+  };
+  if (name === "select_app" && p.state === "output-available") {
+    const o = p.output as { label?: string; appId?: string; error?: string } | undefined;
+    if (o?.error) return `select_app · error: ${o.error}`;
+    return `SKILL SELECTED → ${o?.label ?? "?"} (${o?.appId ?? "?"})`;
+  }
+  if (name === "render_turn") {
+    const input = p.input as { blocks?: Array<{ type?: string }> } | undefined;
+    const output = p.output as { ok?: boolean; turn?: { blocks?: Array<{ type?: string }> } } | undefined;
+    const source = output?.turn?.blocks ?? input?.blocks ?? [];
+    const types = source.map((b) => b?.type ?? "?").join(", ");
+    return `render_turn · ${state}${types ? ` · blocks: [${types}]` : ""}`;
+  }
+  const inputStr = preview(p.input);
+  return inputStr ? `${name} · ${state} · ${inputStr}` : `${name} · ${state}`;
+}
+
+// -----------------------------------------------------------------------------
+// Debug: live skill.md editor. Reads the file from the dev server via
+// server functions and writes back on Save. Vite HMR picks up the change
+// through each skill.ts's `?raw` import so the next agent turn uses the
+// new prompt without a page reload.
+function SkillEditorPanel({
+  selectedApp,
+  onClose,
+}: {
+  selectedApp: { appId: string; label: string } | null;
+  onClose: () => void;
+}) {
+  const [content, setContent] = useState<string>("");
+  const [original, setOriginal] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const appId = selectedApp?.appId;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const load = useCallback(async () => {
+    if (!appId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await readSkillMd({ data: { appId } });
+      setContent(res.content);
+      setOriginal(res.content);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [appId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const dirty = content !== original;
+  const canSave = dirty && !saving && !loading && !!appId;
+
+  const save = async () => {
+    if (!appId) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await writeSkillMd({ data: { appId, content } });
+      setOriginal(content);
+      setSavedAt(Date.now());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <motion.div
+      className="pointer-events-auto fixed right-4 top-4 bottom-4 z-[100] flex w-[560px] flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl"
+      initial={{ opacity: 0, x: 24 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 24 }}
+      transition={{ type: "spring", stiffness: 260, damping: 28 }}
+    >
+      <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-3">
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-semibold text-foreground">
+            {selectedApp ? `Skill · ${selectedApp.label}` : "No skill selected"}
+          </h2>
+          <p className="truncate text-[11px] text-muted-foreground">
+            {appId
+              ? `src/agent/skills/${appId}/skill.md · dev-only`
+              : "The agent hasn't picked a skill yet."}
+          </p>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={!appId || loading}
+            className="rounded-md px-2 py-1 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-40"
+          >
+            Reload
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md px-2 py-1 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-hidden px-5 py-4">
+        {!appId ? (
+          <p className="text-sm text-muted-foreground">
+            Pick or ask for an app first — the agent will call{" "}
+            <code className="text-xs">select_app</code> and this panel will load its{" "}
+            <code className="text-xs">skill.md</code>.
+          </p>
+        ) : loading ? (
+          <p className="text-sm text-muted-foreground">Loading skill.md…</p>
+        ) : (
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            spellCheck={false}
+            className="h-full w-full resize-none rounded-lg border border-border bg-background p-3 font-mono text-[12px] leading-relaxed text-foreground outline-none focus:border-primary"
+          />
+        )}
+      </div>
+      <div className="flex items-center justify-between gap-3 border-t border-border px-5 py-3">
+        <div className="min-w-0 text-[11px] text-muted-foreground">
+          {error ? (
+            <span className="text-destructive">{error}</span>
+          ) : dirty ? (
+            <span>Unsaved changes — HMR reloads on save.</span>
+          ) : savedAt ? (
+            <span>Saved. Next agent turn uses the new prompt.</span>
+          ) : (
+            <span>Edits only affect skill.md — skill.ts is untouched.</span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => void save()}
+          disabled={!canSave}
+          className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
       </div>
     </motion.div>
   );
