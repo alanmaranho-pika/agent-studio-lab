@@ -1,35 +1,35 @@
-// Browser-local project repository. Project metadata and state live in
-// IndexedDB; uploaded files are stored as Blobs so they survive reloads.
+// Compatibility shim over the Supabase-backed server functions in
+// `projects.functions.ts`. The app previously used IndexedDB (via this file)
+// for local persistence; every consumer imports these names, so we now
+// re-export the cloud server-fns here to keep the call sites working. The
+// `useLocalProjectFn` hook wraps a server fn with `useServerFn` so its
+// bearer token is attached from React components.
 
-import { applyPatch, INITIAL_PROJECT, type AssetKind, type ProjectAsset, type ProjectPatch, type ProjectState } from "@/lib/project-state";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  attachLibraryAssetToProject,
+  createProject,
+  deleteProject,
+  getProject,
+  listProjects,
+  updateProjectState,
+  updateProjectStudioPrefs,
+  uploadProjectAsset,
+} from "@/lib/projects.functions";
 
-const DATABASE = "agent-studio-local";
-const VERSION = 1;
-const PROJECTS = "projects";
-const ASSETS = "assets";
-
-type StoredProject = {
-  id: string;
-  title: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  projectState: ProjectState;
-  skill: string | null;
-  studioMode: string;
-  studioModel: string | null;
+export {
+  attachLibraryAssetToProject,
+  createProject,
+  deleteProject,
+  getProject,
+  listProjects,
+  updateProjectState,
+  updateProjectStudioPrefs,
+  uploadProjectAsset,
 };
 
-type StoredAsset = ProjectAsset & { projectId: string; blob: Blob };
-
 export function useLocalProjectFn<T extends (...args: never[]) => unknown>(fn: T): T {
-  return fn;
-}
-
-function browserOnly() {
-  if (typeof window === "undefined" || !window.indexedDB) {
-    throw new Error("Local projects are available in the browser only.");
-  }
+  return useServerFn(fn as unknown as Parameters<typeof useServerFn>[0]) as unknown as T;
 }
 
 function openDatabase(): Promise<IDBDatabase> {
