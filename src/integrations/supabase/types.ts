@@ -52,7 +52,7 @@ export type Database = {
           project_id: string
           storage_path: string | null
           url: string
-          user_id: string
+          user_id: string | null
           width: number | null
         }
         Insert: {
@@ -68,7 +68,7 @@ export type Database = {
           project_id: string
           storage_path?: string | null
           url?: string
-          user_id: string
+          user_id?: string | null
           width?: number | null
         }
         Update: {
@@ -84,7 +84,7 @@ export type Database = {
           project_id?: string
           storage_path?: string | null
           url?: string
-          user_id?: string
+          user_id?: string | null
           width?: number | null
         }
         Relationships: [
@@ -99,7 +99,9 @@ export type Database = {
       }
       project_jobs: {
         Row: {
+          app_id: string | null
           app_label: string | null
+          asset_id: string | null
           attempts: number
           created_at: string
           error: string | null
@@ -107,17 +109,22 @@ export type Database = {
           id: string
           input: Json | null
           max_attempts: number
+          mode: string | null
           model: string
           placeholder_asset_id: string | null
           project_id: string
+          prompt: string | null
           response_url: string | null
+          result_url: string | null
           status: string
           status_url: string | null
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
+          app_id?: string | null
           app_label?: string | null
+          asset_id?: string | null
           attempts?: number
           created_at?: string
           error?: string | null
@@ -125,17 +132,22 @@ export type Database = {
           id?: string
           input?: Json | null
           max_attempts?: number
+          mode?: string | null
           model: string
           placeholder_asset_id?: string | null
           project_id: string
+          prompt?: string | null
           response_url?: string | null
+          result_url?: string | null
           status?: string
           status_url?: string | null
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
+          app_id?: string | null
           app_label?: string | null
+          asset_id?: string | null
           attempts?: number
           created_at?: string
           error?: string | null
@@ -143,14 +155,17 @@ export type Database = {
           id?: string
           input?: Json | null
           max_attempts?: number
+          mode?: string | null
           model?: string
           placeholder_asset_id?: string | null
           project_id?: string
+          prompt?: string | null
           response_url?: string | null
+          result_url?: string | null
           status?: string
           status_url?: string | null
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -164,31 +179,31 @@ export type Database = {
       }
       project_messages: {
         Row: {
-          content: Json
           created_at: string
           id: string
+          parts: Json
           project_id: string
           role: string
           tokens: number | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
-          content?: Json
           created_at?: string
           id?: string
+          parts?: Json
           project_id: string
           role: string
           tokens?: number | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
-          content?: Json
           created_at?: string
           id?: string
+          parts?: Json
           project_id?: string
           role?: string
           tokens?: number | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
