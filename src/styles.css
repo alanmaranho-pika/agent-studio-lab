@@ -1034,6 +1034,43 @@ label.gen-field {
   color: var(--content-dark-tertiary);
 }
 
+/* Field footer: [+] attach + AI Rewrite. Sits inside the .gen-field card,
+ * beneath the input, so both affordances travel with the field. */
+.gen-field-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+.gen-field-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--surface-dark-6);
+  background: var(--surface-light-1);
+  color: var(--content-dark-secondary);
+  font-family: "Telka", system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.gen-field-tool:hover {
+  background: var(--surface-dark-6);
+  color: var(--content-dark-primary);
+}
+.gen-field-tool-attach {
+  width: 36px;
+  padding: 0;
+}
+.gen-field-tool-rewrite svg {
+  color: var(--content-accent-darkened);
+}
+
 /* ─────────────────────────────────────────────────────────────────
  * Gen UI — inline action row (CTAs)
  * ───────────────────────────────────────────────────────────── */
