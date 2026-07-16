@@ -16,7 +16,7 @@
 // HTML; `<StageGeneration>` renders the matching view + action row.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { HOLD_MS } from "@/components/studio/agent/motion-primitives";
 import {
   RefreshCcw,
@@ -26,11 +26,8 @@ import {
   ChevronRight,
   Sparkles,
   Send,
-  X,
-  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Shimmer } from "@/components/ai-elements/shimmer";
 import { resolveThumb, type ProjectAsset, type ProjectPatch, type ProjectState, type Scene } from "@/lib/project-state";
 import { pickSwatchFromText, type Swatch } from "@/lib/theme-swatch";
 import { stableAssetUrl } from "@/lib/v2/stable-asset-url";
@@ -40,6 +37,7 @@ import {
   type TimelineVariant,
 } from "@/components/studio/agent/stage-timeline";
 import type { StageIntent } from "./intents";
+import { AskAgentPanel } from "@/components/studio/agent/ask-agent-panel";
 
 
 // ─── Extractor ──────────────────────────────────────────────────────────────
