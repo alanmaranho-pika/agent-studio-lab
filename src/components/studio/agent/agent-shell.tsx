@@ -2022,6 +2022,12 @@ export function AgentShell(props: AgentShellProps) {
         {transcriptOpen && (
           <TranscriptPanel messages={messages} onClose={() => setTranscriptOpen(false)} />
         )}
+        {skillEditorOpen && (
+          <SkillEditorPanel
+            selectedApp={selectedApp}
+            onClose={() => setSkillEditorOpen(false)}
+          />
+        )}
       </AnimatePresence>
     </>
   );
