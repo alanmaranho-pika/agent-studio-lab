@@ -19,7 +19,7 @@ import type { StageIntent } from "@/components/studio/agent/intents";
 import type { InlineAskArgs } from "@/components/studio/agent/agent-shell";
 import type { InlineAskResult } from "@/components/studio/agent/stage-generations";
 import { Shimmer } from "@/components/ai-elements/shimmer";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Plus } from "lucide-react";
 import {
   AssetPickerDialog,
   type PickerAccept,
@@ -1838,7 +1838,16 @@ function CaptionAskPopover({
 
         {/* Footer — quick chips + composer */}
         <div className="flex flex-col gap-[10px] p-3">
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap items-center gap-1">
+            <button
+              type="button"
+              disabled={busy}
+              aria-label="Add"
+              className="inline-flex size-12 shrink-0 items-center justify-center rounded-full transition disabled:opacity-40"
+              style={{ background: "var(--surface-light-2)", color: "var(--content-dark-tertiary)" }}
+            >
+              <Plus className="size-4" strokeWidth={2} />
+            </button>
             {(suggestions ?? QUICK_CAPTION_INSTRUCTIONS).map((q) => (
               <button
                 key={q}
