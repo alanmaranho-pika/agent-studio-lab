@@ -1163,19 +1163,23 @@ export const GenerativeCard = memo(function GenerativeCard({
       // half the popover's footprint so card + popover sit as one group,
       // horizontally centered where the card alone was centered.
       const POP_W = 320;
-      const POP_GAP = 14;
+      const POP_GAP = 16;
       const MARGIN = 16;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const parentMost = card ?? root;
       const cr = parentMost.getBoundingClientRect();
+      // Anchor the horizontal gap to the visible piece (e.g. the image),
+      // not the card container — the container often extends well past the
+      // media's edge and would leave a huge visible gap.
+      const pr = el.getBoundingClientRect();
       // Base shift centers the group when the card is viewport-centered; the
-      // popover then sits GAP px to the right of the card's SHIFTED right edge
-      // (= cr.right - shift). Grow the shift if that would push the popover
+      // popover then sits GAP px to the right of the piece's SHIFTED right edge
+      // (= pr.right - shift). Grow the shift if that would push the popover
       // past the right margin so it — and the card — slide further left and
       // stay fully on screen (the popover is what the user interacts with).
       let shift = (POP_W + POP_GAP) / 2;
-      let left = cr.right - shift + POP_GAP;
+      let left = pr.right - shift + POP_GAP;
       const overflowR = left + POP_W - (vw - MARGIN);
       if (overflowR > 0) {
         shift += overflowR;
