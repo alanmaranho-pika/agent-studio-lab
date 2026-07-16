@@ -1,20 +1,18 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { SideNav } from "@/components/side-nav";
 import chromeLogo from "@/assets/chrome-logo.png.asset.json";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated")({
-  beforeLoad: async () => {
-    // Session is persisted in localStorage only, so it never exists on the
-    // server. Running the gate during SSR causes an infinite redirect loop
-    // between /projects and /login. Defer to the client.
-    // if (typeof window === "undefined") return;
-    // Use getSession() (local, synchronous localStorage read) instead of
-    // getUser() (network round-trip to /auth/v1/user) — the server still
-    // re-validates the JWT via requireSupabaseAuth.getClaims on every
-    // server function call, so security is unchanged and page-load latency
-    // drops by one full round-trip.
-    // const { data } = await supabase.auth.getSession();
-    // if (!data?.session) throw redirect({ to: "/login", search: { redirect: location.href } });
+  ssr: false,
+  beforeLoad: async ({ location }) => {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) {
+      throw redirect({
+        to: "/login",
+        search: { redirect: location.href },
+      });
+    }
   },
   component: AuthedLayout,
 });
