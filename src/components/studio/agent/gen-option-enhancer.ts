@@ -276,6 +276,8 @@ function enhanceOption(btn: HTMLElement): void {
   if (btn.hasAttribute("data-custom")) {
     btn.classList.add("gen-option-custom");
     btn.addEventListener("click", (e) => {
+      // Programmatic re-dispatch after Enter — let it bubble to root.
+      if (btn.getAttribute("data-dispatching") === "1") return;
       if (btn.getAttribute("data-expanded") === "1") {
         // If the click landed on the input/submit, don't collapse; the
         // submit/keydown handlers below take care of dispatch.
@@ -306,7 +308,7 @@ function enhanceOption(btn: HTMLElement): void {
           return;
         }
         btn.setAttribute("data-value", v);
-        btn.removeAttribute("data-custom");
+        btn.setAttribute("data-dispatching", "1");
         // Bubble a fresh click to the root delegate for normal dispatch.
         btn.click();
       };
