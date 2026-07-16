@@ -1434,6 +1434,7 @@ export const GenerativeCard = memo(function GenerativeCard({
             rect={askPop.rect}
             placement={askPop.placement}
             heading={askPop.mode === "media" ? "Edit with agent" : undefined}
+            suggestions={quickInstructionsFor(askPop.mode, askPop.mediaKind)}
             onClose={() => {
               releaseAskTarget();
               setAskPop(null);
@@ -1444,10 +1445,18 @@ export const GenerativeCard = memo(function GenerativeCard({
               // the result is applied to the retained piece IN PLACE.
               const el = pieceElRef.current;
               if (askPop.mode === "media") {
+                // Add the looping glow to the exact media element being
+                // reworked so the user sees it's in flight. Removed in the
+                // finally block regardless of outcome.
+                if (el) el.classList.add("gen-regen-glow");
+                try {
                 const result = await onInlineAsk({
                   kind: "media",
                   mediaKind: askPop.mediaKind ?? "image",
-                  mediaUrl: el?.getAttribute("src") ?? askPop.currentValue,
+                  // ALWAYS iterate from the latest URL the popup knows about
+                  // (updated after each successful regen). The <img>'s live
+                  // src may lag if the last edit didn't emit a mediaUrl chunk.
+                  mediaUrl: askPop.currentValue || el?.getAttribute("src") || "",
                   cardTitle: askPop.cardTitle || undefined,
                   instruction,
                 });
@@ -1455,7 +1464,15 @@ export const GenerativeCard = memo(function GenerativeCard({
                   el.setAttribute("src", result.mediaUrl);
                   if (el instanceof HTMLVideoElement || el instanceof HTMLAudioElement) el.load();
                 }
+                if (result.ok && result.mediaUrl) {
+                  // Chain subsequent edits off the freshly generated URL,
+                  // not the original one the popover was opened with.
+                  setAskPop((p) => (p ? { ...p, currentValue: result.mediaUrl! } : p));
+                }
                 return result;
+                } finally {
+                  if (el) el.classList.remove("gen-regen-glow");
+                }
               }
               const result = await onInlineAsk({
                 kind: "piece",
@@ -1565,6 +1582,22 @@ function MoreActionsPopover({
 
 const QUICK_CAPTION_INSTRUCTIONS = ["Rewrite", "Shorter", "Punchier", "More cinematic"];
 
+// Contextual quick-action chips shown inside the "Edit with Agent" popover.
+// Text pieces get copy-oriented rewrites; each media kind gets prompts that
+// match what the agent can actually change on that medium.
+const QUICK_MEDIA_INSTRUCTIONS: Record<"image" | "video" | "audio", string[]> = {
+  image: ["More cinematic", "Brighter", "Change background", "Zoom in"],
+  video: ["Slower", "More dynamic", "Different angle", "More cinematic"],
+  audio: ["Softer", "More energetic", "Slower", "Different mood"],
+};
+function quickInstructionsFor(
+  mode: "caption" | "media",
+  mediaKind?: "image" | "video" | "audio",
+): string[] {
+  if (mode === "media" && mediaKind) return QUICK_MEDIA_INSTRUCTIONS[mediaKind];
+  return QUICK_CAPTION_INSTRUCTIONS;
+}
+
 // One in-popup exchange: the instruction, its live status, and the agent's
 // reply (for text pieces the reply IS the reworked copy applied in place).
 type AskThreadEntry = {
@@ -1581,6 +1614,7 @@ function CaptionAskPopover({
   rect,
   placement,
   heading,
+  suggestions,
   onClose,
   onAsk,
 }: {
@@ -1592,6 +1626,9 @@ function CaptionAskPopover({
    *  element being edited); default keeps the legacy left-of-anchor math. */
   placement?: "right";
   heading?: string;
+  /** Quick-action chips shown above the composer. Contextual to the piece
+   *  kind (image / video / audio / caption). */
+  suggestions?: string[];
   onClose: () => void;
   /** Runs the instruction through the inline-edit API; the caller applies
    *  the result to the edited element. The popup stays open to iterate. */
@@ -1802,7 +1839,7 @@ function CaptionAskPopover({
         {/* Footer — quick chips + composer */}
         <div className="flex flex-col gap-[10px] p-3">
           <div className="flex flex-wrap gap-1">
-            {QUICK_CAPTION_INSTRUCTIONS.map((q) => (
+            {(suggestions ?? QUICK_CAPTION_INSTRUCTIONS).map((q) => (
               <button
                 key={q}
                 type="button"
