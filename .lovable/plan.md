@@ -1,64 +1,53 @@
+## Problem
 
-## 1. Answer: how `skill.md` and `skill.ts` relate
+Two implementations of the inline "Ask agent to rework this field" UI exist:
 
-Each skill folder ships two files that play different roles:
+- **Canonical (keep)** — `CaptionAskPopover` in `src/components/studio/generative-card.tsx` (~lines 1623–1923). This is the one triggered from images / video / audio pieces and from the field-level "AI Rewrite" button. Pika‑style card: agent‑symbol header + "ESC to Close", `surface-accent-4` user bubble, agent‑symbol "Regenerating…" / "Applied" rows, chip row led by a `+` circle, rounded composer with `ArrowUp` submit.
+- **Legacy (replace)** — `InlineAskSidebar` in `src/components/studio/agent/stage-generations.tsx` (~lines 347–600). Docked sidebar with `Editing` chip, `Current` context block, `Reworking…` bouncing dot, `Check` was/now diff, plain chip row. This is what the user is looking at now on the scene editor.
 
-- **`skill.md`** — the human/agent-readable playbook. Loaded via `import bodyMd from "./skill.md?raw"` and exposed as `SkillPack.bodyMd`. `renderAppPlaybook()` injects this verbatim into the LLM prompt whenever the skill is selected. **This is what actually changes agent behavior at runtime.**
-- **`skill.ts`** — the typed manifest (`SkillPack`): `id`, `appId`, `label`, `kind`, `oneLiner`, `outputs`, `matches`, `usesBlocks`, `steps[]`, `model`, `mode`, plus the `bodyMd` re-export. Consumed by TypeScript code (registry, catalog line, model dispatcher, `renderAppPlaybook`'s fallback when `bodyMd` is missing, and `renderAppCatalogForPrompt` step summary).
+The sidebar must render the same panel we built earlier for images.
 
-Consequences for the live editor:
-- Editing `skill.md` only → changes the prompt the LLM sees for that skill. Vite `?raw` HMR picks it up instantly in dev; no `.ts` touch needed.
-- Editing `skill.ts` → changes what code iterates (steps rendered by non-LLM UI, model id for `run_model_app`, block hints for prompt injection, router `matches`). Required if you rename the skill, swap the backing model, or add/remove steps that code enumerates.
-- The catalog summary (`renderAppCatalogForPrompt`) reads from `.ts` step data, not `.md`. So a step-order tweak in `.md` alone won't be reflected in the one-line summary; but since the full playbook (bodyMd) is what the agent follows once a skill is selected, `.md` edits still steer the actual flow.
+## Approach
 
-Recommendation for iteration: tweak `skill.md` live for prompt/behavior changes; only touch `skill.ts` for structural/runtime changes.
+Extract the panel content from `CaptionAskPopover` into a reusable component and mount it inside the existing sidebar shell. `CaptionAskPopover`'s outer positioned card also switches to the extracted component so both entry points render from one source.
 
-## 2. Transcript panel — log skill / tool / block calls
+### New file — `src/components/studio/agent/ask-agent-panel.tsx`
 
-`TranscriptPanel` currently renders only user text + assistant `ack/prose/block-labels`. Extend the row builder to also emit debug rows from `m.parts` for every tool part, in call order:
+Export `AskAgentPanel` — the header + thread + footer that lives in `CaptionAskPopover` today, with no positioning concerns:
 
-- For each `m.parts[i]` where `type` starts with `tool-` emit a row `{ role: "tool", text: "<tool name> · <state>\n<compact input/output preview>" }`.
-  - `tool-select_app` → `SKILL SELECTED → <label> (<appId>)`
-  - `tool-render_turn` → `RENDER TURN · blocks: [<type>, <type>…]` (pull from input JSON)
-  - `tool-run_model_app`, `tool-generate_image`, `tool-run_skill`, `tool-tool_invoke`, `tool-get_app_playbook`, `tool-save_skill`, `tool-commit_project_patch`, `tool-note_decision`, etc. → `<tool> · <state>` + one-line JSON preview of `input` (truncated ~140 chars).
-- Style tool rows distinctly (muted mono chip label + text, e.g., `[tool]` uppercase tag like existing "You"/"Agent").
-- Keep insertion order interleaved with user/assistant rows so the log reads chronologically.
+- Props: `title`, `currentValue`, `heading?`, `suggestions?`, `onAsk`, `onClose`.
+- Owns: `thread` state, composer `value`, `send()` mapping `onAsk` result to `pending / done / error`, auto‑scroll, autofocus, `Enter` / `Shift+Enter` / `Escape`.
+- Renders the exact JSX currently inside `CaptionAskPopover`'s inner card:
+  - Header: `AGENT_SYMBOL_SVG` glyph + title + `ESC` chip + "to Close" label.
+  - Body: empty‑state `currentValue` preview, right‑aligned user bubble on `surface-accent-4`, agent status row with symbol + `Shimmer` "Regenerating…" / "Applied", destructive error block.
+  - Footer: chip row led by a `+` circle button, then `suggestions ?? QUICK_CAPTION_INSTRUCTIONS`; rounded composer input with `ArrowUp` submit.
+- Also exports `QUICK_CAPTION_INSTRUCTIONS`, `QUICK_MEDIA_INSTRUCTIONS`, `quickInstructionsFor`, and re-exports the `InlineAskResult` type so both call sites import from one place.
 
-No changes to the transcript toggle button or panel chrome.
+### Update `generative-card.tsx`
 
-## 3. Skill pill under the Export button + live `skill.md` editor
+- Delete the local `AskThreadEntry`, quick‑instruction constants, and the entire body of `CaptionAskPopover`.
+- Keep `CaptionAskPopover` as a thin shell: compute `top / left / height` from `rect + placement` exactly as today, render the fixed backdrop + positioned rounded card, and place `<AskAgentPanel …/>` inside it. Public props and all call sites stay unchanged.
 
-Top-nav additions in `AgentShell` (near the existing Export button around line 1824):
+### Update `stage-generations.tsx`
 
-- Below Export, render a small pill button. Label: the currently selected skill's `label` (or `"No skill selected"`). Derive it from the latest `tool-select_app` output already scanned in `withToolAssets` — lift that scan into a memo `selectedApp = { appId, label } | null` from `messages`.
-- Clicking the pill opens a new right-docked side panel `SkillEditorPanel` (styled like `TranscriptPanel` but wider, ~560px), containing:
-  - Header: skill label + `appId` + a "Reload" button.
-  - Body: a `<textarea>` (monospace, full-height) prefilled with the current `skill.md` contents.
-  - Footer: `Save` button (disabled while unchanged/saving), plus a small note "Edits `src/agent/skills/<appId>/skill.md` on disk. Vite HMR reloads; the change applies to the next agent turn."
-- Panel state is local (`skillEditorOpen`, `skillDraft`, `skillDirty`, `skillSaving`).
+- Replace the entire `InlineAskSidebar` body (Editing chip, Current block, transcript, composer, chip row, `X` close, `Shimmer` "Reworking…", `Check` diff) with `<AskAgentPanel title={openFor.label} currentValue={openFor.value} onAsk={openFor.onAsk} onClose={onClose} />` inside the existing `motion.aside` shell — the 380px docked width, `maxHeight` clamp, and spring entry/exit animation stay.
+- Move `InlineAskResult` to be imported from `ask-agent-panel.tsx`.
+- Drop now‑unused imports (`Check`, `X`, `Shimmer`, `AnimatePresence`, `QUICK_INSTRUCTIONS`, `TranscriptEntry`). `InlineAskContext`, `useInlineAsk`, `AgentAssist`, `busyKey` plumbing all stay so every existing call site keeps working.
 
-### Server function backing the editor
+### Behavior parity to preserve
 
-Add `src/lib/skills/skill-md.functions.ts` with two `createServerFn` endpoints (dev-only guard):
+- Sidebar entry/exit animation and docked width.
+- `openFor.onAsk(instruction)` remains the sole async path; result shape (`{ ok, assistantText, mediaUrl?, error? }`) unchanged.
+- `Escape` closes the panel from both shells.
+- Quick chips default to `QUICK_CAPTION_INSTRUCTIONS` in both entry points — the sidebar's old `Rewrite / Shorter / More action / Wider shot` list is dropped so images and fields show the same suggestions.
 
-- `readSkillMd({ appId })` → reads `src/agent/skills/<appId>/skill.md` from disk via `fs/promises` and returns `{ content }`.
-- `writeSkillMd({ appId, content })` → validates `appId` against the registered `SKILL_BY_APP_ID` keys (path traversal guard), writes the file, returns `{ ok: true }`.
+### Out of scope
 
-Guardrails:
-- Wrap both handlers in `if (process.env.NODE_ENV !== "development") throw new Response("Disabled in production", { status: 403 })` so the editor only works in the local/preview dev server (where the filesystem is writable). The pill still renders in prod but the panel shows a read-only banner + disabled Save.
-- Use `path.resolve(process.cwd(), "src/agent/skills", appId, "skill.md")` and assert the resolved path starts with the skills directory.
+- No change to who opens the panel, no change to `onAsk` implementations, no change to `CaptionAskPopover`'s positioning math or callers, no backend / server function changes.
+- No visual redesign — the sidebar simply adopts the existing image‑triggered panel look.
 
-On successful save, Vite's `?raw` HMR reloads `bodyMd` and `AgentShell` picks it up on the next `useChat` turn (no client reload needed). No changes to `skill.ts` are made or needed for prompt tweaks.
+## Technical details
 
-## 4. Files touched
-
-- `src/components/studio/agent/agent-shell.tsx` — memoized `selectedApp`, new skill pill under Export, new `SkillEditorPanel`, extended `TranscriptPanel` rows for tool events.
-- `src/lib/skills/skill-md.functions.ts` (new) — `readSkillMd` / `writeSkillMd` server fns, dev-guarded, path-validated.
-
-No changes to skill packs, block registry, prompt composition, or `skill.ts` files.
-
-## 5. Out of scope
-
-- Editing `skill.ts` from the UI (structural changes still require a code edit).
-- Persisting edits across redeploys in production.
-- Editing block `.md` files (same pattern would work later if useful).
+- Files: 1 new (`src/components/studio/agent/ask-agent-panel.tsx`), 2 edited (`generative-card.tsx`, `stage-generations.tsx`).
+- Moved imports into the new file: `AGENT_SYMBOL_SVG` from `@/components/studio/agent/agent-symbol`, `ArrowUp` / `Plus` from `lucide-react`, `Shimmer` from `@/components/ai-elements/shimmer`.
+- No route, schema, or public API changes.
