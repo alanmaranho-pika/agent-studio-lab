@@ -19,7 +19,7 @@ import type { StageIntent } from "@/components/studio/agent/intents";
 import type { InlineAskArgs } from "@/components/studio/agent/agent-shell";
 import type { InlineAskResult } from "@/components/studio/agent/stage-generations";
 import { Shimmer } from "@/components/ai-elements/shimmer";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Plus } from "lucide-react";
 import {
   AssetPickerDialog,
   type PickerAccept,
