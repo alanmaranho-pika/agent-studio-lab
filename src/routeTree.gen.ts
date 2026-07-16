@@ -9,38 +9,206 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as AuthenticatedProjectsRouteImport } from './routes/_authenticated/projects'
+import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
+import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
+import { Route as AuthenticatedStudioIndexRouteImport } from './routes/_authenticated/studio.index'
+import { Route as ApiPublicRenderTickRouteImport } from './routes/api/public/render-tick'
+import { Route as ApiAssetIdRouteImport } from './routes/api/asset.$id'
+import { Route as AuthenticatedStudioProjectIdRouteImport } from './routes/_authenticated/studio.$projectId'
+import { Route as ApiPublicHooksSweepStalledJobsRouteImport } from './routes/api/public/hooks/sweep-stalled-jobs'
+import { Route as ApiPublicHooksPikaPollerRouteImport } from './routes/api/public/hooks/pika-poller'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: '/api/chat',
+  path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedProjectsRoute = AuthenticatedProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedLibraryRoute = AuthenticatedLibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedStudioIndexRoute =
+  AuthenticatedStudioIndexRouteImport.update({
+    id: '/studio/',
+    path: '/studio/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const ApiPublicRenderTickRoute = ApiPublicRenderTickRouteImport.update({
+  id: '/api/public/render-tick',
+  path: '/api/public/render-tick',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAssetIdRoute = ApiAssetIdRouteImport.update({
+  id: '/api/asset/$id',
+  path: '/api/asset/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedStudioProjectIdRoute =
+  AuthenticatedStudioProjectIdRouteImport.update({
+    id: '/studio/$projectId',
+    path: '/studio/$projectId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const ApiPublicHooksSweepStalledJobsRoute =
+  ApiPublicHooksSweepStalledJobsRouteImport.update({
+    id: '/api/public/hooks/sweep-stalled-jobs',
+    path: '/api/public/hooks/sweep-stalled-jobs',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksPikaPollerRoute =
+  ApiPublicHooksPikaPollerRouteImport.update({
+    id: '/api/public/hooks/pika-poller',
+    path: '/api/public/hooks/pika-poller',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/account': typeof AuthenticatedAccountRoute
+  '/library': typeof AuthenticatedLibraryRoute
+  '/projects': typeof AuthenticatedProjectsRoute
+  '/api/chat': typeof ApiChatRoute
+  '/studio/$projectId': typeof AuthenticatedStudioProjectIdRoute
+  '/api/asset/$id': typeof ApiAssetIdRoute
+  '/api/public/render-tick': typeof ApiPublicRenderTickRoute
+  '/studio/': typeof AuthenticatedStudioIndexRoute
+  '/api/public/hooks/pika-poller': typeof ApiPublicHooksPikaPollerRoute
+  '/api/public/hooks/sweep-stalled-jobs': typeof ApiPublicHooksSweepStalledJobsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/account': typeof AuthenticatedAccountRoute
+  '/library': typeof AuthenticatedLibraryRoute
+  '/projects': typeof AuthenticatedProjectsRoute
+  '/api/chat': typeof ApiChatRoute
+  '/studio/$projectId': typeof AuthenticatedStudioProjectIdRoute
+  '/api/asset/$id': typeof ApiAssetIdRoute
+  '/api/public/render-tick': typeof ApiPublicRenderTickRoute
+  '/studio': typeof AuthenticatedStudioIndexRoute
+  '/api/public/hooks/pika-poller': typeof ApiPublicHooksPikaPollerRoute
+  '/api/public/hooks/sweep-stalled-jobs': typeof ApiPublicHooksSweepStalledJobsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/login': typeof LoginRoute
+  '/_authenticated/account': typeof AuthenticatedAccountRoute
+  '/_authenticated/library': typeof AuthenticatedLibraryRoute
+  '/_authenticated/projects': typeof AuthenticatedProjectsRoute
+  '/api/chat': typeof ApiChatRoute
+  '/_authenticated/studio/$projectId': typeof AuthenticatedStudioProjectIdRoute
+  '/api/asset/$id': typeof ApiAssetIdRoute
+  '/api/public/render-tick': typeof ApiPublicRenderTickRoute
+  '/_authenticated/studio/': typeof AuthenticatedStudioIndexRoute
+  '/api/public/hooks/pika-poller': typeof ApiPublicHooksPikaPollerRoute
+  '/api/public/hooks/sweep-stalled-jobs': typeof ApiPublicHooksSweepStalledJobsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/account'
+    | '/library'
+    | '/projects'
+    | '/api/chat'
+    | '/studio/$projectId'
+    | '/api/asset/$id'
+    | '/api/public/render-tick'
+    | '/studio/'
+    | '/api/public/hooks/pika-poller'
+    | '/api/public/hooks/sweep-stalled-jobs'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/login'
+    | '/account'
+    | '/library'
+    | '/projects'
+    | '/api/chat'
+    | '/studio/$projectId'
+    | '/api/asset/$id'
+    | '/api/public/render-tick'
+    | '/studio'
+    | '/api/public/hooks/pika-poller'
+    | '/api/public/hooks/sweep-stalled-jobs'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/login'
+    | '/_authenticated/account'
+    | '/_authenticated/library'
+    | '/_authenticated/projects'
+    | '/api/chat'
+    | '/_authenticated/studio/$projectId'
+    | '/api/asset/$id'
+    | '/api/public/render-tick'
+    | '/_authenticated/studio/'
+    | '/api/public/hooks/pika-poller'
+    | '/api/public/hooks/sweep-stalled-jobs'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  LoginRoute: typeof LoginRoute
+  ApiChatRoute: typeof ApiChatRoute
+  ApiAssetIdRoute: typeof ApiAssetIdRoute
+  ApiPublicRenderTickRoute: typeof ApiPublicRenderTickRoute
+  ApiPublicHooksPikaPollerRoute: typeof ApiPublicHooksPikaPollerRoute
+  ApiPublicHooksSweepStalledJobsRoute: typeof ApiPublicHooksSweepStalledJobsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +216,108 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/chat': {
+      id: '/api/chat'
+      path: '/api/chat'
+      fullPath: '/api/chat'
+      preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/projects': {
+      id: '/_authenticated/projects'
+      path: '/projects'
+      fullPath: '/projects'
+      preLoaderRoute: typeof AuthenticatedProjectsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/library': {
+      id: '/_authenticated/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof AuthenticatedLibraryRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/account': {
+      id: '/_authenticated/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AuthenticatedAccountRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/studio/': {
+      id: '/_authenticated/studio/'
+      path: '/studio'
+      fullPath: '/studio/'
+      preLoaderRoute: typeof AuthenticatedStudioIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/public/render-tick': {
+      id: '/api/public/render-tick'
+      path: '/api/public/render-tick'
+      fullPath: '/api/public/render-tick'
+      preLoaderRoute: typeof ApiPublicRenderTickRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/asset/$id': {
+      id: '/api/asset/$id'
+      path: '/api/asset/$id'
+      fullPath: '/api/asset/$id'
+      preLoaderRoute: typeof ApiAssetIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/studio/$projectId': {
+      id: '/_authenticated/studio/$projectId'
+      path: '/studio/$projectId'
+      fullPath: '/studio/$projectId'
+      preLoaderRoute: typeof AuthenticatedStudioProjectIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/public/hooks/sweep-stalled-jobs': {
+      id: '/api/public/hooks/sweep-stalled-jobs'
+      path: '/api/public/hooks/sweep-stalled-jobs'
+      fullPath: '/api/public/hooks/sweep-stalled-jobs'
+      preLoaderRoute: typeof ApiPublicHooksSweepStalledJobsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/pika-poller': {
+      id: '/api/public/hooks/pika-poller'
+      path: '/api/public/hooks/pika-poller'
+      fullPath: '/api/public/hooks/pika-poller'
+      preLoaderRoute: typeof ApiPublicHooksPikaPollerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface AuthenticatedRouteChildren {
+  AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
+  AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRoute
+  AuthenticatedProjectsRoute: typeof AuthenticatedProjectsRoute
+  AuthenticatedStudioProjectIdRoute: typeof AuthenticatedStudioProjectIdRoute
+  AuthenticatedStudioIndexRoute: typeof AuthenticatedStudioIndexRoute
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAccountRoute: AuthenticatedAccountRoute,
+  AuthenticatedLibraryRoute: AuthenticatedLibraryRoute,
+  AuthenticatedProjectsRoute: AuthenticatedProjectsRoute,
+  AuthenticatedStudioProjectIdRoute: AuthenticatedStudioProjectIdRoute,
+  AuthenticatedStudioIndexRoute: AuthenticatedStudioIndexRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  LoginRoute: LoginRoute,
+  ApiChatRoute: ApiChatRoute,
+  ApiAssetIdRoute: ApiAssetIdRoute,
+  ApiPublicRenderTickRoute: ApiPublicRenderTickRoute,
+  ApiPublicHooksPikaPollerRoute: ApiPublicHooksPikaPollerRoute,
+  ApiPublicHooksSweepStalledJobsRoute: ApiPublicHooksSweepStalledJobsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

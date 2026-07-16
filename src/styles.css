@@ -2,30 +2,51 @@
 @source "../src";
 @import "tw-animate-css";
 
+
 @custom-variant dark (&:is(.dark *));
 
-/*
- * Design system definition.
- *
- * The @theme inline block maps CSS custom properties to Tailwind utility
- * classes (e.g. --color-primary -> bg-primary, text-primary).
- *
- * The :root and .dark blocks define the actual color values using oklch.
- * All colors MUST use oklch format.
- *
- * To add a new semantic color:
- * 1. Add the variable to :root (light value) and .dark (dark value)
- * 2. Register it in @theme inline as --color-<name>: var(--<name>)
- */
+/* ─────────────────────────────────────────────────────────────────
+ * Pika — Design Tokens (mapped to Tailwind semantic tokens)
+ * Brand: lavender #CFC3FF accent, cream surface, ink text.
+ * Telka for UI, Telka Extended for display, Space Mono for meta.
+ * ─────────────────────────────────────────────────────────────── */
+
+/* Telka (ITF) — self-hosted from /public/fonts/ */
+@font-face { font-family: "Telka"; font-weight: 300; font-style: normal; font-display: swap; src: url("/fonts/Telka-Light.otf") format("opentype"); }
+@font-face { font-family: "Telka"; font-weight: 400; font-style: normal; font-display: block; src: url("/fonts/Telka-Regular.otf") format("opentype"); }
+@font-face { font-family: "Telka"; font-weight: 500; font-style: normal; font-display: block; src: url("/fonts/Telka-Medium.otf") format("opentype"); }
+@font-face { font-family: "Telka"; font-weight: 700; font-style: normal; font-display: block; src: url("/fonts/Telka-Bold.otf") format("opentype"); }
+@font-face { font-family: "Telka"; font-weight: 800; font-style: normal; font-display: swap; src: url("/fonts/Telka-Black.otf") format("opentype"); }
+
+@font-face { font-family: "Telka Extended"; font-weight: 400; font-style: normal; font-display: block; src: url("/fonts/Telka-Extended-Regular.otf") format("opentype"); }
+@font-face { font-family: "Telka Extended"; font-weight: 500; font-style: normal; font-display: swap; src: url("/fonts/Telka-Extended-Medium.otf") format("opentype"); }
+@font-face { font-family: "Telka Extended"; font-weight: 700; font-style: normal; font-display: block; src: url("/fonts/Telka-Extended-Bold.otf") format("opentype"); }
+@font-face { font-family: "Telka Extended"; font-weight: 800; font-style: normal; font-display: swap; src: url("/fonts/Telka-Extended-Black.otf") format("opentype"); }
+@font-face { font-family: "Telka Extended"; font-weight: 900; font-style: normal; font-display: swap; src: url("/fonts/Telka-Extended-Super.otf") format("opentype"); }
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
+  /* Radii — Figma scale (px, exact) */
+  --radius-none: 0px;
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-2xl: 44px;
+  --radius-3xl: 44px;
+  --radius-4xl: 44px;
+  --radius-full: 999px;
+
+  /* Spacing — Figma scale */
+  --spacing-xxs: 4px;
+  --spacing-xs: 8px;
+  --spacing-sm: 12px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+
+  /* Semantic (shadcn) color tokens */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -43,6 +64,7 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
+  --color-hairline: var(--hairline);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
@@ -59,77 +81,159 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Brand primitives exposed as Tailwind color utilities
+     (bg-black, bg-lavender, bg-haze, etc.) */
+  --color-black: var(--black);
+  --color-slate: var(--slate);
+  --color-almond: var(--almond);
+  --color-ivory: var(--ivory);
+  --color-eggshell: var(--eggshell);
+  --color-white: var(--white);
+  --color-haze: var(--haze);
+  --color-lavender: var(--lavender);
+  --color-sand: var(--sand);
+  --color-butter: var(--butter);
+  --color-mint: var(--mint);
+  --color-sakura: var(--sakura);
+  --color-lava: var(--lava);
+  --color-green: var(--green);
+  --color-pink: var(--pink);
+  --color-red: var(--red);
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.704 0.04 256.788);
+  /* Pika signature radius = 18px */
+  --radius: 18px;
+
+  /* ── Color primitives (raw palette) ──────────────────────── */
+  --black: #0D0D0D;
+  --slate: #222222;
+  --almond: #E2DACF;
+  --ivory: #FDF7EF;
+  --eggshell: #FCFAF7;
+  --white: #FFFFFF;
+  --haze: #C4B6FF;
+  --lavender: #CFC3FF;
+  --sand: #F7F2A4;
+  --butter: #FEFBCF;
+  --mint: #B7F699;
+  --sakura: #FFD2FD;
+  --lava: #F62121;
+  --green: #15CB74;
+  --pink: #FB3C83;
+  --red: #FF4C62;
+
+  /* Legacy Pika aliases (kept for existing consumers) */
+  --pika-black: var(--black);
+  --pika-ink: var(--slate);
+  --pika-cream: var(--eggshell);
+  --pika-white: var(--white);
+  --pika-lavender: var(--lavender);
+  --pika-lavender-soft: rgb(207 195 255 / 0.20);
+  --pika-peach: #FFD5B0;
+  --pika-lime: #D9F07A;
+  --pika-sky: #B4DCFF;
+  --pika-rose: #FFB8C8;
+
+  /* ── Surface roles (Figma) ───────────────────────────────── */
+  --surface-accent-1: var(--lavender);
+  --surface-accent-2: var(--haze);
+  --surface-accent-3: #806ECA;
+  --surface-accent-4: rgb(207 195 255 / 0.25);
+  --surface-accent-5: rgb(207 195 255 / 0.10);
+  --surface-accent-6: rgb(207 195 255 / 0.05);
+  --surface-light-1: var(--white);
+  --surface-light-2: var(--eggshell);
+  --surface-light-3: var(--ivory);
+  --surface-light-4: rgb(255 255 255 / 0.25);
+  --surface-light-5: rgb(255 255 255 / 0.10);
+  --surface-light-6: rgb(255 255 255 / 0.05);
+  --surface-dark-1: var(--slate);
+  --surface-dark-2: var(--black);
+  --surface-dark-3: #000000;
+  --surface-dark-4: rgb(13 13 13 / 0.25);
+  --surface-dark-5: rgb(13 13 13 / 0.10);
+  --surface-dark-6: rgb(13 13 13 / 0.05);
+  --surface-dark-7: rgb(13 13 13 / 0.03);
+
+  /* Timeline playhead — warm orange line crossing the tracks (ref design). */
+  --timeline-playhead: #FF6A3D;
+
+  /* ── Content roles (Figma) ───────────────────────────────── */
+  --content-accent-primary: var(--lavender);
+  --content-accent-secondary: var(--haze);
+  --content-accent-tertiary: rgb(207 195 255 / 0.50);
+  --content-accent-quaternary: rgb(207 195 255 / 0.20);
+  --content-accent-darkened: #806ECA;
+  --content-dark-primary: var(--black);
+  --content-dark-secondary: var(--slate);
+  --content-dark-tertiary: rgb(34 34 34 / 0.60);
+  --content-dark-quaternary: rgb(34 34 34 / 0.50);
+  --content-light-primary: var(--white);
+  --content-light-secondary: var(--eggshell);
+  --content-light-tertiary: rgb(252 250 247 / 0.70);
+  --content-light-quaternary: rgb(252 250 247 / 0.50);
+
+  /* ── Status ──────────────────────────────────────────────── */
+  --status-alert: #F02E5B;
+  --status-success: var(--green);
+
+  /* ── Semantic shadcn tokens (mapped to primitives/roles) ── */
+  --background: var(--surface-light-2);
+  --foreground: var(--black);
+  --card: var(--white);
+  --card-foreground: var(--black);
+  --popover: var(--white);
+  --popover-foreground: var(--black);
+
+  --primary: var(--lavender);
+  --primary-foreground: var(--black);
+
+  --secondary: var(--ivory);
+  --secondary-foreground: var(--black);
+
+  --muted: var(--ivory);
+  --muted-foreground: var(--content-dark-tertiary);
+  --accent: var(--content-accent-quaternary);
+  --accent-foreground: var(--black);
+  --destructive: var(--status-alert);
+  --destructive-foreground: var(--eggshell);
+  --border: rgb(13 13 13 / 0.08);
+  --hairline: var(--surface-dark-6);
+  --input: rgb(13 13 13 / 0.12);
+  --ring: var(--lavender);
+
+  /* Brand gradient — legacy consumers */
+  --brand-1: var(--lavender);
+  --brand-2: #B4DCFF;
+  --brand-3: #FFD5B0;
+  --gradient-brand: linear-gradient(135deg, var(--brand-1), var(--brand-2) 55%, var(--brand-3));
+  --gradient-text: linear-gradient(120deg, var(--black), var(--content-accent-darkened) 60%, var(--black));
+  --gradient-surface: radial-gradient(120% 80% at 50% 0%, var(--surface-accent-4), transparent 60%);
+  --shadow-glow: 0 0 40px -10px rgb(207 195 255 / 0.55), 0 0 80px -20px rgb(180 220 255 / 0.35);
+  --shadow-elegant: 0 12px 40px -16px rgb(13 13 13 / 0.18);
+
+  --chart-1: var(--lavender);
+  --chart-2: var(--haze);
+  --chart-3: var(--pink);
+  --chart-4: var(--mint);
+  --chart-5: var(--sand);
+
+  --sidebar: var(--eggshell);
+  --sidebar-foreground: var(--black);
+  --sidebar-primary: var(--lavender);
+  --sidebar-primary-foreground: var(--black);
+  --sidebar-accent: var(--content-accent-quaternary);
+  --sidebar-accent-foreground: var(--black);
+  --sidebar-border: rgb(13 13 13 / 0.08);
+  --sidebar-ring: var(--lavender);
 }
 
+
 .dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  /* Keep dark a no-op for now — Pika tokens are light-theme first. */
+  color-scheme: light;
 }
 
 @layer base {
@@ -140,5 +244,1518 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: "Telka", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-weight: 500;
+    font-size: 15px;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  h1, h2, h3, .font-display {
+    font-family: "Telka Extended", "Telka", system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  /* Sublines / muted descriptive text default to regular (400). Any element
+     can still opt into a heavier weight by adding font-medium / font-semibold
+     / font-bold explicitly. */
+  .text-muted-foreground:not(.font-medium):not(.font-semibold):not(.font-bold):not(.font-light) {
+    font-weight: 400;
+  }
+
+  /* Native <select> — custom chevron with even padding on all sides. */
+  select:not([multiple]):not([size]) {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23687076' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 0.75rem 0.75rem;
+    padding-right: 2rem;
+  }
+
+  /* Native checkbox -> iOS-style switch (uses site primary color when on). */
+  input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 2.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+    background-color: var(--color-muted);
+    border: 1px solid var(--color-hairline);
+    border-radius: 9999px;
+    position: relative;
+    cursor: pointer;
+    transition: background-color 200ms ease, border-color 200ms ease;
+    margin: 0;
+  }
+  input[type="checkbox"]::after {
+    content: "";
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: calc(1.25rem - 4px);
+    height: calc(1.25rem - 4px);
+    background: #ffffff;
+    border-radius: 9999px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+    transition: transform 200ms ease;
+  }
+  input[type="checkbox"]:checked {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+  }
+  input[type="checkbox"]:checked::after {
+    transform: translateX(1rem);
+  }
+  input[type="checkbox"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+
+
+@layer utilities {
+  .font-mono { font-family: "Space Mono", ui-monospace, monospace; }
+
+  /* ── Button size specs (Figma) ─────────────────────────────
+     Use with any button element for pixel-exact Figma buttons. */
+  .btn-32 {
+    height: 32px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-family: "Telka", system-ui, sans-serif;
+    font-weight: 500;
+    font-size: 12px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .btn-48 {
+    height: 48px;
+    padding: 16px 24px;
+    border-radius: 18px;
+    font-family: "Telka", system-ui, sans-serif;
+    font-weight: 500;
+    font-size: 15px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn-56 {
+    height: 56px;
+    padding: 16px 24px;
+    border-radius: 18px;
+    font-family: "Telka", system-ui, sans-serif;
+    font-weight: 500;
+    font-size: 17px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  /* ── Layout grid (Figma) ───────────────────────────────────
+     16 columns, 24px page margins, 16px gutter. Stretches to
+     fill container width. Place children with `col-span-N` /
+     `col-start-N` (or arbitrary grid-column utilities). */
+  .grid-16 {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(16, minmax(0, 1fr));
+    column-gap: 16px;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+  /* Pika signature display heading — bold extended all caps.
+     Use for hero titles and prominent short headers across site + app. */
+  .heading-display {
+    font-family: "Telka Extended", "Telka", system-ui, sans-serif;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    line-height: 0.95;
+  }
+  .text-gradient {
+    background: var(--gradient-text);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .bg-brand-gradient { background: var(--gradient-brand); }
+  .shadow-glow { box-shadow: var(--shadow-glow); }
+  .shadow-elegant { box-shadow: var(--shadow-elegant); }
+  .hover-lift {
+    transition: transform 200ms ease;
+  }
+  .hover-lift:hover {
+    transform: scale(1.03);
+  }
+
+  @keyframes float-slow {
+    0%, 100% { transform: translateY(0) }
+    50% { transform: translateY(-8px) }
+  }
+  .animate-float { animation: float-slow 6s ease-in-out infinite; }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(207, 195, 255, 0); }
+    50% { box-shadow: 0 0 40px 4px rgba(207, 195, 255, 0.45); }
+  }
+  .animate-pulse-glow { animation: pulse-glow 3s ease-in-out infinite; }
+
+  /* Motion tokens — CSS-side mirror of motion-primitives.tsx (SOFT_EASE /
+     SPRING). Enhancer-injected DOM can't use motion components, so its
+     keyframes share these tokens to stay in step with the React springs. */
+  :root {
+    --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --dur-in: 0.42s;
+    --dur-fast: 0.3s;
+  }
+
+  @keyframes card-pop {
+    0% { opacity: 0; transform: scale(0.92) translateY(12px); }
+    60% { opacity: 1; transform: scale(1.02) translateY(-2px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .animate-card-pop { animation: card-pop 0.55s var(--ease-pop) forwards; }
+
+  @keyframes pill-land {
+    0%   { opacity: 0; }
+    100% { opacity: 1; }
+  }
+  .animate-pill-land { animation: pill-land var(--dur-fast) ease-out 0.35s both; }
+
+  @keyframes toolkit-page {
+    0%   { opacity: 0; transform: translateY(6px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  .animate-toolkit-page { animation: toolkit-page 0.32s ease-out both; }
+
+  /* Directional stagger for nav mega-panels */
+  @keyframes nav-item-in-ltr {
+    0% { opacity: 0; transform: translateX(-8px); }
+    100% { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes nav-item-in-rtl {
+    0% { opacity: 0; transform: translateX(8px); }
+    100% { opacity: 1; transform: translateX(0); }
+  }
+  .nav-panel-stagger > * > * > * {
+    animation: nav-item-in-ltr 0.28s ease-out both;
+  }
+  .nav-panel-stagger[data-dir="rtl"] > * > * > * {
+    animation-name: nav-item-in-rtl;
+  }
+  .nav-panel-stagger[data-dir="ltr"] > * > * > *:nth-child(1) { animation-delay: 0ms; }
+  .nav-panel-stagger[data-dir="ltr"] > * > * > *:nth-child(2) { animation-delay: 15ms; }
+  .nav-panel-stagger[data-dir="ltr"] > * > * > *:nth-child(3) { animation-delay: 30ms; }
+  .nav-panel-stagger[data-dir="ltr"] > * > * > *:nth-child(4) { animation-delay: 45ms; }
+  .nav-panel-stagger[data-dir="ltr"] > * > * > *:nth-child(5) { animation-delay: 60ms; }
+  .nav-panel-stagger[data-dir="ltr"] > * > * > *:nth-child(6) { animation-delay: 75ms; }
+  .nav-panel-stagger[data-dir="rtl"] > * > * > *:nth-last-child(1) { animation-delay: 0ms; }
+  .nav-panel-stagger[data-dir="rtl"] > * > * > *:nth-last-child(2) { animation-delay: 15ms; }
+  .nav-panel-stagger[data-dir="rtl"] > * > * > *:nth-last-child(3) { animation-delay: 30ms; }
+  .nav-panel-stagger[data-dir="rtl"] > * > * > *:nth-last-child(4) { animation-delay: 45ms; }
+  .nav-panel-stagger[data-dir="rtl"] > * > * > *:nth-last-child(5) { animation-delay: 60ms; }
+  .nav-panel-stagger[data-dir="rtl"] > * > * > *:nth-last-child(6) { animation-delay: 75ms; }
+}
+
+/* Restore hand cursor for interactive elements */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"],
+  [role="menuitem"],
+  [role="option"],
+  summary,
+  label[for],
+  a[href] {
+    cursor: pointer;
+  }
+  button:disabled,
+  [role="button"][aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-14deg) scale(1); }
+  50%      { transform: rotate(-10deg) scale(1.05); }
+}
+
+@keyframes stepper-fill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+
+/* Agent generative-card glow */
+.agent-glow {
+  position: relative;
+  isolation: isolate;
+  --glow-blur: 11px;
+  --glow-spread: 6px;
+  --glow-opacity: 1;
+  --glow-thickness: 1px;
+  --glow-radius-extra: 15px;
+  --glow-speed: 2s;
+  --glow-hue: 0deg;
+  --glow-saturation: 105%;
+  animation: agent-glow-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transform-origin: center top;
+}
+.agent-glow::before {
+  content: "";
+  position: absolute;
+  inset: calc((var(--glow-spread) + var(--glow-thickness)) * -1);
+  border-radius: calc(1.5rem + var(--glow-spread) + var(--glow-thickness) + var(--glow-radius-extra));
+  background: conic-gradient(
+    from var(--glow-angle, 0deg),
+    #a78bfa, #60a5fa, #f0abfc, #fcd34d, #a78bfa
+  );
+  filter: blur(var(--glow-blur)) hue-rotate(var(--glow-hue)) saturate(var(--glow-saturation));
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+  /* Promote the pseudo onto its own compositor layer so the animated
+     conic-gradient + blur stays on the GPU and does not flicker when
+     nearby elements (textarea autogrow, backdrop-blur wrapper) repaint. */
+  will-change: transform, filter;
+  transform: translateZ(0);
+  animation:
+    agent-glow-rotate var(--glow-speed) linear infinite,
+    agent-glow-ring-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.05s forwards;
+}
+
+@keyframes agent-glow-enter {
+  0%   { opacity: 0; transform: scale(0.96) translateY(6px); filter: blur(2px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+}
+@keyframes agent-glow-enter-option {
+  0%   { opacity: 0; filter: blur(2px); }
+  100% { opacity: 1; filter: blur(0); }
+}
+@keyframes agent-glow-ring-in {
+  0%   { opacity: 0; transform: scale(0.9); }
+  60%  { opacity: calc(var(--glow-opacity) * 1.1); }
+  100% { opacity: var(--glow-opacity); transform: scale(1); }
+}
+
+/* Stagger the direct content blocks inside a generative card. Applies to
+   any structural child rendered from the streamed HTML — headings,
+   paragraphs, forms, grids — for a quick reveal. */
+.generative-card > * > * {
+  animation: gc-child-in var(--dur-in, 0.42s) var(--ease-soft, cubic-bezier(0.22, 1, 0.36, 1)) forwards;
+}
+.generative-card > * > *:nth-child(1) { animation-delay: 0.10s; }
+.generative-card > * > *:nth-child(2) { animation-delay: 0.16s; }
+.generative-card > * > *:nth-child(3) { animation-delay: 0.22s; }
+.generative-card > * > *:nth-child(4) { animation-delay: 0.28s; }
+.generative-card > * > *:nth-child(5) { animation-delay: 0.34s; }
+.generative-card > * > *:nth-child(6) { animation-delay: 0.40s; }
+.generative-card > * > *:nth-child(n+7) { animation-delay: 0.46s; }
+
+@keyframes gc-child-in {
+  0%   { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-glow,
+  .agent-glow::before,
+  .generative-card > * > *,
+  .animate-card-pop,
+  .animate-pill-land,
+  .ask-agent-pill::before {
+    animation: none !important;
+  }
+  .agent-glow::before { opacity: var(--glow-opacity); }
+}
+
+@property --glow-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes agent-glow-rotate {
+  to { --glow-angle: 360deg; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+ * Gen UI — option-picker grid.
+ * The model emits `<div data-options data-cols="2|3|4|2x2|3x3">` with
+ * `<button data-action="answer">` children. The client enhances each
+ * button into a tall option card with a rotating conic-gradient glow
+ * (mirroring `.agent-glow`, sized for the 44px card radius).
+ * ─────────────────────────────────────────────────────────────── */
+.gen-options {
+  display: grid !important;
+  gap: 16px;
+  width: 100%;
+  /* Rows center within the full-width area — a partial row (e.g. 2×25vw)
+     sits in the middle rather than hugging the left edge. */
+  justify-content: center;
+  /* Viewport-height budget: cards shrink so all rows fit on screen —
+     --gen-rows is set by the enhancer (max 2 by construction); ~460px
+     approximates the prose + status + composer + margins around the grid. */
+  --gen-card-h: clamp(240px, calc((100dvh - 460px) / var(--gen-rows, 1)), 360px);
+  grid-auto-rows: var(--gen-card-h);
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+/* Fallback column templates for unenhanced SSR markup — the enhancer sets
+   grid-template-columns inline (count-driven vw widths), which wins. */
+.gen-options[data-cols="2"],
+.gen-options[data-cols="2x2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.gen-options[data-cols="3"],
+.gen-options[data-cols="3x3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.gen-options[data-cols="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+/* The option area always spans the full viewport, escaping the 10-col stage
+   column. The parent column is viewport-centered, so the 50%↔50vw trick
+   lands the 100vw block dead-center. Inner padding keeps cards off the
+   screen edges; card widths (vw-based) are set inline by the enhancer. */
+.gen-options--breakout {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  padding-left: 32px;
+  padding-right: 32px;
+}
+
+.gen-option {
+  position: relative;
+  isolation: isolate;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  height: var(--gen-card-h, 360px);
+  min-height: var(--gen-card-h, 360px);
+  padding: 40px 32px;
+  border-radius: 44px;
+  background: var(--surface-light-1);
+  text-align: left;
+  color: var(--content-dark-secondary);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+  --glow-opacity: 1;
+  --glow-thickness: 0.5px;
+  --glow-speed: 3s;
+  --glow-hue: 0deg;
+  --glow-saturation: 105%;
+  --rot: 0deg;
+  --rot-hover: 0deg;
+  --ty: 0px;
+  transform: translateY(var(--ty)) rotate(var(--rot));
+  animation: agent-glow-enter-option 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.gen-options[data-single-row="1"] > .gen-option {
+  height: var(--gen-card-h, 360px);
+  min-height: var(--gen-card-h, 360px);
+}
+.gen-option:hover {
+  transform: translateY(calc(var(--ty) - 2px)) rotate(var(--rot-hover));
+}
+.gen-option::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: var(--glow-thickness);
+  background: conic-gradient(
+    from var(--glow-angle, 0deg),
+    #a78bfa, #60a5fa, #f0abfc, #fcd34d, #a78bfa
+  );
+  filter: hue-rotate(var(--glow-hue)) saturate(var(--glow-saturation));
+  opacity: 0;
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  animation:
+    agent-glow-rotate var(--glow-speed) linear infinite,
+    agent-glow-ring-in 0.75s cubic-bezier(0.22, 1, 0.36, 1) 0.05s forwards;
+}
+
+/* Scatter (--rot / --ty / --glow-angle / animation-delay) is set as inline
+   CSS vars by gen-option-enhancer's seeded PRNG — random per turn, stable
+   across re-renders. The zeroed defaults above keep un-enhanced options
+   perfectly aligned. */
+
+.gen-option-visual {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  min-height: 96px;
+}
+.gen-option-visual .gen-option-icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  color: var(--content-dark-primary);
+}
+.gen-option-visual .gen-option-icon svg {
+  width: 32px;
+  height: 32px;
+  stroke-width: 2;
+}
+.gen-option-visual img {
+  max-height: 96px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+.gen-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gen-option-title {
+  font-family: "Telka", system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 32px;
+  line-height: 125%;
+  color: var(--content-dark-secondary);
+  letter-spacing: 0;
+}
+.gen-option-subtitle {
+  font-family: "Telka", system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 15px;
+  line-height: 18px;
+  color: var(--content-dark-tertiary);
+}
+
+/* Rule-of-thirds aspect-ratio illustrations */
+.gen-option-ratio {
+  border: 1px solid var(--content-dark-tertiary);
+  border-radius: 8px;
+  background: var(--surface-light-2);
+  opacity: 0.7;
+  background-image:
+    linear-gradient(to right, transparent 33.33%, var(--content-dark-tertiary) 33.33%, var(--content-dark-tertiary) 33.5%, transparent 33.5%, transparent 66.66%, var(--content-dark-tertiary) 66.66%, var(--content-dark-tertiary) 66.83%, transparent 66.83%),
+    linear-gradient(to bottom, transparent 33.33%, var(--content-dark-tertiary) 33.33%, var(--content-dark-tertiary) 33.5%, transparent 33.5%, transparent 66.66%, var(--content-dark-tertiary) 66.66%, var(--content-dark-tertiary) 66.83%, transparent 66.83%);
+}
+.gen-option-ratio[data-ratio="9-16"] { width: 72px; height: 128px; }
+.gen-option-ratio[data-ratio="16-9"] { width: 128px; height: 72px; }
+.gen-option-ratio[data-ratio="1-1"]  { width: 96px; height: 96px; }
+
+/* ─────────────────────────────────────────────────────────────────
+ * Gen UI — upload / paste-URL cards. Tall option-card layout (icon
+ * top-left, big title, subtitle at the bottom); the upload card is dashed,
+ * the paste-URL card is solid. One card auto-submits on file pick; the
+ * upload+URL pair sits in a form committed by a Continue button.
+ * ───────────────────────────────────────────────────────────── */
+.gen-upload {
+  display: grid !important;
+  gap: 16px;
+  width: 100%;
+  grid-auto-rows: 360px;
+}
+.gen-upload[data-cols="1"] {
+  grid-template-columns: minmax(0, 420px);
+  justify-content: center;
+}
+.gen-upload[data-cols="2"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.gen-upload-card {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  height: 360px;
+  padding: 40px 32px;
+  border-radius: 44px;
+  background: var(--surface-light-1);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.gen-upload-card--file {
+  border: 2px dashed color-mix(in srgb, var(--content-dark-tertiary) 55%, transparent);
+}
+.gen-upload-card--url {
+  border: 1px solid color-mix(in srgb, var(--content-dark-tertiary) 38%, transparent);
+  cursor: text;
+}
+.gen-upload-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--content-dark-tertiary);
+}
+.gen-upload-icon {
+  display: block;
+  width: 32px;
+  height: 32px;
+  color: var(--content-dark-tertiary);
+}
+.gen-upload-icon svg {
+  width: 32px;
+  height: 32px;
+}
+.gen-upload-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gen-upload-title {
+  font-family: "Telka", system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 32px;
+  line-height: 125%;
+  color: var(--content-dark-secondary);
+}
+.gen-upload-hint {
+  font-family: "Telka", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 18px;
+  color: var(--content-dark-tertiary);
+}
+.gen-upload-url-input {
+  font-family: "Telka", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 18px;
+  color: var(--content-dark-secondary);
+  background: transparent;
+  border: 0;
+  outline: none;
+  padding: 0;
+  width: 100%;
+}
+.gen-upload-url-input::placeholder {
+  color: var(--content-dark-tertiary);
+}
+.gen-upload-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+ * Gen UI — storyboard slides (Figma node 26828-36186 foundation).
+ * Stories-style: one full-bleed tinted slide per shot, segmented
+ * progress along the bottom. The enhancer sets --sb-bg/--sb-fg per
+ * slide (theme swatch rotation) and drives [data-active] navigation.
+ * ───────────────────────────────────────────────────────────── */
+.gen-storyboard {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 15 / 8;
+  min-height: 420px;
+  border-radius: 44px;
+  overflow: hidden;
+  background: var(--sb-bg, #1b1522);
+  transition: background-color 0.45s ease;
+  cursor: pointer;
+  user-select: none;
+}
+.gen-shot {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 48px 64px 72px;
+  color: var(--sb-fg, #ede3f1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.45s ease;
+}
+.gen-shot[data-active] {
+  opacity: 1;
+  pointer-events: auto;
+}
+.gen-shot-eyebrow {
+  font-family: "Telka Extended", "Telka", system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 20px;
+  margin-bottom: 24px;
+  text-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+}
+.gen-shot-title {
+  font-family: "Telka Extended", "Telka", system-ui, sans-serif;
+  font-weight: 500;
+  font-size: clamp(28px, 4vw, 48px);
+  line-height: 1;
+  margin: 0;
+  max-width: 60%;
+  overflow-wrap: break-word;
+}
+.gen-shot-body {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  justify-content: flex-end;
+  flex: 1;
+  max-width: 626px;
+  min-height: 0;
+}
+.gen-shot-text {
+  font-family: "Space Mono", ui-monospace, monospace;
+  font-size: clamp(15px, 1.8vw, 20px);
+  line-height: 1.25;
+  letter-spacing: 0.4px;
+  margin: 0;
+  overflow-wrap: break-word;
+}
+.gen-shot-vo {
+  font-family: "Telka", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 18px;
+  margin: 0;
+  max-width: 268px;
+}
+/* Inline-editable fields — subtle recessed hover so each item reads as
+ * directly editable; the caret drops in on click (contenteditable). */
+.gen-shot-editable {
+  margin: -6px -10px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  outline: none;
+  cursor: text;
+  transition: background-color 0.15s ease;
+}
+.gen-shot-editable:hover,
+.gen-shot-editable:focus {
+  background: var(--surface-dark-6);
+}
+@media (prefers-reduced-motion: reduce) {
+  .gen-shot-editable {
+    transition: none;
+  }
+}
+
+.gen-storyboard-progress {
+  position: absolute;
+  left: 64px;
+  right: 64px;
+  bottom: 32px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 2;
+}
+.gen-storyboard-progress button {
+  position: relative;
+  flex: 1 0 0;
+  min-width: 1px;
+  height: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--sb-fg, #fff) 25%, transparent);
+  cursor: pointer;
+}
+/* Fill bar — the enhancer animates its scaleX 0→1 over the shot's duration
+ * while playing (Web Animations API); past shots sit at scaleX(1). */
+.gen-seg-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--sb-fg, #fcfaf7);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+/* Enlarged hit area — 4px segments are hard to click. */
+.gen-storyboard-progress button::after {
+  content: "";
+  display: block;
+  position: relative;
+  top: -10px;
+  height: 24px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gen-storyboard,
+  .gen-shot,
+  .gen-storyboard-progress button {
+    transition: none;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+ * Gen UI — input fields (text / textarea in a card)
+ * ───────────────────────────────────────────────────────────── */
+.gen-field,
+label.gen-field {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-light-1);
+  border: 1px solid var(--surface-dark-6);
+  border-radius: 24px;
+  padding: 32px;
+}
+
+.gen-field-label {
+  font-family: "Telka", system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 15px;
+  line-height: 1.2;
+  color: var(--content-dark-secondary);
+  margin: 0;
+}
+.gen-field-input {
+  font-family: "Telka", system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 24px;
+  line-height: 1.3;
+  color: var(--content-dark-secondary);
+  background: transparent;
+  border: 0;
+  outline: none;
+  padding: 0;
+  margin-top: 12px;
+  width: 100%;
+  resize: none;
+}
+.gen-field-input::placeholder {
+  color: var(--content-dark-tertiary);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+ * Gen UI — inline action row (CTAs)
+ * ───────────────────────────────────────────────────────────── */
+.gen-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+  background: transparent;
+}
+.gen-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 56px;
+  padding: 0 24px;
+  border-radius: 18px;
+
+  border: 0;
+  font-family: "Telka", system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 15px;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+.gen-cta:hover { opacity: 0.9; }
+/* Height-based radius overrides: 48px keeps 18px, 32px uses 12px. */
+.gen-cta[data-size="48"] { height: 48px; border-radius: 18px; }
+.gen-cta[data-size="32"] { height: 32px; border-radius: 12px; padding: 0 14px; font-size: 13px; }
+
+.gen-cta-primary {
+  background: var(--surface-dark-1);
+  color: var(--content-light-primary);
+}
+.gen-cta-secondary {
+  background: var(--surface-dark-6);
+  color: var(--content-dark-primary);
+}
+.gen-cta-agent {
+  background: var(--surface-accent-4);
+  color: var(--content-accent-darkened);
+}
+.gen-cta-agent svg { width: 16px; height: 16px; }
+.gen-actions-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--surface-dark-6);
+  margin: 0 4px;
+}
+
+/* Back-compat: legacy Agent-Decides wrapper now folds into .gen-actions. */
+.gen-agent-decides { display: contents; }
+.gen-agent-decides-or { display: none; }
+.gen-agent-decides-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 56px;
+  padding: 0 24px;
+  border-radius: 18px;
+
+  border: 0;
+  background: var(--surface-accent-4);
+  color: var(--content-accent-darkened);
+  font-family: "Telka", system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 15px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.gen-agent-decides-pill:hover { opacity: 0.9; }
+.gen-agent-decides-pill svg { width: 16px; height: 16px; }
+
+/* ─────────────────────────────────────────────────────────────────
+ * Card caption — magazine-style figure treatment for LLM-emitted
+ * `<div data-card>` blocks. Title becomes a small uppercase eyebrow,
+ * caption a muted subtitle beneath it, tightly grouped under the media.
+ * ───────────────────────────────────────────────────────────── */
+[data-card] {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+[data-card] > img,
+[data-card] > video,
+[data-card] > picture {
+  margin-bottom: 20px;
+}
+[data-card] [data-card-title] {
+  font-family: "Telka Extended", "Telka", system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--content-dark-tertiary);
+  margin: 0;
+}
+[data-card] [data-card-caption] {
+  font-family: "Telka", system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--content-dark-secondary);
+  margin: 6px 0 0 0;
+  max-width: 62ch;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+ * Gen UI — image gallery. The model emits `<div class="gen-gallery"
+ * data-count="N">` of `<figure class="gen-gallery-item">` cards. Each
+ * image keeps its NATIVE aspect ratio (never cropped or squashed); the
+ * row stays tidy via a justified-row trick — flex-grow ∝ each image's
+ * aspect ratio with a zero basis, so widths track the shapes while all
+ * items land on one shared height. enhanceGalleries writes each item's
+ * --item-aspect / --item-grow from the image's natural dimensions.
+ * ───────────────────────────────────────────────────────────── */
+.gen-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  width: 100%;
+  justify-content: center;
+  align-items: flex-start;
+}
+/* 2–3 images: a justified row. flex-grow ∝ each image's aspect ratio with
+   a zero basis, and the item's aspect-ratio IS that image's shape, so
+   widths track the shapes and every item resolves to the SAME height with
+   no cropping and no letterboxing. No height cap — a cap would fix height
+   independently of the flex-driven width and reintroduce letterboxing. */
+.gen-gallery-item {
+  position: relative;
+  margin: 0;
+  min-width: 0;
+  flex: var(--item-grow, 0.75) 1 0;
+  aspect-ratio: var(--item-aspect, 3 / 4);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  background: var(--surface-dark-6);
+}
+.gen-gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  margin: 0 !important;
+}
+/* One image: shrink-wrap the picture at its native aspect, bounded by the
+   column width and a max height — never stretched to fill the column. */
+.gen-gallery[data-count="1"] {
+  display: block;
+  text-align: center;
+}
+.gen-gallery[data-count="1"] .gen-gallery-item {
+  display: inline-block;
+  width: auto;
+  max-width: 100%;
+  aspect-ratio: auto;
+}
+.gen-gallery[data-count="1"] .gen-gallery-item img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: min(62vh, 520px);
+}
+/* 4–6 images: wrap ~3 per row. Each box takes its image's native aspect,
+   so nothing is cropped (row heights may vary — 2–3 is the tidy sweet
+   spot the agent is steered toward). */
+.gen-gallery[data-count="4"] .gen-gallery-item {
+  flex: 0 1 calc(50% - 8px);
+}
+.gen-gallery[data-count="5"] .gen-gallery-item,
+.gen-gallery[data-count="6"] .gen-gallery-item {
+  flex: 0 1 calc(33.333% - 11px);
+}
+/* ─────────────────────────────────────────────────────────────────
+ * Gen UI — moodboard collage. `<div class="gen-moodboard" data-cols>`
+ * of mixed `.gen-mood-tile`s (images / palette strip / type specimen).
+ * CSS multi-columns give the masonry packing; every image renders at
+ * its NATIVE aspect ratio (width 100%, height auto — never cropped).
+ * Tile colors are painted client-side by enhanceMoodboards (DOMPurify
+ * strips inline styles, so hexes travel as data attrs).
+ * ───────────────────────────────────────────────────────────── */
+.gen-moodboard {
+  columns: 3;
+  column-gap: 16px;
+  width: 100%;
+}
+.gen-moodboard[data-cols="2"] { columns: 2; }
+.gen-moodboard[data-cols="4"] { columns: 4; }
+
+.gen-mood-tile {
+  position: relative;
+  break-inside: avoid;
+  margin: 0 0 16px;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  background: var(--surface-dark-6);
+}
+.gen-mood-tile img {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 !important;
+}
+
+/* Palette strip — overlapping stadium-shaped swatches reading left to
+   right, dominant color first (z-index stacking set by the enhancer). */
+.gen-mood-tile.gen-mood-palette {
+  display: flex;
+  height: 64px;
+  overflow: visible;
+  border-radius: var(--radius-full);
+  background: transparent;
+}
+.gen-mood-swatch {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface-dark-5);
+}
+.gen-mood-swatch + .gen-mood-swatch {
+  margin-left: -28px;
+}
+
+/* Type specimen — a short evocative fragment shown large on a colored
+   tile (default lavender; enhancer applies data-bg + contrast fg). */
+.gen-mood-tile.gen-mood-type {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 3 / 4;
+  padding: 24px;
+  background: var(--lavender, #CFC3FF);
+  color: var(--content-dark-primary, #0d0d0d);
+}
+.gen-mood-type-text {
+  font-family: "Telka Extended", "Telka", system-ui, sans-serif;
+  font-weight: 500;
+  font-size: clamp(26px, 2.6vw, 42px);
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  text-align: center;
+  overflow-wrap: break-word;
+  min-width: 0;
+}
+
+.gen-gallery-label {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  max-width: calc(100% - 24px);
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  background: rgba(13, 13, 13, 0.55);
+  backdrop-filter: blur(8px);
+  color: var(--content-light-primary);
+  font-family: "Telka Extended", "Telka", system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+ * Inline "Ask agent" pill — rainbow conic outline on surface-dark-1.
+ * Reuses --glow-angle @property + agent-glow-rotate keyframes.
+ * ───────────────────────────────────────────────────────────── */
+.ask-agent-pill {
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--surface-dark-1);
+  color: var(--content-light-primary);
+  font-family: "Telka Extended", "Telka", system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border: 0;
+  --glow-thickness: 1px;
+  --glow-speed: 4s;
+}
+.ask-agent-pill::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: var(--glow-thickness);
+  background: conic-gradient(
+    from var(--glow-angle, 0deg),
+    #a78bfa, #60a5fa, #f0abfc, #fcd34d, #a78bfa
+  );
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  animation: agent-glow-rotate var(--glow-speed) linear infinite;
+}
+.ask-agent-pill svg { width: 14px; height: 14px; }
+@media (prefers-reduced-motion: reduce) {
+  .ask-agent-pill::before { animation: none !important; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+ * Media-card action trio + variant thumb strip.
+ * `<button data-card-action>` buttons are painted with icons by
+ * gen-option-enhancer and grouped in a `.gen-card-actions` overlay
+ * top-right of the card; `<div data-variants>` becomes a bottom-left
+ * strip of selectable thumbs. Both reveal on card hover.
+ * ───────────────────────────────────────────────────────────── */
+.gen-card-actions {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 140ms var(--ease-soft, ease), transform 140ms var(--ease-soft, ease);
+  pointer-events: none;
+}
+[data-card]:hover > .gen-card-actions,
+.generative-card:hover > .gen-card-actions,
+.gen-card-actions:focus-within {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.gen-card-action {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition: background 140ms ease, transform 140ms ease;
+}
+.gen-card-action:hover { background: rgba(0, 0, 0, 0.55); transform: scale(1.05); }
+.gen-card-action svg { width: 16px; height: 16px; }
+
+.gen-variants {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.gen-variant {
+  position: relative;
+  display: block;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+.gen-variant img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  margin: 0 !important;
+}
+.gen-variant:hover { opacity: 1; transform: translateY(-1px); }
+.gen-variant[data-active="true"] {
+  opacity: 1;
+  box-shadow: 0 0 0 2px #fff, 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* Piece-level Ask agent pill — a single floating pill per card that follows
+ * whichever generated piece (title, description, VO, media…) is hovered.
+ * Positioned by generative-card.tsx against the card root. */
+.generative-card > .piece-ask-pill {
+  position: absolute;
+  z-index: 30;
+  opacity: 0;
+  transform: translateX(-2px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  pointer-events: none;
+  white-space: nowrap;
+  /* Slower gradient sweep than the default ask-agent-pill speed — this one
+   * floats in place for a while as the user hovers, so a lazier rotation
+   * reads calmer rather than busy. */
+  --glow-speed: 9s;
+}
+.generative-card > .piece-ask-pill[data-show] {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+
+
+@media (prefers-reduced-motion: reduce) {
+  .gen-option,
+  .gen-option::before {
+    animation: none !important;
+  }
+  .gen-option::before { opacity: var(--glow-opacity); }
+  /* Scatter off — options sit perfectly aligned under reduced motion. */
+  .gen-option {
+    --rot: 0deg !important;
+    --rot-hover: 0deg !important;
+    --ty: 0px !important;
+  }
+}
+
+.generative-card > div { display: flex; flex-direction: column; }
+.generative-card > div.gen-options {
+  display: grid !important;
+}
+/* Action rows stay horizontal — the catch-all above would otherwise stack
+   the CTAs vertically (higher specificity than `.gen-actions` alone). */
+.generative-card > div.gen-actions { flex-direction: row; }
+.generative-card > div.gen-upload-actions { flex-direction: row; }
+.generative-card form { display: flex; flex-direction: column; gap: 0.75rem; }
+
+/* ─────────────────────────────────────────────────────────────────
+ * Director V3 — desktop-parity pill/segment utilities.
+ * Mirrors the Pika Director Suite's `.ui-segment` and quiet-badge
+ * treatments so the topbar toggle, workspace tabs, and topbar chips
+ * read like the desktop app.
+ * ─────────────────────────────────────────────────────────────── */
+@layer utilities {
+  /* Capsule containing one or more segment buttons. Neutral wash so the
+     ACTIVE button pops in --card (white) with ink-1 text. */
+  .director-segment {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px;
+    background: rgba(13, 13, 13, 0.05);
+    border-radius: 14px;
+  }
+  .director-segment > button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 26px;
+    padding: 4px 12px;
+    border-radius: 11px;
+    font-family: "Telka", system-ui, sans-serif;
+    font-weight: 500;
+    font-size: 12px;
+    color: rgba(13, 13, 13, 0.55);
+    background: transparent;
+    transition: color 0.15s, background 0.15s;
+  }
+  .director-segment > button:hover:not(.is-active) {
+    color: rgba(13, 13, 13, 0.85);
+  }
+  .director-segment > button.is-active {
+    background: #FFFFFF;
+    color: #0D0D0D;
+    box-shadow: 0 1px 2px rgba(13, 13, 13, 0.05);
+  }
+
+  /* Quiet metadata pill — for "Director · V3", version chips, and other
+     read-only topbar labels. Matches the desktop `.proj-badge` shape. */
+  .director-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(13, 13, 13, 0.08);
+    background: transparent;
+    font-family: "Telka", system-ui, sans-serif;
+    font-weight: 500;
+    font-size: 11px;
+    color: rgba(13, 13, 13, 0.55);
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+  }
+
+  /* Section eyebrow — the small uppercased label used above rails and
+     document sections (library sections, doc h2s, timeline lane names). */
+  .director-eyebrow {
+    font-family: "Telka Extended", "Telka", system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: rgba(13, 13, 13, 0.55);
+  }
+
+  /* Director workspace card pulse — 1.8s lavender wash triggered whenever
+     the agent writes/updates the active page. Mirrors desktop
+     `.ws-card-pulse` @ Workspace.tsx. */
+  .director-ws-pulse {
+    animation: director-ws-pulse 1.8s ease-out;
+  }
+  @keyframes director-ws-pulse {
+    0%   { background: color-mix(in srgb, var(--card) 88%, var(--primary)); }
+    100% { background: var(--card); }
+  }
+}
+
+
+
+/* ─────────────────────────────────────────────────────────────────
+ * Global shadow removal — kill every box-shadow and drop-shadow
+ * across the entire project. Applies regardless of source (Tailwind
+ * utilities, arbitrary `shadow-[...]`, inline styles, component
+ * library defaults, or CSS custom properties).
+ * ───────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-shadow: none !important;
+  --tw-shadow: 0 0 #0000 !important;
+  --tw-shadow-colored: 0 0 #0000 !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-drop-shadow: drop-shadow(0 0 #0000) !important;
+}
+
+/* Linear spin — used for the Agent symbol status indicator so it rotates
+   at a constant speed instead of the default eased spinner. */
+@keyframes spin-linear {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.animate-spin-linear {
+  animation: spin-linear 1.6s linear infinite;
+  transform-origin: 50% 50%;
+}
+
+/* Animated agent glyph (Lottie). The source art bakes a hard white fill;
+   overriding `fill` here lets the mark inherit the parent's text color
+   (text-foreground / text-primary / opacity utilities) like the old SVG. */
+.agent-symbol svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.agent-symbol svg path {
+  fill: currentColor;
+}
+
+/* Idle breathing — while the agent rests (message state) the glyph softly
+   pulsates on a 2s loop. Suppressed while working (the Lottie plays instead)
+   and under reduced motion. */
+@keyframes agent-symbol-pulse {
+  0%, 100% { transform: scale(1);    opacity: 0.8; }
+  50%      { transform: scale(1.09); opacity: 1; }
+}
+.agent-symbol-pulse {
+  animation: agent-symbol-pulse 2s ease-in-out infinite;
+  transform-origin: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-symbol-pulse { animation: none; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+ * Stage skeleton — "composing workspace" placeholder blocks. Each
+ * .skel-bone is a rounded surface tint with a slow sheen sweeping
+ * across; layouts per generation kind live in stage-skeleton.tsx.
+ * ───────────────────────────────────────────────────────────── */
+@keyframes skel-sheen {
+  0%   { background-position: 130% 0; }
+  100% { background-position: -30% 0; }
+}
+.skel-bone {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background: var(--surface-dark-6);
+}
+.skel-bone::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    100deg,
+    transparent 32%,
+    rgb(255 255 255 / 0.45) 50%,
+    transparent 68%
+  );
+  background-size: 240% 100%;
+  background-repeat: no-repeat;
+  animation: skel-sheen 2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel-bone::after { animation: none; opacity: 0; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+ * Selection acknowledgment — after the user picks an option/CTA the
+ * turn stays on screen for a HOLD_MS beat (motion-primitives.tsx):
+ * the clicked control lifts, everything else recedes, input freezes.
+ * The zone-level exit animation then carries the whole card out.
+ * Uses the independent `translate`/`scale` properties so the lift
+ * composes with .gen-option's scatter transform vars.
+ * ───────────────────────────────────────────────────────────── */
+.generative-card[data-answered],
+.gen-actions[data-answered] {
+  pointer-events: none;
+}
+.generative-card[data-answered] .gen-option:not([data-selected]),
+.generative-card[data-answered] .gen-cta:not([data-selected]),
+.generative-card[data-answered] button[data-action="answer"]:not([data-selected]),
+.gen-actions[data-answered] .gen-cta:not([data-selected]) {
+  /* Cancel the entrance keyframe — its forward fill pins opacity:1 and
+     would beat this rule in the cascade (animations > normal styles). */
+  animation: none;
+  opacity: 0.35;
+  scale: 0.98;
+  transition: opacity 0.3s var(--ease-soft, ease), scale 0.3s var(--ease-soft, ease);
+}
+.gen-option[data-selected] {
+  translate: 0 -4px;
+  box-shadow: 0 16px 40px rgb(13 13 13 / 0.14);
+  transition: translate 0.3s var(--ease-soft, ease), box-shadow 0.3s var(--ease-soft, ease);
+}
+.gen-cta[data-selected],
+button[data-action="answer"][data-selected]:not(.gen-option) {
+  translate: 0 -2px;
+  scale: 1.03;
+  transition: translate 0.3s var(--ease-soft, ease), scale 0.3s var(--ease-soft, ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .generative-card[data-answered] .gen-option:not([data-selected]),
+  .generative-card[data-answered] .gen-cta:not([data-selected]),
+  .generative-card[data-answered] button[data-action="answer"]:not([data-selected]),
+  .gen-actions[data-answered] .gen-cta:not([data-selected]) {
+    scale: 1;
+    transition: opacity 0.2s ease;
+  }
+  .gen-option[data-selected],
+  .gen-cta[data-selected],
+  button[data-action="answer"][data-selected] {
+    translate: none;
+    scale: 1;
+  }
+}
+
+/* Agent status text — the working/thinking line. Sits at #969098 with a soft
+   purple (#AA95FF) + lime-cream (#F4FED6) glow sweeping left → right while the
+   agent works, matching the animated glyph beside it.
+   MASKED-GLOW APPROACH: the glow must paint only across the glyphs, but
+   animating `background-position` on a `background-clip: text` element has a
+   real Chromium bug — at certain animation phases glyphs under the
+   not-yet-composited gradient edge paint fully blank, reproduced live in
+   this app. So the mask lives on a DUPLICATE of the text: the real text
+   stays solid #969098 (it can never blank), and a `::after` reading
+   `content: attr(data-text)` paints the sweeping gradient clipped to its
+   own glyphs exactly on top. If Chromium ever blanks the overlay glyphs,
+   the solid text beneath still shows. Requires data-text={status} on the
+   element. */
+@keyframes agent-status-sweep {
+  0%   { background-position: 120% 0; }
+  100% { background-position: -20% 0; }
+}
+.agent-status-shimmer {
+  position: relative;
+  /* inline-block so the ::after's inset:0 resolves against the exact border
+     box — on a plain inline box the abs-positioned duplicate lands a few px
+     off the real glyphs (dislocated glow). */
+  display: inline-block;
+  color: #969098;
+  isolation: isolate;
+}
+.agent-status-shimmer::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Gradient mostly transparent — the glow band alone tints the glyphs;
+     everywhere else the solid text below shows through untouched. */
+  background-image: linear-gradient(
+    100deg,
+    transparent 0%,
+    transparent 36%,
+    #aa95ff 46%,
+    #f4fed6 52%,
+    #aa95ff 58%,
+    transparent 68%,
+    transparent 100%
+  );
+  background-size: 260% 100%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: agent-status-sweep 5.2s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-status-shimmer::after {
+    animation: none;
+    opacity: 0;
   }
 }

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://pikax.lovable.app/sitemap.xml
