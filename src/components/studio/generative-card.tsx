@@ -1614,6 +1614,7 @@ function CaptionAskPopover({
   rect,
   placement,
   heading,
+  suggestions,
   onClose,
   onAsk,
 }: {
@@ -1625,6 +1626,9 @@ function CaptionAskPopover({
    *  element being edited); default keeps the legacy left-of-anchor math. */
   placement?: "right";
   heading?: string;
+  /** Quick-action chips shown above the composer. Contextual to the piece
+   *  kind (image / video / audio / caption). */
+  suggestions?: string[];
   onClose: () => void;
   /** Runs the instruction through the inline-edit API; the caller applies
    *  the result to the edited element. The popup stays open to iterate. */
@@ -1835,7 +1839,7 @@ function CaptionAskPopover({
         {/* Footer — quick chips + composer */}
         <div className="flex flex-col gap-[10px] p-3">
           <div className="flex flex-wrap gap-1">
-            {QUICK_CAPTION_INSTRUCTIONS.map((q) => (
+            {(suggestions ?? QUICK_CAPTION_INSTRUCTIONS).map((q) => (
               <button
                 key={q}
                 type="button"
