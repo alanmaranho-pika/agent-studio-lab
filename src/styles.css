@@ -2,7 +2,6 @@
 @source "../src";
 @import "tw-animate-css";
 
-
 @custom-variant dark (&:is(.dark *));
 
 /* ─────────────────────────────────────────────────────────────────
@@ -12,17 +11,77 @@
  * ─────────────────────────────────────────────────────────────── */
 
 /* Telka (ITF) — self-hosted from /public/fonts/ */
-@font-face { font-family: "Telka"; font-weight: 300; font-style: normal; font-display: swap; src: url("/fonts/Telka-Light.otf") format("opentype"); }
-@font-face { font-family: "Telka"; font-weight: 400; font-style: normal; font-display: block; src: url("/fonts/Telka-Regular.otf") format("opentype"); }
-@font-face { font-family: "Telka"; font-weight: 500; font-style: normal; font-display: block; src: url("/fonts/Telka-Medium.otf") format("opentype"); }
-@font-face { font-family: "Telka"; font-weight: 700; font-style: normal; font-display: block; src: url("/fonts/Telka-Bold.otf") format("opentype"); }
-@font-face { font-family: "Telka"; font-weight: 800; font-style: normal; font-display: swap; src: url("/fonts/Telka-Black.otf") format("opentype"); }
+@font-face {
+  font-family: "Telka";
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/Telka-Light.otf") format("opentype");
+}
+@font-face {
+  font-family: "Telka";
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+  src: url("/fonts/Telka-Regular.otf") format("opentype");
+}
+@font-face {
+  font-family: "Telka";
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
+  src: url("/fonts/Telka-Medium.otf") format("opentype");
+}
+@font-face {
+  font-family: "Telka";
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+  src: url("/fonts/Telka-Bold.otf") format("opentype");
+}
+@font-face {
+  font-family: "Telka";
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/Telka-Black.otf") format("opentype");
+}
 
-@font-face { font-family: "Telka Extended"; font-weight: 400; font-style: normal; font-display: block; src: url("/fonts/Telka-Extended-Regular.otf") format("opentype"); }
-@font-face { font-family: "Telka Extended"; font-weight: 500; font-style: normal; font-display: swap; src: url("/fonts/Telka-Extended-Medium.otf") format("opentype"); }
-@font-face { font-family: "Telka Extended"; font-weight: 700; font-style: normal; font-display: block; src: url("/fonts/Telka-Extended-Bold.otf") format("opentype"); }
-@font-face { font-family: "Telka Extended"; font-weight: 800; font-style: normal; font-display: swap; src: url("/fonts/Telka-Extended-Black.otf") format("opentype"); }
-@font-face { font-family: "Telka Extended"; font-weight: 900; font-style: normal; font-display: swap; src: url("/fonts/Telka-Extended-Super.otf") format("opentype"); }
+@font-face {
+  font-family: "Telka Extended";
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+  src: url("/fonts/Telka-Extended-Regular.otf") format("opentype");
+}
+@font-face {
+  font-family: "Telka Extended";
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/Telka-Extended-Medium.otf") format("opentype");
+}
+@font-face {
+  font-family: "Telka Extended";
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+  src: url("/fonts/Telka-Extended-Bold.otf") format("opentype");
+}
+@font-face {
+  font-family: "Telka Extended";
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/Telka-Extended-Black.otf") format("opentype");
+}
+@font-face {
+  font-family: "Telka Extended";
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/Telka-Extended-Super.otf") format("opentype");
+}
 
 @theme inline {
   /* Radii — Figma scale (px, exact) */
@@ -107,22 +166,22 @@
   --radius: 18px;
 
   /* ── Color primitives (raw palette) ──────────────────────── */
-  --black: #0D0D0D;
+  --black: #0d0d0d;
   --slate: #222222;
-  --almond: #E2DACF;
-  --ivory: #FDF7EF;
-  --eggshell: #FCFAF7;
-  --white: #FFFFFF;
-  --haze: #C4B6FF;
-  --lavender: #CFC3FF;
-  --sand: #F7F2A4;
-  --butter: #FEFBCF;
-  --mint: #B7F699;
-  --sakura: #FFD2FD;
-  --lava: #F62121;
-  --green: #15CB74;
-  --pink: #FB3C83;
-  --red: #FF4C62;
+  --almond: #e2dacf;
+  --ivory: #fdf7ef;
+  --eggshell: #fcfaf7;
+  --white: #ffffff;
+  --haze: #c4b6ff;
+  --lavender: #cfc3ff;
+  --sand: #f7f2a4;
+  --butter: #fefbcf;
+  --mint: #b7f699;
+  --sakura: #ffd2fd;
+  --lava: #f62121;
+  --green: #15cb74;
+  --pink: #fb3c83;
+  --red: #ff4c62;
 
   /* Legacy Pika aliases (kept for existing consumers) */
   --pika-black: var(--black);
@@ -130,53 +189,53 @@
   --pika-cream: var(--eggshell);
   --pika-white: var(--white);
   --pika-lavender: var(--lavender);
-  --pika-lavender-soft: rgb(207 195 255 / 0.20);
-  --pika-peach: #FFD5B0;
-  --pika-lime: #D9F07A;
-  --pika-sky: #B4DCFF;
-  --pika-rose: #FFB8C8;
+  --pika-lavender-soft: rgb(207 195 255 / 0.2);
+  --pika-peach: #ffd5b0;
+  --pika-lime: #d9f07a;
+  --pika-sky: #b4dcff;
+  --pika-rose: #ffb8c8;
 
   /* ── Surface roles (Figma) ───────────────────────────────── */
   --surface-accent-1: var(--lavender);
   --surface-accent-2: var(--haze);
-  --surface-accent-3: #806ECA;
+  --surface-accent-3: #806eca;
   --surface-accent-4: rgb(207 195 255 / 0.25);
-  --surface-accent-5: rgb(207 195 255 / 0.10);
+  --surface-accent-5: rgb(207 195 255 / 0.1);
   --surface-accent-6: rgb(207 195 255 / 0.05);
   --surface-light-1: var(--white);
   --surface-light-2: var(--eggshell);
   --surface-light-3: var(--ivory);
   --surface-light-4: rgb(255 255 255 / 0.25);
-  --surface-light-5: rgb(255 255 255 / 0.10);
+  --surface-light-5: rgb(255 255 255 / 0.1);
   --surface-light-6: rgb(255 255 255 / 0.05);
   --surface-dark-1: var(--slate);
   --surface-dark-2: var(--black);
   --surface-dark-3: #000000;
   --surface-dark-4: rgb(13 13 13 / 0.25);
-  --surface-dark-5: rgb(13 13 13 / 0.10);
+  --surface-dark-5: rgb(13 13 13 / 0.1);
   --surface-dark-6: rgb(13 13 13 / 0.05);
   --surface-dark-7: rgb(13 13 13 / 0.03);
 
   /* Timeline playhead — warm orange line crossing the tracks (ref design). */
-  --timeline-playhead: #FF6A3D;
+  --timeline-playhead: #ff6a3d;
 
   /* ── Content roles (Figma) ───────────────────────────────── */
   --content-accent-primary: var(--lavender);
   --content-accent-secondary: var(--haze);
-  --content-accent-tertiary: rgb(207 195 255 / 0.50);
-  --content-accent-quaternary: rgb(207 195 255 / 0.20);
-  --content-accent-darkened: #806ECA;
+  --content-accent-tertiary: rgb(207 195 255 / 0.5);
+  --content-accent-quaternary: rgb(207 195 255 / 0.2);
+  --content-accent-darkened: #806eca;
   --content-dark-primary: var(--black);
   --content-dark-secondary: var(--slate);
-  --content-dark-tertiary: rgb(34 34 34 / 0.60);
-  --content-dark-quaternary: rgb(34 34 34 / 0.50);
+  --content-dark-tertiary: rgb(34 34 34 / 0.6);
+  --content-dark-quaternary: rgb(34 34 34 / 0.5);
   --content-light-primary: var(--white);
   --content-light-secondary: var(--eggshell);
-  --content-light-tertiary: rgb(252 250 247 / 0.70);
-  --content-light-quaternary: rgb(252 250 247 / 0.50);
+  --content-light-tertiary: rgb(252 250 247 / 0.7);
+  --content-light-quaternary: rgb(252 250 247 / 0.5);
 
   /* ── Status ──────────────────────────────────────────────── */
-  --status-alert: #F02E5B;
+  --status-alert: #f02e5b;
   --status-success: var(--green);
 
   /* ── Semantic shadcn tokens (mapped to primitives/roles) ── */
@@ -206,8 +265,8 @@
 
   /* Brand gradient — legacy consumers */
   --brand-1: var(--lavender);
-  --brand-2: #B4DCFF;
-  --brand-3: #FFD5B0;
+  --brand-2: #b4dcff;
+  --brand-3: #ffd5b0;
   --gradient-brand: linear-gradient(135deg, var(--brand-1), var(--brand-2) 55%, var(--brand-3));
   --gradient-text: linear-gradient(120deg, var(--black), var(--content-accent-darkened) 60%, var(--black));
   --gradient-surface: radial-gradient(120% 80% at 50% 0%, var(--surface-accent-4), transparent 60%);
@@ -230,7 +289,6 @@
   --sidebar-ring: var(--lavender);
 }
 
-
 .dark {
   /* Keep dark a no-op for now — Pika tokens are light-theme first. */
   color-scheme: light;
@@ -244,14 +302,22 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-family: "Telka", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-family:
+      "Telka",
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      sans-serif;
     font-weight: 500;
     font-size: 15px;
     line-height: 1.4;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
-  h1, h2, h3, .font-display {
+  h1,
+  h2,
+  h3,
+  .font-display {
     font-family: "Telka Extended", "Telka", system-ui, sans-serif;
     font-weight: 700;
     letter-spacing: -0.02em;
@@ -288,7 +354,9 @@
     border-radius: 9999px;
     position: relative;
     cursor: pointer;
-    transition: background-color 200ms ease, border-color 200ms ease;
+    transition:
+      background-color 200ms ease,
+      border-color 200ms ease;
     margin: 0;
   }
   input[type="checkbox"]::after {
@@ -316,10 +384,10 @@
   }
 }
 
-
-
 @layer utilities {
-  .font-mono { font-family: "Space Mono", ui-monospace, monospace; }
+  .font-mono {
+    font-family: "Space Mono", ui-monospace, monospace;
+  }
 
   /* ── Button size specs (Figma) ─────────────────────────────
      Use with any button element for pixel-exact Figma buttons. */
@@ -390,9 +458,15 @@
     background-clip: text;
     color: transparent;
   }
-  .bg-brand-gradient { background: var(--gradient-brand); }
-  .shadow-glow { box-shadow: var(--shadow-glow); }
-  .shadow-elegant { box-shadow: var(--shadow-elegant); }
+  .bg-brand-gradient {
+    background: var(--gradient-brand);
+  }
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  .shadow-elegant {
+    box-shadow: var(--shadow-elegant);
+  }
   .hover-lift {
     transition: transform 200ms ease;
   }
@@ -401,16 +475,30 @@
   }
 
   @keyframes float-slow {
-    0%, 100% { transform: translateY(0) }
-    50% { transform: translateY(-8px) }
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
   }
-  .animate-float { animation: float-slow 6s ease-in-out infinite; }
+  .animate-float {
+    animation: float-slow 6s ease-in-out infinite;
+  }
 
   @keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(207, 195, 255, 0); }
-    50% { box-shadow: 0 0 40px 4px rgba(207, 195, 255, 0.45); }
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgba(207, 195, 255, 0);
+    }
+    50% {
+      box-shadow: 0 0 40px 4px rgba(207, 195, 255, 0.45);
+    }
   }
-  .animate-pulse-glow { animation: pulse-glow 3s ease-in-out infinite; }
+  .animate-pulse-glow {
+    animation: pulse-glow 3s ease-in-out infinite;
+  }
 
   /* Motion tokens — CSS-side mirror of motion-primitives.tsx (SOFT_EASE /
      SPRING). Enhancer-injected DOM can't use motion components, so its
@@ -423,32 +511,69 @@
   }
 
   @keyframes card-pop {
-    0% { opacity: 0; transform: scale(0.92) translateY(12px); }
-    60% { opacity: 1; transform: scale(1.02) translateY(-2px); }
-    100% { opacity: 1; transform: scale(1) translateY(0); }
+    0% {
+      opacity: 0;
+      transform: scale(0.92) translateY(12px);
+    }
+    60% {
+      opacity: 1;
+      transform: scale(1.02) translateY(-2px);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
   }
-  .animate-card-pop { animation: card-pop 0.55s var(--ease-pop) forwards; }
+  .animate-card-pop {
+    animation: card-pop 0.55s var(--ease-pop) forwards;
+  }
 
   @keyframes pill-land {
-    0%   { opacity: 0; }
-    100% { opacity: 1; }
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
   }
-  .animate-pill-land { animation: pill-land var(--dur-fast) ease-out 0.35s both; }
+  .animate-pill-land {
+    animation: pill-land var(--dur-fast) ease-out 0.35s both;
+  }
 
   @keyframes toolkit-page {
-    0%   { opacity: 0; transform: translateY(6px); }
-    100% { opacity: 1; transform: translateY(0); }
+    0% {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
-  .animate-toolkit-page { animation: toolkit-page 0.32s ease-out both; }
+  .animate-toolkit-page {
+    animation: toolkit-page 0.32s ease-out both;
+  }
 
   /* Directional stagger for nav mega-panels */
   @keyframes nav-item-in-ltr {
-    0% { opacity: 0; transform: translateX(-8px); }
-    100% { opacity: 1; transform: translateX(0); }
+    0% {
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(0);
+    }
   }
   @keyframes nav-item-in-rtl {
-    0% { opacity: 0; transform: translateX(8px); }
-    100% { opacity: 1; transform: translateX(0); }
+    0% {
+      opacity: 0;
+      transform: translateX(8px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(0);
+    }
   }
   .nav-panel-stagger > * > * > * {
     animation: nav-item-in-ltr 0.28s ease-out both;
@@ -456,18 +581,42 @@
   .nav-panel-stagger[data-dir="rtl"] > * > * > * {
     animation-name: nav-item-in-rtl;
   }
-  .nav-panel-stagger[data-dir="ltr"] > * > * > *:nth-child(1) { animation-delay: 0ms; }
-  .nav-panel-stagger[data-dir="ltr"] > * > * > *:nth-child(2) { animation-delay: 15ms; }
-  .nav-panel-stagger[data-dir="ltr"] > * > * > *:nth-child(3) { animation-delay: 30ms; }
-  .nav-panel-stagger[data-dir="ltr"] > * > * > *:nth-child(4) { animation-delay: 45ms; }
-  .nav-panel-stagger[data-dir="ltr"] > * > * > *:nth-child(5) { animation-delay: 60ms; }
-  .nav-panel-stagger[data-dir="ltr"] > * > * > *:nth-child(6) { animation-delay: 75ms; }
-  .nav-panel-stagger[data-dir="rtl"] > * > * > *:nth-last-child(1) { animation-delay: 0ms; }
-  .nav-panel-stagger[data-dir="rtl"] > * > * > *:nth-last-child(2) { animation-delay: 15ms; }
-  .nav-panel-stagger[data-dir="rtl"] > * > * > *:nth-last-child(3) { animation-delay: 30ms; }
-  .nav-panel-stagger[data-dir="rtl"] > * > * > *:nth-last-child(4) { animation-delay: 45ms; }
-  .nav-panel-stagger[data-dir="rtl"] > * > * > *:nth-last-child(5) { animation-delay: 60ms; }
-  .nav-panel-stagger[data-dir="rtl"] > * > * > *:nth-last-child(6) { animation-delay: 75ms; }
+  .nav-panel-stagger[data-dir="ltr"] > * > * > *:nth-child(1) {
+    animation-delay: 0ms;
+  }
+  .nav-panel-stagger[data-dir="ltr"] > * > * > *:nth-child(2) {
+    animation-delay: 15ms;
+  }
+  .nav-panel-stagger[data-dir="ltr"] > * > * > *:nth-child(3) {
+    animation-delay: 30ms;
+  }
+  .nav-panel-stagger[data-dir="ltr"] > * > * > *:nth-child(4) {
+    animation-delay: 45ms;
+  }
+  .nav-panel-stagger[data-dir="ltr"] > * > * > *:nth-child(5) {
+    animation-delay: 60ms;
+  }
+  .nav-panel-stagger[data-dir="ltr"] > * > * > *:nth-child(6) {
+    animation-delay: 75ms;
+  }
+  .nav-panel-stagger[data-dir="rtl"] > * > * > *:nth-last-child(1) {
+    animation-delay: 0ms;
+  }
+  .nav-panel-stagger[data-dir="rtl"] > * > * > *:nth-last-child(2) {
+    animation-delay: 15ms;
+  }
+  .nav-panel-stagger[data-dir="rtl"] > * > * > *:nth-last-child(3) {
+    animation-delay: 30ms;
+  }
+  .nav-panel-stagger[data-dir="rtl"] > * > * > *:nth-last-child(4) {
+    animation-delay: 45ms;
+  }
+  .nav-panel-stagger[data-dir="rtl"] > * > * > *:nth-last-child(5) {
+    animation-delay: 60ms;
+  }
+  .nav-panel-stagger[data-dir="rtl"] > * > * > *:nth-last-child(6) {
+    animation-delay: 75ms;
+  }
 }
 
 /* Restore hand cursor for interactive elements */
@@ -489,20 +638,32 @@
 }
 
 @keyframes marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 @keyframes wiggle {
-  0%, 100% { transform: rotate(-14deg) scale(1); }
-  50%      { transform: rotate(-10deg) scale(1.05); }
+  0%,
+  100% {
+    transform: rotate(-14deg) scale(1);
+  }
+  50% {
+    transform: rotate(-10deg) scale(1.05);
+  }
 }
 
 @keyframes stepper-fill {
-  from { transform: scaleX(0); }
-  to   { transform: scaleX(1); }
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
 }
-
 
 /* Agent generative-card glow */
 .agent-glow {
@@ -524,10 +685,7 @@
   position: absolute;
   inset: calc((var(--glow-spread) + var(--glow-thickness)) * -1);
   border-radius: calc(1.5rem + var(--glow-spread) + var(--glow-thickness) + var(--glow-radius-extra));
-  background: conic-gradient(
-    from var(--glow-angle, 0deg),
-    #a78bfa, #60a5fa, #f0abfc, #fcd34d, #a78bfa
-  );
+  background: conic-gradient(from var(--glow-angle, 0deg), #a78bfa, #60a5fa, #f0abfc, #fcd34d, #a78bfa);
   filter: blur(var(--glow-blur)) hue-rotate(var(--glow-hue)) saturate(var(--glow-saturation));
   opacity: 0;
   pointer-events: none;
@@ -543,17 +701,39 @@
 }
 
 @keyframes agent-glow-enter {
-  0%   { opacity: 0; transform: scale(0.96) translateY(6px); filter: blur(2px); }
-  100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+  0% {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+    filter: blur(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
 }
 @keyframes agent-glow-enter-option {
-  0%   { opacity: 0; filter: blur(2px); }
-  100% { opacity: 1; filter: blur(0); }
+  0% {
+    opacity: 0;
+    filter: blur(2px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+  }
 }
 @keyframes agent-glow-ring-in {
-  0%   { opacity: 0; transform: scale(0.9); }
-  60%  { opacity: calc(var(--glow-opacity) * 1.1); }
-  100% { opacity: var(--glow-opacity); transform: scale(1); }
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  60% {
+    opacity: calc(var(--glow-opacity) * 1.1);
+  }
+  100% {
+    opacity: var(--glow-opacity);
+    transform: scale(1);
+  }
 }
 
 /* Stagger the direct content blocks inside a generative card. Applies to
@@ -562,17 +742,37 @@
 .generative-card > * > * {
   animation: gc-child-in var(--dur-in, 0.42s) var(--ease-soft, cubic-bezier(0.22, 1, 0.36, 1)) forwards;
 }
-.generative-card > * > *:nth-child(1) { animation-delay: 0.10s; }
-.generative-card > * > *:nth-child(2) { animation-delay: 0.16s; }
-.generative-card > * > *:nth-child(3) { animation-delay: 0.22s; }
-.generative-card > * > *:nth-child(4) { animation-delay: 0.28s; }
-.generative-card > * > *:nth-child(5) { animation-delay: 0.34s; }
-.generative-card > * > *:nth-child(6) { animation-delay: 0.40s; }
-.generative-card > * > *:nth-child(n+7) { animation-delay: 0.46s; }
+.generative-card > * > *:nth-child(1) {
+  animation-delay: 0.1s;
+}
+.generative-card > * > *:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.generative-card > * > *:nth-child(3) {
+  animation-delay: 0.22s;
+}
+.generative-card > * > *:nth-child(4) {
+  animation-delay: 0.28s;
+}
+.generative-card > * > *:nth-child(5) {
+  animation-delay: 0.34s;
+}
+.generative-card > * > *:nth-child(6) {
+  animation-delay: 0.4s;
+}
+.generative-card > * > *:nth-child(n + 7) {
+  animation-delay: 0.46s;
+}
 
 @keyframes gc-child-in {
-  0%   { opacity: 0; transform: translateY(6px); }
-  100% { opacity: 1; transform: translateY(0); }
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -584,7 +784,9 @@
   .ask-agent-pill::before {
     animation: none !important;
   }
-  .agent-glow::before { opacity: var(--glow-opacity); }
+  .agent-glow::before {
+    opacity: var(--glow-opacity);
+  }
 }
 
 @property --glow-angle {
@@ -594,7 +796,9 @@
 }
 
 @keyframes agent-glow-rotate {
-  to { --glow-angle: 360deg; }
+  to {
+    --glow-angle: 360deg;
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -622,10 +826,16 @@
 /* Fallback column templates for unenhanced SSR markup — the enhancer sets
    grid-template-columns inline (count-driven vw widths), which wins. */
 .gen-options[data-cols="2"],
-.gen-options[data-cols="2x2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.gen-options[data-cols="2x2"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 .gen-options[data-cols="3"],
-.gen-options[data-cols="3x3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.gen-options[data-cols="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.gen-options[data-cols="3x3"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.gen-options[data-cols="4"] {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
 /* The option area always spans the full viewport, escaping the 10-col stage
    column. The parent column is viewport-centered, so the 50%↔50vw trick
    lands the 100vw block dead-center. Inner padding keeps cards off the
@@ -652,7 +862,9 @@
   background: var(--surface-light-1);
   text-align: left;
   color: var(--content-dark-secondary);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
   cursor: pointer;
   --glow-opacity: 1;
   --glow-thickness: 0.5px;
@@ -678,10 +890,7 @@
   inset: 0;
   border-radius: inherit;
   padding: var(--glow-thickness);
-  background: conic-gradient(
-    from var(--glow-angle, 0deg),
-    #a78bfa, #60a5fa, #f0abfc, #fcd34d, #a78bfa
-  );
+  background: conic-gradient(from var(--glow-angle, 0deg), #a78bfa, #60a5fa, #f0abfc, #fcd34d, #a78bfa);
   filter: hue-rotate(var(--glow-hue)) saturate(var(--glow-saturation));
   opacity: 0;
   pointer-events: none;
@@ -689,7 +898,7 @@
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
-          mask-composite: exclude;
+  mask-composite: exclude;
   animation:
     agent-glow-rotate var(--glow-speed) linear infinite,
     agent-glow-ring-in 0.75s cubic-bezier(0.22, 1, 0.36, 1) 0.05s forwards;
@@ -752,23 +961,56 @@
   background: var(--surface-light-2);
   opacity: 0.7;
   background-image:
-    linear-gradient(to right, transparent 33.33%, var(--content-dark-tertiary) 33.33%, var(--content-dark-tertiary) 33.5%, transparent 33.5%, transparent 66.66%, var(--content-dark-tertiary) 66.66%, var(--content-dark-tertiary) 66.83%, transparent 66.83%),
-    linear-gradient(to bottom, transparent 33.33%, var(--content-dark-tertiary) 33.33%, var(--content-dark-tertiary) 33.5%, transparent 33.5%, transparent 66.66%, var(--content-dark-tertiary) 66.66%, var(--content-dark-tertiary) 66.83%, transparent 66.83%);
+    linear-gradient(
+      to right,
+      transparent 33.33%,
+      var(--content-dark-tertiary) 33.33%,
+      var(--content-dark-tertiary) 33.5%,
+      transparent 33.5%,
+      transparent 66.66%,
+      var(--content-dark-tertiary) 66.66%,
+      var(--content-dark-tertiary) 66.83%,
+      transparent 66.83%
+    ),
+    linear-gradient(
+      to bottom,
+      transparent 33.33%,
+      var(--content-dark-tertiary) 33.33%,
+      var(--content-dark-tertiary) 33.5%,
+      transparent 33.5%,
+      transparent 66.66%,
+      var(--content-dark-tertiary) 66.66%,
+      var(--content-dark-tertiary) 66.83%,
+      transparent 66.83%
+    );
 }
-.gen-option-ratio[data-ratio="9-16"] { width: 72px; height: 128px; }
-.gen-option-ratio[data-ratio="16-9"] { width: 128px; height: 72px; }
-.gen-option-ratio[data-ratio="1-1"]  { width: 96px; height: 96px; }
+.gen-option-ratio[data-ratio="9-16"] {
+  width: 72px;
+  height: 128px;
+}
+.gen-option-ratio[data-ratio="16-9"] {
+  width: 128px;
+  height: 72px;
+}
+.gen-option-ratio[data-ratio="1-1"] {
+  width: 96px;
+  height: 96px;
+}
 
 /* "Custom" tile — collapsed state mirrors the Figma comp (dim label, +
    badge). Expanded state swaps the body for an inline text input. */
-.gen-option-custom .gen-option-title { opacity: 0.5; }
+.gen-option-custom .gen-option-title {
+  opacity: 0.5;
+}
 .gen-option-custom .gen-option-icon {
   background: var(--surface-light-2);
   opacity: 0.6;
 }
 /* Expanded/typing state — matches Figma: "Enter ↵ to Confirm" chip in the
    visual slot, a large auto-growing text field where the title lives. */
-.gen-option-custom-open .gen-option-title { opacity: 1; }
+.gen-option-custom-open .gen-option-title {
+  opacity: 1;
+}
 .gen-option-custom-open {
   cursor: text;
 }
@@ -853,7 +1095,10 @@
   background: var(--surface-light-1);
   text-align: left;
   cursor: pointer;
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 .gen-upload-card--file {
   border: 2px dashed color-mix(in srgb, var(--content-dark-tertiary) 55%, transparent);
@@ -1100,7 +1345,7 @@ label.gen-field {
  * beneath the input, so both affordances travel with the field. */
 .gen-field-tools {
   display: flex;
-  align-items: center;
+  align-items: left;
   gap: 8px;
   margin-top: 20px;
 }
@@ -1119,7 +1364,9 @@ label.gen-field {
   font-weight: 500;
   font-size: 14px;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 .gen-field-tool:hover {
   color: var(--content-dark-primary);
@@ -1183,12 +1430,24 @@ label.gen-field {
   font-weight: 500;
   font-size: 15px;
   cursor: pointer;
-  transition: opacity 0.15s ease, background 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease;
 }
-.gen-cta:hover { opacity: 0.9; }
+.gen-cta:hover {
+  opacity: 0.9;
+}
 /* Height-based radius overrides: 48px keeps 18px, 32px uses 12px. */
-.gen-cta[data-size="48"] { height: 48px; border-radius: 18px; }
-.gen-cta[data-size="32"] { height: 32px; border-radius: 12px; padding: 0 14px; font-size: 13px; }
+.gen-cta[data-size="48"] {
+  height: 48px;
+  border-radius: 18px;
+}
+.gen-cta[data-size="32"] {
+  height: 32px;
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 13px;
+}
 
 .gen-cta-primary {
   background: var(--surface-dark-1);
@@ -1202,7 +1461,10 @@ label.gen-field {
   background: var(--surface-accent-4);
   color: var(--content-accent-darkened);
 }
-.gen-cta-agent svg { width: 16px; height: 16px; }
+.gen-cta-agent svg {
+  width: 16px;
+  height: 16px;
+}
 .gen-actions-divider {
   width: 1px;
   height: 16px;
@@ -1211,8 +1473,12 @@ label.gen-field {
 }
 
 /* Back-compat: legacy Agent-Decides wrapper now folds into .gen-actions. */
-.gen-agent-decides { display: contents; }
-.gen-agent-decides-or { display: none; }
+.gen-agent-decides {
+  display: contents;
+}
+.gen-agent-decides-or {
+  display: none;
+}
 .gen-agent-decides-pill {
   display: inline-flex;
   align-items: center;
@@ -1231,8 +1497,13 @@ label.gen-field {
   cursor: pointer;
   transition: opacity 0.15s ease;
 }
-.gen-agent-decides-pill:hover { opacity: 0.9; }
-.gen-agent-decides-pill svg { width: 16px; height: 16px; }
+.gen-agent-decides-pill:hover {
+  opacity: 0.9;
+}
+.gen-agent-decides-pill svg {
+  width: 16px;
+  height: 16px;
+}
 
 /* ─────────────────────────────────────────────────────────────────
  * Card caption — magazine-style figure treatment for LLM-emitted
@@ -1349,8 +1620,12 @@ label.gen-field {
   column-gap: 16px;
   width: 100%;
 }
-.gen-moodboard[data-cols="2"] { columns: 2; }
-.gen-moodboard[data-cols="4"] { columns: 4; }
+.gen-moodboard[data-cols="2"] {
+  columns: 2;
+}
+.gen-moodboard[data-cols="4"] {
+  columns: 4;
+}
 
 .gen-mood-tile {
   position: relative;
@@ -1394,7 +1669,7 @@ label.gen-field {
   justify-content: center;
   aspect-ratio: 3 / 4;
   padding: 24px;
-  background: var(--lavender, #CFC3FF);
+  background: var(--lavender, #cfc3ff);
   color: var(--content-dark-primary, #0d0d0d);
 }
 .gen-mood-type-text {
@@ -1431,7 +1706,6 @@ label.gen-field {
   text-overflow: ellipsis;
 }
 
-
 /* ─────────────────────────────────────────────────────────────────
  * Inline "Ask agent" pill — rainbow conic outline on surface-dark-1.
  * Reuses --glow-angle @property + agent-glow-rotate keyframes.
@@ -1462,21 +1736,23 @@ label.gen-field {
   inset: 0;
   border-radius: inherit;
   padding: var(--glow-thickness);
-  background: conic-gradient(
-    from var(--glow-angle, 0deg),
-    #a78bfa, #60a5fa, #f0abfc, #fcd34d, #a78bfa
-  );
+  background: conic-gradient(from var(--glow-angle, 0deg), #a78bfa, #60a5fa, #f0abfc, #fcd34d, #a78bfa);
   pointer-events: none;
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
-          mask-composite: exclude;
+  mask-composite: exclude;
   animation: agent-glow-rotate var(--glow-speed) linear infinite;
 }
-.ask-agent-pill svg { width: 14px; height: 14px; }
+.ask-agent-pill svg {
+  width: 14px;
+  height: 14px;
+}
 @media (prefers-reduced-motion: reduce) {
-  .ask-agent-pill::before { animation: none !important; }
+  .ask-agent-pill::before {
+    animation: none !important;
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -1496,7 +1772,9 @@ label.gen-field {
   gap: 8px;
   opacity: 0;
   transform: translateY(-2px);
-  transition: opacity 140ms var(--ease-soft, ease), transform 140ms var(--ease-soft, ease);
+  transition:
+    opacity 140ms var(--ease-soft, ease),
+    transform 140ms var(--ease-soft, ease);
   pointer-events: none;
 }
 [data-card]:hover > .gen-card-actions,
@@ -1517,10 +1795,18 @@ label.gen-field {
   color: #fff;
   backdrop-filter: blur(8px);
   cursor: pointer;
-  transition: background 140ms ease, transform 140ms ease;
+  transition:
+    background 140ms ease,
+    transform 140ms ease;
 }
-.gen-card-action:hover { background: rgba(0, 0, 0, 0.55); transform: scale(1.05); }
-.gen-card-action svg { width: 16px; height: 16px; }
+.gen-card-action:hover {
+  background: rgba(0, 0, 0, 0.55);
+  transform: scale(1.05);
+}
+.gen-card-action svg {
+  width: 16px;
+  height: 16px;
+}
 
 .gen-variants {
   position: absolute;
@@ -1543,7 +1829,10 @@ label.gen-field {
   background: rgba(0, 0, 0, 0.25);
   cursor: pointer;
   opacity: 0.75;
-  transition: opacity 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+  transition:
+    opacity 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
 }
 .gen-variant img {
   width: 100%;
@@ -1552,10 +1841,15 @@ label.gen-field {
   display: block;
   margin: 0 !important;
 }
-.gen-variant:hover { opacity: 1; transform: translateY(-1px); }
+.gen-variant:hover {
+  opacity: 1;
+  transform: translateY(-1px);
+}
 .gen-variant[data-active="true"] {
   opacity: 1;
-  box-shadow: 0 0 0 2px #fff, 0 2px 8px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 0 0 2px #fff,
+    0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 /* Piece-level Ask agent pill — a single floating pill per card that follows
@@ -1566,7 +1860,9 @@ label.gen-field {
   z-index: 30;
   opacity: 0;
   transform: translateX(-2px);
-  transition: opacity 120ms ease, transform 120ms ease;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
   pointer-events: none;
   white-space: nowrap;
   /* Slower gradient sweep than the default ask-agent-pill speed — this one
@@ -1584,13 +1880,30 @@ label.gen-field {
  * it via the "Edit with Agent" popover. Applied by generative-card.tsx to the
  * exact <img>/<video>/<audio> being reworked. */
 @keyframes gen-regen-sweep {
-  0%   { background-position: -150% 0; opacity: 0.55; }
-  50%  { opacity: 1; }
-  100% { background-position: 250% 0; opacity: 0.55; }
+  0% {
+    background-position: -150% 0;
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    background-position: 250% 0;
+    opacity: 0.55;
+  }
 }
 @keyframes gen-regen-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(207, 195, 255, 0.0), 0 0 0 0 rgba(207, 195, 255, 0.0); }
-  50%      { box-shadow: 0 0 0 3px rgba(207, 195, 255, 0.55), 0 0 32px 6px rgba(207, 195, 255, 0.45); }
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(207, 195, 255, 0),
+      0 0 0 0 rgba(207, 195, 255, 0);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(207, 195, 255, 0.55),
+      0 0 32px 6px rgba(207, 195, 255, 0.45);
+  }
 }
 .gen-regen-glow {
   position: relative;
@@ -1620,18 +1933,22 @@ label.gen-field {
 }
 @media (prefers-reduced-motion: reduce) {
   .gen-regen-glow,
-  .gen-regen-glow::after { animation: none !important; }
-  .gen-regen-glow { box-shadow: 0 0 0 2px rgba(207, 195, 255, 0.55); }
+  .gen-regen-glow::after {
+    animation: none !important;
+  }
+  .gen-regen-glow {
+    box-shadow: 0 0 0 2px rgba(207, 195, 255, 0.55);
+  }
 }
-
-
 
 @media (prefers-reduced-motion: reduce) {
   .gen-option,
   .gen-option::before {
     animation: none !important;
   }
-  .gen-option::before { opacity: var(--glow-opacity); }
+  .gen-option::before {
+    opacity: var(--glow-opacity);
+  }
   /* Scatter off — options sit perfectly aligned under reduced motion. */
   .gen-option {
     --rot: 0deg !important;
@@ -1640,15 +1957,26 @@ label.gen-field {
   }
 }
 
-.generative-card > div { display: flex; flex-direction: column; }
+.generative-card > div {
+  display: flex;
+  flex-direction: column;
+}
 .generative-card > div.gen-options {
   display: grid !important;
 }
 /* Action rows stay horizontal — the catch-all above would otherwise stack
    the CTAs vertically (higher specificity than `.gen-actions` alone). */
-.generative-card > div.gen-actions { flex-direction: row; }
-.generative-card > div.gen-upload-actions { flex-direction: row; }
-.generative-card form { display: flex; flex-direction: column; gap: 0.75rem; }
+.generative-card > div.gen-actions {
+  flex-direction: row;
+}
+.generative-card > div.gen-upload-actions {
+  flex-direction: row;
+}
+.generative-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
 
 /* ─────────────────────────────────────────────────────────────────
  * Director V3 — desktop-parity pill/segment utilities.
@@ -1678,14 +2006,16 @@ label.gen-field {
     font-size: 12px;
     color: rgba(13, 13, 13, 0.55);
     background: transparent;
-    transition: color 0.15s, background 0.15s;
+    transition:
+      color 0.15s,
+      background 0.15s;
   }
   .director-segment > button:hover:not(.is-active) {
     color: rgba(13, 13, 13, 0.85);
   }
   .director-segment > button.is-active {
-    background: #FFFFFF;
-    color: #0D0D0D;
+    background: #ffffff;
+    color: #0d0d0d;
     box-shadow: 0 1px 2px rgba(13, 13, 13, 0.05);
   }
 
@@ -1726,12 +2056,14 @@ label.gen-field {
     animation: director-ws-pulse 1.8s ease-out;
   }
   @keyframes director-ws-pulse {
-    0%   { background: color-mix(in srgb, var(--card) 88%, var(--primary)); }
-    100% { background: var(--card); }
+    0% {
+      background: color-mix(in srgb, var(--card) 88%, var(--primary));
+    }
+    100% {
+      background: var(--card);
+    }
   }
 }
-
-
 
 /* ─────────────────────────────────────────────────────────────────
  * Global shadow removal — kill every box-shadow and drop-shadow
@@ -1739,7 +2071,9 @@ label.gen-field {
  * utilities, arbitrary `shadow-[...]`, inline styles, component
  * library defaults, or CSS custom properties).
  * ───────────────────────────────────────────────────────────── */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-shadow: none !important;
   --tw-shadow: 0 0 #0000 !important;
   --tw-shadow-colored: 0 0 #0000 !important;
@@ -1751,8 +2085,12 @@ label.gen-field {
 /* Linear spin — used for the Agent symbol status indicator so it rotates
    at a constant speed instead of the default eased spinner. */
 @keyframes spin-linear {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 .animate-spin-linear {
   animation: spin-linear 1.6s linear infinite;
@@ -1775,15 +2113,24 @@ label.gen-field {
    pulsates on a 2s loop. Suppressed while working (the Lottie plays instead)
    and under reduced motion. */
 @keyframes agent-symbol-pulse {
-  0%, 100% { transform: scale(1);    opacity: 0.8; }
-  50%      { transform: scale(1.09); opacity: 1; }
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.09);
+    opacity: 1;
+  }
 }
 .agent-symbol-pulse {
   animation: agent-symbol-pulse 2s ease-in-out infinite;
   transform-origin: center;
 }
 @media (prefers-reduced-motion: reduce) {
-  .agent-symbol-pulse { animation: none; }
+  .agent-symbol-pulse {
+    animation: none;
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -1792,8 +2139,12 @@ label.gen-field {
  * across; layouts per generation kind live in stage-skeleton.tsx.
  * ───────────────────────────────────────────────────────────── */
 @keyframes skel-sheen {
-  0%   { background-position: 130% 0; }
-  100% { background-position: -30% 0; }
+  0% {
+    background-position: 130% 0;
+  }
+  100% {
+    background-position: -30% 0;
+  }
 }
 .skel-bone {
   position: relative;
@@ -1805,18 +2156,16 @@ label.gen-field {
   content: "";
   position: absolute;
   inset: 0;
-  background-image: linear-gradient(
-    100deg,
-    transparent 32%,
-    rgb(255 255 255 / 0.45) 50%,
-    transparent 68%
-  );
+  background-image: linear-gradient(100deg, transparent 32%, rgb(255 255 255 / 0.45) 50%, transparent 68%);
   background-size: 240% 100%;
   background-repeat: no-repeat;
   animation: skel-sheen 2s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .skel-bone::after { animation: none; opacity: 0; }
+  .skel-bone::after {
+    animation: none;
+    opacity: 0;
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -1840,18 +2189,24 @@ label.gen-field {
   animation: none;
   opacity: 0.35;
   scale: 0.98;
-  transition: opacity 0.3s var(--ease-soft, ease), scale 0.3s var(--ease-soft, ease);
+  transition:
+    opacity 0.3s var(--ease-soft, ease),
+    scale 0.3s var(--ease-soft, ease);
 }
 .gen-option[data-selected] {
   translate: 0 -4px;
   box-shadow: 0 16px 40px rgb(13 13 13 / 0.14);
-  transition: translate 0.3s var(--ease-soft, ease), box-shadow 0.3s var(--ease-soft, ease);
+  transition:
+    translate 0.3s var(--ease-soft, ease),
+    box-shadow 0.3s var(--ease-soft, ease);
 }
 .gen-cta[data-selected],
 button[data-action="answer"][data-selected]:not(.gen-option) {
   translate: 0 -2px;
   scale: 1.03;
-  transition: translate 0.3s var(--ease-soft, ease), scale 0.3s var(--ease-soft, ease);
+  transition:
+    translate 0.3s var(--ease-soft, ease),
+    scale 0.3s var(--ease-soft, ease);
 }
 @media (prefers-reduced-motion: reduce) {
   .generative-card[data-answered] .gen-option:not([data-selected]),
@@ -1883,8 +2238,12 @@ button[data-action="answer"][data-selected]:not(.gen-option) {
    the solid text beneath still shows. Requires data-text={status} on the
    element. */
 @keyframes agent-status-sweep {
-  0%   { background-position: 120% 0; }
-  100% { background-position: -20% 0; }
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -20% 0;
+  }
 }
 .agent-status-shimmer {
   position: relative;
