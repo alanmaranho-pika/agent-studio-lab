@@ -4,6 +4,7 @@ import type { ComponentType } from "react";
 
 import { AccountPopover } from "@/components/account-popover";
 import { cn } from "@/lib/utils";
+import logoAsset from "@/assets/logo.png.asset.json";
 
 const NAV_ITEMS: ReadonlyArray<{
   to: string;
@@ -20,7 +21,9 @@ export function SideNav() {
 
   return (
     <aside className="flex h-full w-[80px] flex-col items-center py-4">
-      <Link to="/projects" aria-label="Home" className="h-10 w-10" />
+      <Link to="/projects" aria-label="Home" className="h-10 w-10">
+        <img src={logoAsset.url} alt="Logo" className="h-10 w-10 object-contain" />
+      </Link>
 
       <nav className="flex flex-1 flex-col items-stretch justify-center gap-5 self-stretch px-2">
         {NAV_ITEMS.map((item) => {
