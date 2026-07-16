@@ -693,7 +693,7 @@ export function enhanceInputFields(root: HTMLElement): void {
       attach.setAttribute("aria-label", "Attach files");
       attach.className = "gen-field-tool gen-field-tool-attach";
       attach.innerHTML =
-        '<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>';
+        '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>';
       tools.appendChild(attach);
 
       const rewrite = document.createElement("button");
@@ -701,7 +701,7 @@ export function enhanceInputFields(root: HTMLElement): void {
       rewrite.setAttribute("data-field-rewrite", "1");
       rewrite.className = "gen-field-tool gen-field-tool-rewrite";
       rewrite.innerHTML =
-        '<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M8.008 0.527C8.066 0.527 8.124 0.53 8.18 0.535C9.859 0.672 11.151 2.477 12.341 3.669C13.53 4.859 15.33 6.149 15.469 7.824C15.474 7.882 15.477 7.94 15.477 7.999C15.477 8.058 15.474 8.117 15.469 8.174C15.332 9.85 13.531 11.14 12.343 12.329C11.152 13.521 9.859 15.328 8.18 15.465C8.123 15.47 8.066 15.473 8.008 15.473C7.949 15.473 7.891 15.47 7.833 15.465C6.156 15.326 4.864 13.523 3.674 12.333C2.483 11.143 0.677 9.852 0.538 8.174C0.534 8.116 0.531 8.058 0.531 7.999C0.531 7.94 0.534 7.882 0.539 7.824C0.678 6.147 2.483 4.857 3.674 3.667C4.864 2.477 6.156 0.673 7.834 0.535C7.891 0.53 7.949 0.527 8.008 0.527Z"/></svg><span>AI Rewrite</span>';
+        '<svg viewBox="0 0 100 100" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" fill="currentColor" d="M50 2 C58 22 78 42 98 50 C78 58 58 78 50 98 C42 78 22 58 2 50 C22 42 42 22 50 2 Z M50 30 C46 40 40 46 30 50 C40 54 46 60 50 70 C54 60 60 54 70 50 C60 46 54 40 50 30 Z"/></svg><span>AI Rewrite</span>';
       tools.appendChild(rewrite);
 
       card.appendChild(tools);
