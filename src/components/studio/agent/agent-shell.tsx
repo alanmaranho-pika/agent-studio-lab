@@ -48,6 +48,7 @@ import type { StageIntent } from "@/components/studio/agent/intents";
 import { renderTurnToHtml } from "@/lib/agent/render-turn-html";
 import { RenderTurnSchema, type RenderTurn } from "@/lib/agent/ui-schema";
 import { useViewportBand } from "@/hooks/use-viewport-band";
+import { readSkillMd, writeSkillMd } from "@/lib/skills/skill-md.functions";
 import {
   AssetPickerDialog,
   type PickerResult,
@@ -1268,6 +1269,7 @@ export function AgentShell(props: AgentShellProps) {
   // Composer -----------------------------------------------------------------
   const [input, setInput] = useState("");
   const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const [skillEditorOpen, setSkillEditorOpen] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
