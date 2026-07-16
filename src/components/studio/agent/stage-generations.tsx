@@ -303,13 +303,6 @@ export type InlineAskResult = {
   error?: string;
 };
 
-const QUICK_INSTRUCTIONS = [
-  "Rewrite",
-  "Shorter",
-  "More action",
-  "Wider shot",
-];
-
 // ─── Inline Ask context ─────────────────────────────────────────────────────
 // Coordinates which editable field is currently being discussed with the
 // agent so the sidebar (not a floating popover) hosts the whole conversation.
@@ -335,19 +328,8 @@ function useInlineAsk(): InlineAskCtx | null {
   return useContext(InlineAskContext);
 }
 
-type TranscriptEntry = {
-  id: number;
-  instruction: string;
-  wasValue: string;
-  nowValue?: string;
-  assistantText?: string;
-  error?: string;
-  status: "pending" | "done" | "error";
-};
-
 function InlineAskSidebar({
   openFor,
-  busyKey,
   onClose,
   maxHeight,
 }: {
@@ -356,75 +338,7 @@ function InlineAskSidebar({
   onClose: () => void;
   maxHeight?: number | null;
 }) {
-
   const reduce = useReducedMotion();
-  const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
-  const [draft, setDraft] = useState("");
-  const taRef = useRef<HTMLTextAreaElement | null>(null);
-  const latestValueRef = useRef(openFor.value);
-  const listRef = useRef<HTMLDivElement | null>(null);
-
-  // Reset transcript whenever we switch to a different field.
-  useEffect(() => {
-    setTranscript([]);
-    setDraft("");
-    // Focus composer after mount
-    const t = window.setTimeout(() => taRef.current?.focus(), 60);
-    return () => window.clearTimeout(t);
-  }, [openFor.key]);
-
-  const busyForMe = busyKey === openFor.key;
-
-  useEffect(() => {
-    latestValueRef.current = openFor.value;
-  }, [openFor.value]);
-
-  // Auto-scroll transcript to bottom on new entries.
-  useEffect(() => {
-    const el = listRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [transcript.length, busyForMe]);
-
-  const submit = async () => {
-    const v = draft.trim();
-    if (!v || busyForMe) return;
-    const id = Date.now() + Math.random();
-    setTranscript((entries) => [
-      ...entries,
-      { id, instruction: v, wasValue: openFor.value, status: "pending" },
-    ]);
-    setDraft("");
-    try {
-      const result = await openFor.onAsk(v);
-      setTranscript((entries) =>
-        entries.map((entry) =>
-          entry.id === id
-            ? {
-                ...entry,
-                status: result.ok ? "done" : "error",
-                assistantText: result.assistantText,
-                error: result.error,
-                nowValue: latestValueRef.current,
-              }
-            : entry,
-        ),
-      );
-    } catch (err) {
-      setTranscript((entries) =>
-        entries.map((entry) =>
-          entry.id === id
-            ? {
-                ...entry,
-                status: "error",
-                error: err instanceof Error ? err.message : "Inline edit failed",
-                nowValue: latestValueRef.current,
-              }
-            : entry,
-        ),
-      );
-    }
-  };
-
   return (
     <motion.aside
       role="dialog"
@@ -433,162 +347,23 @@ function InlineAskSidebar({
       animate={{ x: 0, opacity: 1 }}
       exit={reduce ? { opacity: 0 } : { x: 24, opacity: 0 }}
       transition={reduce ? { duration: 0.1 } : { type: "spring", stiffness: 380, damping: 32 }}
-      className="flex w-[380px] shrink-0 flex-col overflow-hidden rounded-3xl border border-hairline bg-popover text-popover-foreground"
+      className="flex w-[380px] shrink-0 flex-col overflow-hidden rounded-[24px] border shadow-xl"
       style={maxHeight ? { maxHeight, height: maxHeight } : undefined}
-
-      onKeyDown={(e) => {
-        if (e.key === "Escape") onClose();
-      }}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 border-b border-hairline px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <span
-            className="rounded-full bg-[color:var(--surface-dark-6)] px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground"
-            style={{ fontFamily: '"Telka Extended", "Telka", system-ui, sans-serif' }}
-          >
-            Editing
-          </span>
-          <span
-            className="truncate text-sm"
-            style={{ fontFamily: '"Telka Extended", "Telka", system-ui, sans-serif', fontWeight: 500 }}
-          >
-            {openFor.label}
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
-      {/* Context — current value */}
-      <div className="border-b border-hairline bg-muted/20 px-4 py-3">
-        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Current</div>
-        <div className="mt-1 max-h-24 overflow-y-auto whitespace-pre-wrap text-xs leading-snug text-foreground/80">
-          {openFor.value?.trim() ? `“${openFor.value}”` : <span className="italic opacity-60">Empty</span>}
-        </div>
-      </div>
-
-      {/* Transcript */}
-      <div ref={listRef} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
-        {transcript.length === 0 && !busyForMe ? (
-          <div className="grid h-full place-items-center text-center text-[11px] text-muted-foreground">
-            <div className="max-w-[220px] leading-snug">
-              Ask the agent to rework this field. Your conversation stays here.
-            </div>
-          </div>
-        ) : null}
-        <AnimatePresence initial={false}>
-          {transcript.map((t) => (
-            <motion.div
-              key={t.id}
-              initial={reduce ? false : { opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex flex-col gap-1.5"
-            >
-              {/* user bubble */}
-              <div className="ml-auto max-w-[85%] rounded-2xl rounded-tr-sm bg-primary px-3 py-2 text-xs text-primary-foreground">
-                {t.instruction}
-              </div>
-              {/* agent status */}
-              {t.status === "pending" ? (
-                <div className="mr-auto flex items-center gap-2 text-[11px] text-muted-foreground">
-                  <motion.span
-                    aria-hidden
-                    className="inline-block h-1.5 w-1.5 rounded-full bg-current"
-                    animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.15, 0.8] }}
-                    transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
-                  />
-                  <Shimmer as="span" className="text-inherit">Reworking…</Shimmer>
-                </div>
-              ) : t.status === "error" ? (
-                <div className="mr-auto max-w-[95%] rounded-2xl rounded-tl-sm border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] leading-snug text-destructive">
-                  {t.error || "Inline edit failed"}
-                </div>
-              ) : (
-                <div className="mr-auto max-w-[95%] rounded-2xl rounded-tl-sm border border-hairline bg-muted/40 px-3 py-2 text-[11px] leading-snug text-foreground/80">
-                  <div className="flex items-center gap-1 text-[10px] font-medium text-primary">
-                    <Check className="h-3 w-3" />
-                    <span>Applied</span>
-                  </div>
-                  {t.assistantText ? (
-                    <div className="mt-1 whitespace-pre-wrap">{t.assistantText}</div>
-                  ) : null}
-                  {t.nowValue && t.nowValue !== t.wasValue ? (
-                    <div className="mt-1 space-y-1">
-                      <div className="line-through opacity-50">{t.wasValue || "—"}</div>
-                      <div>{t.nowValue}</div>
-                    </div>
-                  ) : null}
-                </div>
-              )}
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
-
-      {/* Composer */}
-      <div className="border-t border-hairline p-3">
-        <textarea
-          ref={taRef}
-          rows={2}
-          value={draft}
-          disabled={busyForMe}
-          onChange={(e) => {
-            setDraft(e.target.value);
-            const el = e.currentTarget;
-            el.style.height = "auto";
-            el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submit(); }
-            if (e.key === "Escape") { e.preventDefault(); onClose(); }
-          }}
-          placeholder="e.g. wider shot, more action, remove the dog…"
-          className="w-full resize-none rounded-lg border border-hairline bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
+      <div
+        className="flex h-full min-h-0 flex-1 flex-col overflow-hidden"
+        style={{
+          background: "var(--surface-light-1)",
+          borderColor: "var(--surface-dark-6)",
+        }}
+      >
+        <AskAgentPanel
+          key={openFor.key}
+          title={openFor.label}
+          currentValue={openFor.value}
+          onAsk={openFor.onAsk}
+          onClose={onClose}
         />
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {QUICK_INSTRUCTIONS.map((q) => (
-            <motion.button
-              key={q}
-              type="button"
-              disabled={busyForMe}
-              whileHover={reduce ? undefined : { scale: 1.04 }}
-              whileTap={reduce ? undefined : { scale: 0.96 }}
-              onClick={() => {
-                setDraft((d) => (d ? d : q));
-                taRef.current?.focus();
-              }}
-              className="inline-flex h-8 items-center rounded-full border border-hairline bg-muted/40 px-3 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {q}
-            </motion.button>
-          ))}
-        </div>
-        <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <kbd className="rounded border border-hairline bg-muted/40 px-1 py-0.5">↵</kbd>
-            <span>send</span>
-            <kbd className="rounded border border-hairline bg-muted/40 px-1 py-0.5">Esc</kbd>
-            <span>close</span>
-          </div>
-          <motion.button
-            type="button"
-            onClick={() => void submit()}
-            disabled={!draft.trim() || busyForMe}
-            whileHover={reduce || !draft.trim() ? undefined : { scale: 1.04 }}
-            whileTap={reduce || !draft.trim() ? undefined : { scale: 0.96 }}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-[11px] font-medium text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Send className="h-3 w-3" />
-            Send
-          </motion.button>
-        </div>
       </div>
     </motion.aside>
   );
