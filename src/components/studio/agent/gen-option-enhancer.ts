@@ -294,13 +294,25 @@ function enhanceOption(btn: HTMLElement): void {
       btn.setAttribute("data-expanded", "1");
       btn.classList.add("gen-option-custom-open");
       btn.innerHTML = `
-        <div class="gen-option-custom-field">
-          <input type="text" placeholder="Type your answer…" autocomplete="off" spellcheck="false" />
-          <button type="button" data-custom-submit aria-label="Send">↵</button>
+        <div class="gen-option-visual">
+          <div class="gen-option-custom-hint">
+            <span class="gen-option-custom-key">Enter <span aria-hidden="true">↵</span></span>
+            <span class="gen-option-custom-hint-label">to Confirm</span>
+          </div>
+        </div>
+        <div class="gen-option-body">
+          <div class="gen-option-title">
+            <textarea
+              class="gen-option-custom-input"
+              rows="1"
+              placeholder="Type your answer…"
+              autocomplete="off"
+              spellcheck="false"
+            ></textarea>
+          </div>
         </div>
       `;
-      const input = btn.querySelector<HTMLInputElement>("input")!;
-      const submit = btn.querySelector<HTMLButtonElement>("[data-custom-submit]")!;
+      const input = btn.querySelector<HTMLTextAreaElement>("textarea")!;
       const dispatch = () => {
         const v = input.value.trim();
         if (!v) {
@@ -312,8 +324,14 @@ function enhanceOption(btn: HTMLElement): void {
         // Bubble a fresh click to the root delegate for normal dispatch.
         btn.click();
       };
+      const autoGrow = () => {
+        input.style.height = "auto";
+        input.style.height = `${input.scrollHeight}px`;
+      };
+      input.addEventListener("input", autoGrow);
       input.addEventListener("keydown", (ev) => {
         if (ev.key === "Enter") {
+          if (ev.shiftKey) return; // allow newline with Shift+Enter
           ev.preventDefault();
           dispatch();
         } else if (ev.key === "Escape") {
@@ -321,12 +339,10 @@ function enhanceOption(btn: HTMLElement): void {
           input.blur();
         }
       });
-      submit.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        dispatch();
+      requestAnimationFrame(() => {
+        input.focus();
+        autoGrow();
       });
-      requestAnimationFrame(() => input.focus());
     });
   }
 }
