@@ -1565,6 +1565,22 @@ function MoreActionsPopover({
 
 const QUICK_CAPTION_INSTRUCTIONS = ["Rewrite", "Shorter", "Punchier", "More cinematic"];
 
+// Contextual quick-action chips shown inside the "Edit with Agent" popover.
+// Text pieces get copy-oriented rewrites; each media kind gets prompts that
+// match what the agent can actually change on that medium.
+const QUICK_MEDIA_INSTRUCTIONS: Record<"image" | "video" | "audio", string[]> = {
+  image: ["More cinematic", "Brighter", "Change background", "Zoom in"],
+  video: ["Slower", "More dynamic", "Different angle", "More cinematic"],
+  audio: ["Softer", "More energetic", "Slower", "Different mood"],
+};
+function quickInstructionsFor(
+  mode: "caption" | "media",
+  mediaKind?: "image" | "video" | "audio",
+): string[] {
+  if (mode === "media" && mediaKind) return QUICK_MEDIA_INSTRUCTIONS[mediaKind];
+  return QUICK_CAPTION_INSTRUCTIONS;
+}
+
 // One in-popup exchange: the instruction, its live status, and the agent's
 // reply (for text pieces the reply IS the reworked copy applied in place).
 type AskThreadEntry = {
