@@ -1847,8 +1847,8 @@ function CaptionAskPopover({
                 onClick={() => send(q)}
                 className="inline-flex items-center justify-center rounded-[99px] px-3 pt-2 pb-[10px] text-[12px] leading-4 transition disabled:opacity-40"
                 style={{
-                  background: "var(--surface-accent-5)",
-                  color: "var(--content-accent-darkened)",
+                  background: "transparent",
+                  color: "var(--content-dark-quaternary)",
                   fontFamily: "Telka, sans-serif",
                   fontWeight: 500,
                 }}
