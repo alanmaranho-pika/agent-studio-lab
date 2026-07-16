@@ -759,6 +759,50 @@
 .gen-option-ratio[data-ratio="16-9"] { width: 128px; height: 72px; }
 .gen-option-ratio[data-ratio="1-1"]  { width: 96px; height: 96px; }
 
+/* "Custom" tile — collapsed state mirrors the Figma comp (dim label, +
+   badge). Expanded state swaps the body for an inline text input. */
+.gen-option-custom .gen-option-title { opacity: 0.5; }
+.gen-option-custom .gen-option-icon {
+  background: var(--surface-light-2);
+  opacity: 0.6;
+}
+.gen-option-custom-open .gen-option-icon { opacity: 1; }
+.gen-option-custom-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border-radius: 18px;
+  background: var(--surface-light-2);
+  padding: 12px 14px;
+}
+.gen-option-custom-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-family: "Telka", system-ui, sans-serif;
+  font-size: 20px;
+  line-height: 1.25;
+  color: var(--content-dark-primary);
+}
+.gen-option-custom-field input::placeholder {
+  color: var(--content-dark-tertiary);
+}
+.gen-option-custom-field [data-custom-submit] {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--content-dark-primary);
+  color: var(--surface-light-1);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
 /* ─────────────────────────────────────────────────────────────────
  * Gen UI — upload / paste-URL cards. Tall option-card layout (icon
  * top-left, big title, subtitle at the bottom); the upload card is dashed,
