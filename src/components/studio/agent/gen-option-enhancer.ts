@@ -59,6 +59,7 @@ import {
   ArrowRight,
   RefreshCcw,
   MoreHorizontal,
+  Plus,
 } from "lucide-react";
 import { pickSwatchFromText } from "@/lib/theme-swatch";
 
@@ -103,6 +104,7 @@ const ICONS: Record<string, typeof Music> = {
   globe: Globe,
   message: MessageCircle,
   arrow: ArrowRight,
+  plus: Plus,
 };
 
 function renderIcon(name: string): string {
