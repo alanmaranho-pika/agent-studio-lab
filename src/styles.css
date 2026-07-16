@@ -1518,6 +1518,50 @@ label.gen-field {
   pointer-events: auto;
 }
 
+/* Soft looping glow across a generated piece while the agent is regenerating
+ * it via the "Edit with Agent" popover. Applied by generative-card.tsx to the
+ * exact <img>/<video>/<audio> being reworked. */
+@keyframes gen-regen-sweep {
+  0%   { background-position: -150% 0; opacity: 0.55; }
+  50%  { opacity: 1; }
+  100% { background-position: 250% 0; opacity: 0.55; }
+}
+@keyframes gen-regen-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(207, 195, 255, 0.0), 0 0 0 0 rgba(207, 195, 255, 0.0); }
+  50%      { box-shadow: 0 0 0 3px rgba(207, 195, 255, 0.55), 0 0 32px 6px rgba(207, 195, 255, 0.45); }
+}
+.gen-regen-glow {
+  position: relative;
+  isolation: isolate;
+  border-radius: inherit;
+  animation: gen-regen-pulse 2.2s ease-in-out infinite;
+}
+.gen-regen-glow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    transparent 35%,
+    rgba(255, 255, 255, 0.45) 50%,
+    rgba(207, 195, 255, 0.55) 55%,
+    transparent 70%,
+    transparent 100%
+  );
+  background-size: 250% 100%;
+  mix-blend-mode: screen;
+  animation: gen-regen-sweep 2.4s linear infinite;
+  z-index: 2;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gen-regen-glow,
+  .gen-regen-glow::after { animation: none !important; }
+  .gen-regen-glow { box-shadow: 0 0 0 2px rgba(207, 195, 255, 0.55); }
+}
+
 
 
 @media (prefers-reduced-motion: reduce) {
