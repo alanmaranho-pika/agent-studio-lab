@@ -23,7 +23,7 @@ import {
 // any missing shot images via the generate_image tool).
 // "Render final video" runs the deterministic fal.ai pipeline — no LLM.
 import { renderFinalVideo, listProjectRenders } from "@/lib/render.functions";
-import { supabase } from "@/integrations/supabase/client";
+import { getBrowserSupabase } from "@/lib/supabase-browser";
 import {
   Play,
   ListVideo,
@@ -682,8 +682,57 @@ function StructurePanel({
     ping();
     const interval = window.setInterval(ping, 6_000);
 
-    const channel = supabase
-      .channel(`render-job-${renderJobId}`)
+    const client = getBrowserSupabase();
+    const handleRenderRow = (row: { status?: string; error?: string | null }) => {
+      if (cancelled) return;
+      if (row.status === "done") {
+        const jobIdForPost = renderJobId;
+        setRenderMsg(
+          row.error
+            ? `Final video ready — ${row.error}.`
+            : "Final video ready.",
+        );
+        setRendering(false);
+        setRenderJobId(null);
+        // Fetch the final asset URL and drop it into chat.
+        void (async () => {
+          try {
+            const res = await fetchRenders({ data: { projectId } });
+            const job = res.jobs.find((j) => j.id === jobIdForPost);
+            if (job?.finalUrl) {
+              const patch = {
+                assetsAppend: [
+                  {
+                    id: `final-${job.id}`,
+                    kind: "final",
+                    mime: job.finalMime || "video/mp4",
+                    name: `${meta.title || "Final video"}.mp4`,
+                    url: job.finalUrl,
+                    label: "Final video",
+                  },
+                ],
+              };
+              const text = `Your final video is ready.<div data-card data-card-title="Final video"><script type="application/json" data-project-patch>${JSON.stringify(
+                patch,
+              )}</script></div>`;
+              onRenderComplete?.(text);
+            }
+            void queryClient.invalidateQueries({
+              queryKey: ["project-renders", projectId],
+            });
+          } catch {
+            /* swallow — RendersPanel will still update */
+          }
+        })();
+      } else if (row.status === "failed") {
+        setRenderMsg(`Render failed: ${row.error ?? "unknown error"}`);
+        setRendering(false);
+        setRenderJobId(null);
+      }
+    };
+
+    const channel = client
+      ?.channel(`render-job-${renderJobId}`)
       .on(
         "postgres_changes",
         {
@@ -692,61 +741,14 @@ function StructurePanel({
           table: "render_jobs",
           filter: `id=eq.${renderJobId}`,
         },
-        (payload) => {
-          if (cancelled) return;
-          const row = payload.new as { status?: string; error?: string | null };
-          if (row.status === "done") {
-            const jobIdForPost = renderJobId;
-            setRenderMsg(
-              row.error
-                ? `Final video ready — ${row.error}.`
-                : "Final video ready.",
-            );
-            setRendering(false);
-            setRenderJobId(null);
-            // Fetch the final asset URL and drop it into chat.
-            void (async () => {
-              try {
-                const res = await fetchRenders({ data: { projectId } });
-                const job = res.jobs.find((j) => j.id === jobIdForPost);
-                if (job?.finalUrl) {
-                  const patch = {
-                    assetsAppend: [
-                      {
-                        id: `final-${job.id}`,
-                        kind: "final",
-                        mime: job.finalMime || "video/mp4",
-                        name: `${meta.title || "Final video"}.mp4`,
-                        url: job.finalUrl,
-                        label: "Final video",
-                      },
-                    ],
-                  };
-                  const text = `Your final video is ready.<div data-card data-card-title="Final video"><script type="application/json" data-project-patch>${JSON.stringify(
-                    patch,
-                  )}</script></div>`;
-                  onRenderComplete?.(text);
-                }
-                void queryClient.invalidateQueries({
-                  queryKey: ["project-renders", projectId],
-                });
-              } catch {
-                /* swallow — RendersPanel will still update */
-              }
-            })();
-          } else if (row.status === "failed") {
-            setRenderMsg(`Render failed: ${row.error ?? "unknown error"}`);
-            setRendering(false);
-            setRenderJobId(null);
-          }
-        },
+        (payload) => handleRenderRow(payload.new as { status?: string; error?: string | null }),
       )
       .subscribe();
 
     return () => {
       cancelled = true;
       window.clearInterval(interval);
-      void supabase.removeChannel(channel);
+      if (client && channel) void client.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [renderJobId]);
