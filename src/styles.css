@@ -606,7 +606,7 @@
  * ─────────────────────────────────────────────────────────────── */
 .gen-options {
   display: grid !important;
-  gap: 16px;
+  gap: 32px;
   width: 100%;
   /* Rows center within the full-width area — a partial row (e.g. 2×25vw)
      sits in the middle rather than hugging the left edge. */
