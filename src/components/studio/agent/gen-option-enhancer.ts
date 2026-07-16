@@ -59,6 +59,7 @@ import {
   ArrowRight,
   RefreshCcw,
   MoreHorizontal,
+  Plus,
 } from "lucide-react";
 import { pickSwatchFromText } from "@/lib/theme-swatch";
 
@@ -103,6 +104,7 @@ const ICONS: Record<string, typeof Music> = {
   globe: Globe,
   message: MessageCircle,
   arrow: ArrowRight,
+  plus: Plus,
 };
 
 function renderIcon(name: string): string {
@@ -267,6 +269,66 @@ function enhanceOption(btn: HTMLElement): void {
     </div>
   `;
   btn.setAttribute("data-enhanced", "1");
+
+  // "Custom" tile — clicking swaps in an inline text input. Enter (or the
+  // submit affordance) rewrites data-value and re-dispatches the click so
+  // the root delegate handles it as a normal answer.
+  if (btn.hasAttribute("data-custom")) {
+    btn.classList.add("gen-option-custom");
+    btn.addEventListener("click", (e) => {
+      // Programmatic re-dispatch after Enter — let it bubble to root.
+      if (btn.getAttribute("data-dispatching") === "1") return;
+      if (btn.getAttribute("data-expanded") === "1") {
+        // If the click landed on the input/submit, don't collapse; the
+        // submit/keydown handlers below take care of dispatch.
+        const t = e.target as HTMLElement | null;
+        if (t && t.closest("input, [data-custom-submit]")) return;
+        e.stopPropagation();
+        e.preventDefault();
+        const input = btn.querySelector<HTMLInputElement>("input");
+        input?.focus();
+        return;
+      }
+      e.stopPropagation();
+      e.preventDefault();
+      btn.setAttribute("data-expanded", "1");
+      btn.classList.add("gen-option-custom-open");
+      btn.innerHTML = `
+        <div class="gen-option-custom-field">
+          <input type="text" placeholder="Type your answer…" autocomplete="off" spellcheck="false" />
+          <button type="button" data-custom-submit aria-label="Send">↵</button>
+        </div>
+      `;
+      const input = btn.querySelector<HTMLInputElement>("input")!;
+      const submit = btn.querySelector<HTMLButtonElement>("[data-custom-submit]")!;
+      const dispatch = () => {
+        const v = input.value.trim();
+        if (!v) {
+          input.focus();
+          return;
+        }
+        btn.setAttribute("data-value", v);
+        btn.setAttribute("data-dispatching", "1");
+        // Bubble a fresh click to the root delegate for normal dispatch.
+        btn.click();
+      };
+      input.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          dispatch();
+        } else if (ev.key === "Escape") {
+          ev.preventDefault();
+          input.blur();
+        }
+      });
+      submit.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        dispatch();
+      });
+      requestAnimationFrame(() => input.focus());
+    });
+  }
 }
 
 /**

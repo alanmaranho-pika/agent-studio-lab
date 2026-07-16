@@ -16,3 +16,6 @@ The turn's primary picker. Use whenever the user is choosing between 2–9 concr
 - Write `value` as natural language ("Describe it to you"), never snake_case ids — it's echoed as the user's reply.
 - Add per-option `ack` (≤8 words, no question) so the stage can react instantly while you compose the next turn.
 - Set per-option `next` when different picks lead to different NEXT turn shapes.
+
+## Custom tile (automatic)
+A "Custom" tile is appended by the renderer at the end of every options grid. Users tap it to type a free-text answer in place — do NOT author a "Custom / Other / Something else" option yourself; the UI already provides one.
