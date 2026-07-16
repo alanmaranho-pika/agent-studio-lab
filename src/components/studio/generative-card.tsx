@@ -1460,7 +1460,16 @@ export const GenerativeCard = memo(function GenerativeCard({
                 instruction,
               });
               if (result.ok && result.assistantText && el) {
-                el.textContent = result.assistantText;
+                if (
+                  el instanceof HTMLTextAreaElement ||
+                  el instanceof HTMLInputElement
+                ) {
+                  el.value = result.assistantText;
+                  el.dispatchEvent(new Event("input", { bubbles: true }));
+                  el.dispatchEvent(new Event("change", { bubbles: true }));
+                } else {
+                  el.textContent = result.assistantText;
+                }
                 // Brief highlight so the in-place change is unmissable.
                 el.animate(
                   [
