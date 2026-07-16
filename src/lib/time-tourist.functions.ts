@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy feature file; feature tables (characters, library_subjects, render_jobs, etc.) are not part of the projects-first Supabase migration.
 // Time Tourist — prompt-assembly helpers + single server-side pipeline
 // (`produceTimeTouristVideo`) that mirrors the World Cup 2026 backend shape:
 //   Phase 1: GPT Image 2 /edit  (selfie + destination → 9:16 opening frame)

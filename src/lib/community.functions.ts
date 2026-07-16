@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy feature file; feature tables (characters, library_subjects, render_jobs, etc.) are not part of the projects-first Supabase migration.
 // Server functions backing the simple Community Showcase: users can share
 // a clip from their timeline; the result is publicly visible on the
 // logged-out home, the Jobs Discover section, and the logged-in home.

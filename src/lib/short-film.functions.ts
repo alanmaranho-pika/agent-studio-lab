@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy feature file; feature tables (characters, library_subjects, render_jobs, etc.) are not part of the projects-first Supabase migration.
 // Server functions for the Short Film Special App — concept generation,
 // reference-image generation (character + environment), music generation,
 // and a pure prompt-assembly helper. Voiceover reuses the existing

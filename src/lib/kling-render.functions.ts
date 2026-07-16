@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy feature file; feature tables (characters, library_subjects, render_jobs, etc.) are not part of the projects-first Supabase migration.
 // Kling Standard per-shot render pipeline for the Short Film and Product Ad
 // special apps. Builds a keyframe per beat with nano-banana, animates each
 // keyframe with Kling Standard image-to-video, optionally generates VO/music

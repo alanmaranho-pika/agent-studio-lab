@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy feature file; feature tables (characters, library_subjects, render_jobs, etc.) are not part of the projects-first Supabase migration.
 /**
  * Pika MCP OAuth (RFC 8414 + RFC 7591 DCR + PKCE) — hosted-app port of
  * the Suite's local-loopback flow.

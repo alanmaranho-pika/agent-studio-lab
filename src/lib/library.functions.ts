@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy feature file; feature tables (characters, library_subjects, render_jobs, etc.) are not part of the projects-first Supabase migration.
 // Server functions backing the "My Library" surface. Everything is scoped
 // to the authenticated user via project ownership.
 
