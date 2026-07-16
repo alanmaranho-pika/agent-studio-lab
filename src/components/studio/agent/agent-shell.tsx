@@ -352,6 +352,11 @@ async function readInlineEditStream(
   let buffer = "";
   let assistantText = "";
   let mediaUrl: string | undefined;
+  // AI SDK's UI-message stream includes `toolName` on `tool-input-start`
+  // events but NOT on the later `tool-output-available` event — only the
+  // shared `toolCallId` ties them together. Track the mapping so we can
+  // recognize which tool a completed output belongs to.
+  const toolNameByCallId = new Map<string, string>();
 
   const consumeLine = (line: string) => {
     const trimmed = line.trim();
@@ -363,14 +368,27 @@ async function readInlineEditStream(
         type?: string;
         delta?: string;
         toolName?: string;
+        toolCallId?: string;
         output?: { patch?: unknown; url?: unknown };
       };
       if (chunk.type === "text-delta" && typeof chunk.delta === "string") {
         assistantText += chunk.delta;
       }
       if (
+        chunk.type === "tool-input-start" &&
+        typeof chunk.toolCallId === "string" &&
+        typeof chunk.toolName === "string"
+      ) {
+        toolNameByCallId.set(chunk.toolCallId, chunk.toolName);
+      }
+      const resolvedToolName =
+        chunk.toolName ??
+        (typeof chunk.toolCallId === "string"
+          ? toolNameByCallId.get(chunk.toolCallId)
+          : undefined);
+      if (
         chunk.type === "tool-output-available" &&
-        chunk.toolName === "commit_project_patch" &&
+        resolvedToolName === "commit_project_patch" &&
         chunk.output?.patch
       ) {
         onPatch(chunk.output.patch as ProjectPatch);
@@ -379,7 +397,7 @@ async function readInlineEditStream(
       // popup swap the edited element's src in place.
       if (
         chunk.type === "tool-output-available" &&
-        chunk.toolName === "generate_image" &&
+        resolvedToolName === "generate_image" &&
         typeof chunk.output?.url === "string"
       ) {
         mediaUrl = chunk.output.url;
