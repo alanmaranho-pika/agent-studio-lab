@@ -14,7 +14,231 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      project_assets: {
+        Row: {
+          attached_to: string | null
+          created_at: string
+          duration: number | null
+          height: number | null
+          id: string
+          kind: string
+          label: string | null
+          mime: string
+          name: string
+          project_id: string
+          storage_path: string | null
+          url: string
+          user_id: string
+          width: number | null
+        }
+        Insert: {
+          attached_to?: string | null
+          created_at?: string
+          duration?: number | null
+          height?: number | null
+          id?: string
+          kind?: string
+          label?: string | null
+          mime?: string
+          name?: string
+          project_id: string
+          storage_path?: string | null
+          url?: string
+          user_id: string
+          width?: number | null
+        }
+        Update: {
+          attached_to?: string | null
+          created_at?: string
+          duration?: number | null
+          height?: number | null
+          id?: string
+          kind?: string
+          label?: string | null
+          mime?: string
+          name?: string
+          project_id?: string
+          storage_path?: string | null
+          url?: string
+          user_id?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_assets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_jobs: {
+        Row: {
+          app_label: string | null
+          attempts: number
+          created_at: string
+          error: string | null
+          external_id: string | null
+          id: string
+          input: Json | null
+          max_attempts: number
+          model: string
+          placeholder_asset_id: string | null
+          project_id: string
+          response_url: string | null
+          status: string
+          status_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          app_label?: string | null
+          attempts?: number
+          created_at?: string
+          error?: string | null
+          external_id?: string | null
+          id?: string
+          input?: Json | null
+          max_attempts?: number
+          model: string
+          placeholder_asset_id?: string | null
+          project_id: string
+          response_url?: string | null
+          status?: string
+          status_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          app_label?: string | null
+          attempts?: number
+          created_at?: string
+          error?: string | null
+          external_id?: string | null
+          id?: string
+          input?: Json | null
+          max_attempts?: number
+          model?: string
+          placeholder_asset_id?: string | null
+          project_id?: string
+          response_url?: string | null
+          status?: string
+          status_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_jobs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_messages: {
+        Row: {
+          content: Json
+          created_at: string
+          id: string
+          project_id: string
+          role: string
+          tokens: number | null
+          user_id: string
+        }
+        Insert: {
+          content?: Json
+          created_at?: string
+          id?: string
+          project_id: string
+          role: string
+          tokens?: number | null
+          user_id: string
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          id?: string
+          project_id?: string
+          role?: string
+          tokens?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_messages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string
+          id: string
+          project_state: Json
+          skill: string | null
+          status: string
+          studio_mode: string
+          studio_model: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_state?: Json
+          skill?: string | null
+          status?: string
+          studio_mode?: string
+          studio_model?: string | null
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_state?: Json
+          skill?: string | null
+          status?: string
+          studio_mode?: string
+          studio_model?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
