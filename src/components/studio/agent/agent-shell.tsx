@@ -1826,25 +1826,43 @@ export function AgentShell(props: AgentShellProps) {
       </div>
 
       {/* --- Top-right actions (outside shell) --- */}
-      <div className="fixed right-4 top-4 z-40 flex items-center gap-1">
-        <IconButton
-          label="Previous step"
-          icon={ChevronUp}
-          onClick={() => void dispatchIntent({ kind: "history", dir: "back" })}
-          disabled={busy || stageTurns.length < 2 || (cursor ?? liveIndex) <= 0}
-        />
-        <IconButton
-          label="Next step"
-          icon={ChevronDown}
-          onClick={() => void dispatchIntent({ kind: "history", dir: "forward" })}
-          disabled={busy || !browsing}
-        />
+      <div className="fixed right-4 top-4 z-40 flex flex-col items-end gap-2">
+        <div className="flex items-center gap-1">
+          <IconButton
+            label="Previous step"
+            icon={ChevronUp}
+            onClick={() => void dispatchIntent({ kind: "history", dir: "back" })}
+            disabled={busy || stageTurns.length < 2 || (cursor ?? liveIndex) <= 0}
+          />
+          <IconButton
+            label="Next step"
+            icon={ChevronDown}
+            onClick={() => void dispatchIntent({ kind: "history", dir: "forward" })}
+            disabled={busy || !browsing}
+          />
+          <button
+            type="button"
+            onClick={onExport}
+            className="btn-48 ml-1 bg-[color:var(--surface-dark-6)] text-[color:var(--content-dark-secondary)] transition hover:bg-[color:var(--surface-dark-5)]"
+          >
+            Export
+          </button>
+        </div>
+        {/* Debug pill — current skill; click to edit skill.md live. */}
         <button
           type="button"
-          onClick={onExport}
-          className="btn-48 ml-1 bg-[color:var(--surface-dark-6)] text-[color:var(--content-dark-secondary)] transition hover:bg-[color:var(--surface-dark-5)]"
+          onClick={() => setSkillEditorOpen((v) => !v)}
+          title={selectedApp ? `Edit ${selectedApp.appId}/skill.md` : "No skill selected yet"}
+          className={cn(
+            "flex items-center gap-1.5 rounded-full border border-border bg-card/80 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur transition hover:bg-card hover:text-foreground",
+            skillEditorOpen && "text-foreground",
+          )}
         >
-          Export
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+          <span className="uppercase tracking-wider opacity-60">Skill</span>
+          <span className="truncate max-w-[14rem]">
+            {selectedApp?.label ?? "None selected"}
+          </span>
         </button>
       </div>
 
