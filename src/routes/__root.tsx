@@ -10,8 +10,8 @@ import { useEffect } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { migrateLocalProjectsToCloud } from "@/lib/local-cloud-migration";
+import { getBrowserSupabase } from "@/lib/supabase-browser";
 
 function NotFoundComponent() {
   return (
@@ -128,7 +128,10 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    const client = getBrowserSupabase();
+    if (!client) return;
+
+    const { data } = client.auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       void router.invalidate();
       if (event !== "SIGNED_OUT") void queryClient.invalidateQueries();
@@ -137,9 +140,9 @@ function RootComponent() {
       }
     });
     // Also run migration on hard refresh with an existing session.
-    void supabase.auth.getSession().then(({ data: s }) => {
+    void client.auth.getSession().then(({ data: s }) => {
       if (s.session?.user?.id) void migrateLocalProjectsToCloud(s.session.user.id);
-    });
+    }).catch((error) => console.warn("[auth] initial session unavailable", error));
     return () => data.subscription.unsubscribe();
   }, [router, queryClient]);
 

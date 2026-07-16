@@ -1,12 +1,14 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { SideNav } from "@/components/side-nav";
 import chromeLogo from "@/assets/chrome-logo.png.asset.json";
-import { supabase } from "@/integrations/supabase/client";
+import { getBrowserSupabase } from "@/lib/supabase-browser";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async ({ location }) => {
-    const { data } = await supabase.auth.getSession();
+    const client = getBrowserSupabase();
+    if (!client) return;
+    const { data } = await client.auth.getSession();
     if (!data.session) {
       throw redirect({
         to: "/login",

@@ -1,7 +1,7 @@
 import { createStart, createMiddleware } from "@tanstack/react-start";
 
 import { renderErrorPage } from "./lib/error-page";
-import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
+import { getBrowserAccessToken, hasBrowserSupabaseConfig } from "@/lib/supabase-browser";
 
 const errorMiddleware = createMiddleware().server(async ({ next, request }) => {
   try {
@@ -27,7 +27,17 @@ const errorMiddleware = createMiddleware().server(async ({ next, request }) => {
   }
 });
 
+const safeAttachSupabaseAuth = createMiddleware({ type: "function" }).client(
+  async ({ next }) => {
+    if (!hasBrowserSupabaseConfig()) return next({ headers: {} });
+    const token = await getBrowserAccessToken();
+    return next({
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  },
+);
+
 export const startInstance = createStart(() => ({
   requestMiddleware: [errorMiddleware],
-  functionMiddleware: [attachSupabaseAuth],
+  functionMiddleware: [safeAttachSupabaseAuth],
 }));

@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { getBrowserSupabase } from "@/lib/supabase-browser";
 import { listLibrary } from "@/lib/library.functions";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, ImageIcon, Film, Music2, Mic, Download } from "lucide-react";
@@ -22,7 +22,9 @@ function LibraryPage() {
 
   // Refetch whenever any render_job row changes for this user.
   useEffect(() => {
-    const channel = supabase
+    const client = getBrowserSupabase();
+    if (!client) return;
+    const channel = client
       .channel("library-jobs")
       .on(
         "postgres_changes",
@@ -33,7 +35,7 @@ function LibraryPage() {
       )
       .subscribe();
     return () => {
-      void supabase.removeChannel(channel);
+      void client.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

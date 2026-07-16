@@ -12,7 +12,7 @@
 //   • At/after renewal: pending plan change (if any) is applied and balance
 //     is reset to the (new) plan's monthly allotment.
 import { useSyncExternalStore } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { getBrowserSupabase } from "@/lib/supabase-browser";
 import { TIER_BY_ID, type TierId } from "./tiers";
 
 export type BillingCycle = "monthly" | "yearly";
@@ -339,12 +339,17 @@ export function useCredits(): CreditsState {
 
 // Wire to Supabase auth so the store rebinds per user.
 if (typeof window !== "undefined") {
-  void supabase.auth.getUser().then(({ data }) => {
-    initCreditsForUser(data?.user?.id ?? null);
-  });
-  supabase.auth.onAuthStateChange((_evt, session) => {
-    initCreditsForUser(session?.user?.id ?? null);
-  });
+  const client = getBrowserSupabase();
+  if (client) {
+    void client.auth.getUser().then(({ data }) => {
+      initCreditsForUser(data?.user?.id ?? null);
+    }).catch(() => initCreditsForUser(null));
+    client.auth.onAuthStateChange((_evt, session) => {
+      initCreditsForUser(session?.user?.id ?? null);
+    });
+  } else {
+    initCreditsForUser(null);
+  }
 
   // Lightweight ticker: re-check renewals every minute while the tab is open.
   setInterval(() => {
