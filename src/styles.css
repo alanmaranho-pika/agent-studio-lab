@@ -766,41 +766,59 @@
   background: var(--surface-light-2);
   opacity: 0.6;
 }
-.gen-option-custom-open .gen-option-icon { opacity: 1; }
-.gen-option-custom-field {
-  display: flex;
+/* Expanded/typing state — matches Figma: "Enter ↵ to Confirm" chip in the
+   visual slot, a large auto-growing text field where the title lives. */
+.gen-option-custom-open .gen-option-title { opacity: 1; }
+.gen-option-custom-open {
+  cursor: text;
+}
+.gen-option-custom-hint {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
-  border-radius: 18px;
+  align-self: flex-start;
+}
+.gen-option-custom-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 40px;
+  padding: 8px 12px;
+  border-radius: 12px;
   background: var(--surface-light-2);
-  padding: 12px 14px;
-}
-.gen-option-custom-field input {
-  flex: 1 1 auto;
-  min-width: 0;
-  border: 0;
-  outline: none;
-  background: transparent;
+  border: 1px solid rgba(13, 13, 13, 0.05);
   font-family: "Telka", system-ui, sans-serif;
-  font-size: 20px;
-  line-height: 1.25;
-  color: var(--content-dark-primary);
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--content-dark-secondary);
+  white-space: nowrap;
 }
-.gen-option-custom-field input::placeholder {
+.gen-option-custom-hint-label {
+  font-family: "Telka", system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 16px;
   color: var(--content-dark-tertiary);
 }
-.gen-option-custom-field [data-custom-submit] {
-  flex: 0 0 auto;
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
+.gen-option-custom-input {
+  display: block;
+  width: 100%;
   border: 0;
-  background: var(--content-dark-primary);
-  color: var(--surface-light-1);
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
+  outline: none;
+  resize: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  font-family: "Telka", system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 32px;
+  line-height: 1.25;
+  color: var(--content-dark-secondary);
+  overflow: hidden;
+}
+.gen-option-custom-input::placeholder {
+  color: var(--content-dark-tertiary);
 }
 
 /* ─────────────────────────────────────────────────────────────────
