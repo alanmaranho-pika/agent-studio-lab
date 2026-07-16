@@ -72,7 +72,7 @@ export const ICON_SLUGS = [
   "heart", "play", "volume", "speaker", "video", "clapperboard", "type",
   "layers", "square", "circle", "triangle", "smile", "bag", "shirt",
   "coffee", "flame", "waves", "tree", "building", "car", "rocket", "globe",
-  "message", "arrow",
+  "message", "arrow", "plus",
 ] as const;
 
 export const NEXT_UI_HINTS = [
