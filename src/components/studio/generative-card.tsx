@@ -1163,7 +1163,7 @@ export const GenerativeCard = memo(function GenerativeCard({
       // half the popover's footprint so card + popover sit as one group,
       // horizontally centered where the card alone was centered.
       const POP_W = 320;
-      const POP_GAP = 14;
+      const POP_GAP = 16;
       const MARGIN = 16;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
