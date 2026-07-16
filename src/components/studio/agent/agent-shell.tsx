@@ -707,6 +707,24 @@ export function AgentShell(props: AgentShellProps) {
   const visibleMessages = useMemo(() => mainStageMessages(messages), [messages]);
   const isEmpty = visibleMessages.length === 0;
 
+  // Derive the currently-selected skill from the latest successful
+  // `tool-select_app` output. Powers the debug pill under the Export button
+  // and the live skill.md editor.
+  const selectedApp = useMemo<{ appId: string; label: string } | null>(() => {
+    let hit: { appId: string; label: string } | null = null;
+    for (const m of messages) {
+      if (m.role !== "assistant") continue;
+      for (const p of toolPartsOf(m)) {
+        if (p.type !== "tool-select_app") continue;
+        if (p.state !== "output-available") continue;
+        const o = p.output as { appId?: string; label?: string; error?: string } | undefined;
+        if (!o || o.error || !o.label) continue;
+        hit = { appId: o.appId ?? o.label, label: o.label };
+      }
+    }
+    return hit;
+  }, [messages]);
+
   // Apply project patches + tool outputs exactly once each.
   const appliedPatchIds = useRef<Set<string>>(new Set());
   const appliedToolCallIds = useRef<Set<string>>(new Set());
