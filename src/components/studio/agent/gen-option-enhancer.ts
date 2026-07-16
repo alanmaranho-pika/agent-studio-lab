@@ -666,6 +666,46 @@ export function enhanceInputFields(root: HTMLElement): void {
       (el as HTMLTextAreaElement).style.resize = "none";
       if (!el.getAttribute("rows")) el.setAttribute("rows", "3");
     }
+
+    // Append the field toolbar ([+] attach + AI Rewrite) once per field.
+    // The buttons carry data hooks — generative-card wires the actual
+    // behavior (library picker for attach, inline-agent popover for
+    // rewrite). A hidden multi-file input rides with the field so the
+    // form-submit collector picks up any attachments alongside the text.
+    if (!card.querySelector('[data-field-tools="1"]')) {
+      const name = (el.getAttribute("name") || "").trim();
+
+      const hiddenFile = document.createElement("input");
+      hiddenFile.type = "file";
+      hiddenFile.multiple = true;
+      hiddenFile.setAttribute("data-field-file", "1");
+      hiddenFile.style.display = "none";
+      if (name) hiddenFile.name = `${name}_attachments`;
+      card.appendChild(hiddenFile);
+
+      const tools = document.createElement("div");
+      tools.setAttribute("data-field-tools", "1");
+      tools.className = "gen-field-tools";
+
+      const attach = document.createElement("button");
+      attach.type = "button";
+      attach.setAttribute("data-field-attach", "1");
+      attach.setAttribute("aria-label", "Attach files");
+      attach.className = "gen-field-tool gen-field-tool-attach";
+      attach.innerHTML =
+        '<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>';
+      tools.appendChild(attach);
+
+      const rewrite = document.createElement("button");
+      rewrite.type = "button";
+      rewrite.setAttribute("data-field-rewrite", "1");
+      rewrite.className = "gen-field-tool gen-field-tool-rewrite";
+      rewrite.innerHTML =
+        '<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M8.008 0.527C8.066 0.527 8.124 0.53 8.18 0.535C9.859 0.672 11.151 2.477 12.341 3.669C13.53 4.859 15.33 6.149 15.469 7.824C15.474 7.882 15.477 7.94 15.477 7.999C15.477 8.058 15.474 8.117 15.469 8.174C15.332 9.85 13.531 11.14 12.343 12.329C11.152 13.521 9.859 15.328 8.18 15.465C8.123 15.47 8.066 15.473 8.008 15.473C7.949 15.473 7.891 15.47 7.833 15.465C6.156 15.326 4.864 13.523 3.674 12.333C2.483 11.143 0.677 9.852 0.538 8.174C0.534 8.116 0.531 8.058 0.531 7.999C0.531 7.94 0.534 7.882 0.539 7.824C0.678 6.147 2.483 4.857 3.674 3.667C4.864 2.477 6.156 0.673 7.834 0.535C7.891 0.53 7.949 0.527 8.008 0.527Z"/></svg><span>AI Rewrite</span>';
+      tools.appendChild(rewrite);
+
+      card.appendChild(tools);
+    }
   });
 }
 

@@ -785,6 +785,46 @@ export const GenerativeCard = memo(function GenerativeCard({
         void startCapture(cap);
         return;
       }
+      // Field-level [+] attach button — trigger the hidden multi-file input
+      // in the same .gen-field card, which the file-input handler below
+      // routes into the library picker.
+      const attachBtn = target.closest<HTMLElement>('[data-field-attach]');
+      if (attachBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const field = attachBtn.closest<HTMLElement>('.gen-field');
+        const hidden = field?.querySelector<HTMLInputElement>(
+          'input[type="file"][data-field-file="1"]',
+        );
+        if (hidden) openLibraryPicker(hidden, field ?? attachBtn);
+        return;
+      }
+      // Field-level "AI Rewrite" button — open the inline-agent popover
+      // anchored on the field, targeting its text input/textarea so the
+      // reworked value lands back in place.
+      const rewriteBtn = target.closest<HTMLElement>('[data-field-rewrite]');
+      if (rewriteBtn && onInlineAsk) {
+        e.preventDefault();
+        e.stopPropagation();
+        const field = rewriteBtn.closest<HTMLElement>('.gen-field');
+        const input = field?.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+          'textarea, input[type="text"], input[type="url"], input[type="email"], input[type="number"], input[type="search"], input:not([type])',
+        );
+        if (!input || !field) return;
+        pieceElRef.current = input as unknown as HTMLElement;
+        const rect = field.getBoundingClientRect();
+        const labelEl = field.querySelector<HTMLElement>('.gen-field-label');
+        const title = (labelEl?.textContent ?? input.getAttribute("name") ?? "text").trim();
+        setAskPop({
+          mode: "caption",
+          title,
+          currentValue: input.value ?? "",
+          rect: { top: rect.top, left: rect.right + 8, width: 320, height: rect.height },
+          placement: "right",
+          cardTitle: title,
+        });
+        return;
+      }
       // Selection pill — toggleable choice chip. Single-select per data-group
       // unless the pill carries data-multi. Selections are mirrored into
       // hidden inputs on the surrounding form so handleSubmit picks them up.
@@ -1420,7 +1460,16 @@ export const GenerativeCard = memo(function GenerativeCard({
                 instruction,
               });
               if (result.ok && result.assistantText && el) {
-                el.textContent = result.assistantText;
+                if (
+                  el instanceof HTMLTextAreaElement ||
+                  el instanceof HTMLInputElement
+                ) {
+                  el.value = result.assistantText;
+                  el.dispatchEvent(new Event("input", { bubbles: true }));
+                  el.dispatchEvent(new Event("change", { bubbles: true }));
+                } else {
+                  el.textContent = result.assistantText;
+                }
                 // Brief highlight so the in-place change is unmissable.
                 el.animate(
                   [
