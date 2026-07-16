@@ -1,148 +1,51 @@
-# Agent system refactor — Blocks, Skills, Instructions
+## What's happening
 
-Three parallel registries, each a folder of small files with stable IDs. The agent's prompt is assembled by concatenating: **global instructions → active skill → block reference for the blocks the skill needs**. Today all three live tangled together across `ui-schema.ts`, `app-registry.ts`, `prompt/*.ts`, and `render-turn-html.ts`.
+The "This page didn't load / Something went wrong on our end" screen isn't the in-app React error boundary — it's the raw HTML SSR fallback from `src/lib/error-page.ts`, served by `src/server.ts` when the server runtime returns a 500.
 
-## 1. Gen-UI Block registry (`src/agent/blocks/`)
+Worker logs confirm every route on the published/preview build is 500ing (e.g. `/`, `/account`) with:
 
-One folder per block type. Each block currently defined inline in `ui-schema.ts` (options, form, upload, media, gallery, moodboard, list, storyboard, stage, actions, custom_html) becomes its own file:
-
-```text
-src/agent/blocks/
-  _registry.ts              // exports BLOCKS: Record<BlockId, BlockDef>
-  options/
-    block.ts                // id, schema (zod), htmlRenderer, usage guide
-    block.md                // "When and how the agent uses BLK_OPTIONS"
-    Options.tsx             // optional React preview (Storybook-style)
-  form/…
-  upload/…
-  media/…
-  gallery/…
-  moodboard/…
-  storyboard/…
-  stage-timeline/…          // wraps existing stage-timeline component
-  stage-script-beats/…
-  stage-character/…
-  actions/…
-  custom-html/…
+```
+Error: h3 swallowed SSR error: {"status":500,"unhandled":true,"message":"HTTPError"}
 ```
 
-Each `block.ts` exports:
+Locally (dev server), the same routes render fine. So the failure is production-build-specific and happens inside the h3 handler — our `consumeLastCapturedError()` is coming back empty because the throw is caught by h3 before the `globalThis` error listeners see it, leaving us with no stack trace.
 
-```ts
-export const OptionsBlock: BlockDef = {
-  id: "BLK_OPTIONS",              // stable ID, referenced from skills + logs
-  type: "options",                // discriminator used in RenderTurn JSON
-  schema: OptionsBlockSchema,     // zod (moved from ui-schema.ts)
-  toHtml: renderOptionsHtml,      // moved from render-turn-html.ts
-  usage: BLOCK_USAGE_OPTIONS_MD,  // string import of block.md
-  examples: [...],                // 1–2 concrete render_turn snippets
-};
-```
+Most likely cause: something in the recent `src/agent/**` refactor (blocks/skills/instructions registries with many `?raw` markdown imports) is throwing at module initialization inside the Cloudflare Worker bundle. It's reachable from client-imported files like `src/components/studio/agent/agent-shell.tsx` → `@/lib/agent/render-turn-html` → `@/agent/blocks/_registry` and `@/agent/skills/_registry`, which get evaluated during SSR.
 
-`_registry.ts` builds `TurnBlockSchema` (discriminated union), `blockToHtml(block)`, and `renderBlockCatalog()` — replacing the hard-coded arms in `ui-schema.ts` and `render-turn-html.ts`. Nothing about the RenderTurn wire format changes; blocks stay identified by their `type` string in JSON, and `BLK_*` IDs are the human/agent handle used in skills and docs.
+## Plan
 
-Discovery for the agent: a new tool `get_block_reference({ blockIds })` returns the `block.md` for one or more IDs. Only the block IDs a skill actually uses get injected per turn — same conditional-injection pattern used today for app playbooks.
+**1. Restore visibility into the real error (small, targeted).**
+Currently `server.ts` only surfaces a captured error when a `globalThis` listener fired first. Change the wrapper so we also try/catch around the awaited handler `fetch` and, when h3's swallowed 500 body appears, do one *retry* of the same request with `console.error` patched to a capturing sink so the internal h3 log line becomes visible in worker logs. Also log `error?.stack` explicitly (not just `error`) so Cloudflare's log pipeline keeps the full stack.
 
-## 2. Skill packs (`src/agent/skills/`)
+**2. Reproduce the module-init failure by narrowing the import chain.**
+Audit the client-reachable chain from `agent-shell.tsx` through the new registries:
+   - `src/lib/agent/render-turn-html.ts`, `ui-schema.ts`
+   - `src/agent/blocks/_registry.ts` (imports every `block.ts` + `block.md?raw`)
+   - `src/agent/skills/_registry.ts` (imports every `skill.ts` + `skill.md?raw`)
+   - `src/agent/instructions/_registry.ts`
 
-Every "app" today (wizard entries in `app-registry.ts` + single-shot model apps in `skills.ts`) becomes a skill pack:
+Look specifically for:
+   - a `.server.ts` (or `process.env`) reference smuggled into the client graph through one of the new skill/block modules
+   - a top-level `throw` / zod parse / dynamic key that runs at import time
+   - `?raw` imports pointing at a file that doesn't exist (case mismatch, missing `skill.md` — we already suspect this once for `short-film`)
 
-```text
-src/agent/skills/
-  _registry.ts
-  short-film/
-    skill.md                // frontmatter + step-by-step
-    skill.ts                // typed manifest (parses/validates skill.md)
-  product-ad/…
-  anime-world-cup/…
-  seedance-2/…
-  nano-banana/…
-  meta-create-skill/        // "skill that creates skills"
-```
+**3. Fix the offending module.**
+Typical fixes are one of:
+   - move a server-only import behind a lazy `await import()` inside a handler
+   - guard a module-scope statement so it can't throw at init
+   - correct a missing/renamed `?raw` file path
 
-`skill.md` shape:
+**4. Verify.**
+   - `bunx tsgo --noEmit`
+   - Rebuild preview and hit `/`, `/account`, `/projects` — expect 200s and normal pages
+   - Confirm worker logs are clean (no more `h3 swallowed SSR error`)
 
-```markdown
----
-id: SKL_SHORT_FILM
-label: Short Film
-kind: wizard                # wizard | model | meta
-intent: Take an idea to a finished multi-shot short.
-outputs: [video]
-inputs: [text, characters, audio, references]
-matches: ["short film", "narrative video", "multi-shot"]
-model: null                 # for model skills: fal/openai id
-mode: null                  # image | video | audio | speech
-usesBlocks: [BLK_OPTIONS, BLK_FORM, BLK_UPLOAD, BLK_STORYBOARD, BLK_STAGE_TIMELINE, BLK_MEDIA, BLK_GALLERY, BLK_MOODBOARD, BLK_ACTIONS]
----
+## Scope
 
-## Step 1 — Logline
-Present: BLK_FORM with fields {logline, lengthSec, aspect}
-Then: commit_project_patch({meta})
+Frontend/agent-module code only. No database, RLS, or auth changes. Existing UI, routes, and skill/block behavior stay the same — this is a build/runtime bug fix, not a redesign.
 
-## Step 2 — Cast
-Present: BLK_OPTIONS (choose from Library) OR BLK_UPLOAD (new likeness)
-...
-```
+## Not doing
 
-`skill.ts` parses the frontmatter into a typed manifest and exports it; runtime keeps zod validation. The current `AppEntry`/`AppStep` types collapse into this manifest — no more parallel `APP_REGISTRY` and `SKILLS` arrays.
-
-Agent-facing tools become:
-- `list_skills({ query? })` — semantic-ish match on label/intent/matches (replaces the current `suggestApp`).
-- `select_skill({ skillId })` — replaces `select_app`.
-- `get_skill_playbook({ skillId })` — replaces `get_app_playbook`, returns skill.md + the referenced blocks' `block.md`.
-- `run_skill({ skillId, params })` — replaces `run_model_app` for model skills; wizard skills use the injected playbook as today.
-
-Meta-skill `SKL_CREATE_SKILL` walks the user through authoring a new `skill.md` (intent, inputs, outputs, step list referencing block IDs), then writes it to `src/agent/skills/<id>/` via a server tool. This is the "skill that creates skills."
-
-## 3. Instruction files (`src/agent/instructions/`)
-
-Extracts prompt content out of `prompt/core.ts` and `prompt/phases.ts` into editable, versioned `.md` files with stable IDs:
-
-```text
-src/agent/instructions/
-  _registry.ts
-  identity.md               // INS_IDENTITY — director voice, memory, turn protocol
-  routing.md                // INS_ROUTING — when to call skills vs answer directly
-  phases/
-    discuss.md              // INS_PHASE_DISCUSS
-    plan.md                 // INS_PHASE_PLAN
-    render.md               // INS_PHASE_RENDER
-    edit.md                 // INS_PHASE_EDIT
-  blocks-overview.md        // INS_BLOCKS_INDEX — one-liner per BLK_* + when to reach for custom_html
-  inline-edit.md            // INS_INLINE_EDIT — field/piece/media modes
-  guardrails.md             // INS_GUARDRAILS — anti-hallucination, references, media URLs
-```
-
-`buildPrompt(phase, selectedSkillId)` composes:
-```
-INS_IDENTITY + INS_ROUTING + INS_GUARDRAILS
-+ INS_PHASE_<current>
-+ INS_BLOCKS_INDEX
-+ skill manifest for selectedSkillId (or SKILL CATALOG summary if none)
-+ block.md for every block that skill lists in usesBlocks
-```
-
-This makes agent behavior editable per file: tweak `routing.md` to change when apps are called; tweak `phases/plan.md` to change moodboard-vs-storyboard timing; tweak `blocks/options/block.md` to change how options are used. No code changes required for prose tuning.
-
-## Migration order
-
-1. **Blocks first** — move each `*BlockSchema` + its `blockToHtml` arm into `blocks/<name>/block.ts`, write `block.md` from the existing zod `.describe()` strings, wire `_registry.ts` so `ui-schema.ts` and `render-turn-html.ts` re-export from it. No behavior change. Verify with existing turn-guard tests.
-2. **Instructions** — split `prompt/core.ts` + `prompt/phases.ts` into the `.md` files above; `buildCorePrompt`/`getPhasePrompt` become thin loaders. Same tokens, same order.
-3. **Skills** — port `APP_REGISTRY` entries into `skills/<id>/skill.md`, then port single-shot entries from `src/lib/skills.ts`. Old `select_app`/`get_app_playbook`/`suggestApp` become deprecated aliases that forward to the new tools for one release, then get removed.
-4. **Meta-skill** — add `SKL_CREATE_SKILL` + a server tool that writes new skill files.
-5. **Cleanup** — delete `app-registry.ts`, collapse `skills.ts` to a re-export for legacy imports, remove now-unused arms of `ui-schema.ts` / `render-turn-html.ts`.
-
-## Technical notes
-
-- **IDs**: `BLK_*` for blocks, `SKL_*` for skills, `INS_*` for instruction docs. IDs live only in the manifests; wire JSON still uses the existing `type` discriminators so no schema break for the model.
-- **Loading `.md`**: Vite `?raw` imports (`import md from "./block.md?raw"`). Server-only where the prompt is assembled.
-- **Zod stays** — `.md` is documentation for humans and the LLM; runtime validation of `render_turn` calls still runs through the composed discriminated union.
-- **Tests**: existing `turn-guard.server.ts` invariants keep working because block schemas are the same objects, just relocated. Add a small test that every `usesBlocks` ID in every skill.md resolves in the block registry.
-- **No UI change** — GenerativeCard, stage-timeline variants, and gen-option-enhancer are untouched; blocks just re-export their existing HTML.
-
-## Out of scope for this refactor
-
-- Rewriting individual block visuals or the stage layout.
-- Changing which models back which skills.
-- Persisting skill.md edits to a database — files on disk are the source of truth; the meta-skill writes to the repo via a server tool.
+- Not reverting the block/skill/instruction refactor
+- Not changing the fallback error page's copy or layout
+- Not touching unrelated routes or backend functions

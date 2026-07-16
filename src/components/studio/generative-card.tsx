@@ -1,4 +1,3 @@
-import DOMPurify from "isomorphic-dompurify";
 import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -365,7 +364,13 @@ export const GenerativeCard = memo(function GenerativeCard({
   const ref = useRef<HTMLDivElement>(null);
   const lastSafeHtmlRef = useRef<string | null>(null);
   const cleaned = stripProjectPatch(stripCardProse(stripCardWrapper(html)));
-  const safe = DOMPurify.sanitize(cleaned, SANITIZE_CONFIG);
+  // Sanitize lazily in the browser only. `isomorphic-dompurify` crashes at
+  // module init inside the Cloudflare Worker SSR runtime ("Cannot read
+  // properties of undefined (reading 'bind')"), so importing it at the top
+  // of this file broke every SSR route with a swallowed h3 500. Loading it
+  // inside useLayoutEffect keeps it out of the SSR module graph — SSR
+  // rendered nothing into this subtree anyway (innerHTML is set below).
+  const safe = cleaned;
 
   // Keep the sanitized gen-UI DOM stable across unrelated parent renders
   // (notably every composer keystroke). React's dangerouslySetInnerHTML can
@@ -374,9 +379,13 @@ export const GenerativeCard = memo(function GenerativeCard({
   useLayoutEffect(() => {
     const root = ref.current;
     if (!root) return;
-    if (lastSafeHtmlRef.current !== safe) {
-      root.innerHTML = safe;
-      lastSafeHtmlRef.current = safe;
+    let cancelled = false;
+    void import("isomorphic-dompurify").then(({ default: DOMPurify }) => {
+      if (cancelled) return;
+      const sanitized = DOMPurify.sanitize(safe, SANITIZE_CONFIG);
+      if (lastSafeHtmlRef.current === sanitized) return;
+      root.innerHTML = sanitized;
+      lastSafeHtmlRef.current = sanitized;
       // Upgrade any [data-options] grids into styled option-picker cards
       // (per-card glow, ratio illos / icon badges, "Agent Decides" pill).
       enhanceOptionGrids(root, seedKey);
@@ -391,7 +400,10 @@ export const GenerativeCard = memo(function GenerativeCard({
       enhanceMoodboards(root);
       // Note: no card-level "Ask agent" pill anymore — the piece-level hover
       // pill (wired below) covers every generation and its parts.
-    }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [safe, seedKey]);
 
 
