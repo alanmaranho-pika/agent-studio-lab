@@ -17,8 +17,12 @@ import type { StageIntent } from "@/components/studio/agent/intents";
 // Type-only imports — no runtime cycle with the shell.
 import type { InlineAskArgs } from "@/components/studio/agent/agent-shell";
 import type { InlineAskResult } from "@/components/studio/agent/stage-generations";
-import { Shimmer } from "@/components/ai-elements/shimmer";
-import { ArrowUp, Plus } from "lucide-react";
+import {
+  AskAgentPanel,
+  QUICK_CAPTION_INSTRUCTIONS,
+  QUICK_MEDIA_INSTRUCTIONS,
+  quickInstructionsFor,
+} from "@/components/studio/agent/ask-agent-panel";
 import {
   AssetPickerDialog,
   type PickerAccept,
@@ -28,7 +32,7 @@ import {
 // Static rendering of the agent Lottie's resting frame (agent-symbol.json,
 // frame 0) — traced from its two shape paths so the pill icon matches the
 // idle glyph exactly without mounting a live Lottie instance.
-const AGENT_SYMBOL_SVG =
+export const AGENT_SYMBOL_SVG =
   '<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true" focusable="false">' +
   '<path d="M8.008 0.527C8.066 0.527 8.124 0.53 8.18 0.535C9.859 0.672 11.151 2.477 12.341 3.669C13.53 4.859 15.33 6.149 15.469 7.824C15.474 7.882 15.477 7.94 15.477 7.999C15.477 8.058 15.474 8.117 15.469 8.174C15.332 9.85 13.531 11.14 12.343 12.329C11.152 13.521 9.859 15.328 8.18 15.465C8.123 15.47 8.066 15.473 8.008 15.473C7.949 15.473 7.891 15.47 7.833 15.465C6.156 15.326 4.864 13.523 3.674 12.333C2.483 11.143 0.677 9.852 0.538 8.174C0.534 8.116 0.531 8.058 0.531 7.999C0.531 7.94 0.534 7.882 0.539 7.824C0.678 6.147 2.483 4.857 3.674 3.667C4.864 2.477 6.156 0.673 7.834 0.535C7.891 0.53 7.949 0.527 8.008 0.527Z"/>' +
   '<path d="M7.261 4.579C6.238 4.188 4.979 3.423 4.204 4.197C3.429 4.972 4.194 6.231 4.584 7.255C4.672 7.486 4.721 7.737 4.721 7.999C4.721 8.262 4.672 8.513 4.584 8.745C4.194 9.768 3.428 11.029 4.203 11.803C4.978 12.577 6.238 11.811 7.262 11.421C7.493 11.332 7.745 11.283 8.008 11.283C8.272 11.283 8.524 11.331 8.757 11.421C9.778 11.812 11.034 12.575 11.808 11.803C12.583 11.029 11.817 9.771 11.425 8.749C11.336 8.516 11.287 8.263 11.287 7.999C11.287 7.736 11.336 7.483 11.425 7.251C11.817 6.229 12.582 4.971 11.808 4.197C11.034 3.424 9.778 4.187 8.757 4.579C8.524 4.668 8.272 4.716 8.008 4.716C7.745 4.716 7.493 4.668 7.261 4.579Z"/>' +
