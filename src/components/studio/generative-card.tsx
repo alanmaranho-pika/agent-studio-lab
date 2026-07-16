@@ -17,8 +17,12 @@ import type { StageIntent } from "@/components/studio/agent/intents";
 // Type-only imports — no runtime cycle with the shell.
 import type { InlineAskArgs } from "@/components/studio/agent/agent-shell";
 import type { InlineAskResult } from "@/components/studio/agent/stage-generations";
-import { Shimmer } from "@/components/ai-elements/shimmer";
-import { ArrowUp, Plus } from "lucide-react";
+import {
+  AskAgentPanel,
+  QUICK_CAPTION_INSTRUCTIONS,
+  QUICK_MEDIA_INSTRUCTIONS,
+  quickInstructionsFor,
+} from "@/components/studio/agent/ask-agent-panel";
 import {
   AssetPickerDialog,
   type PickerAccept,
@@ -28,7 +32,7 @@ import {
 // Static rendering of the agent Lottie's resting frame (agent-symbol.json,
 // frame 0) — traced from its two shape paths so the pill icon matches the
 // idle glyph exactly without mounting a live Lottie instance.
-const AGENT_SYMBOL_SVG =
+export const AGENT_SYMBOL_SVG =
   '<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true" focusable="false">' +
   '<path d="M8.008 0.527C8.066 0.527 8.124 0.53 8.18 0.535C9.859 0.672 11.151 2.477 12.341 3.669C13.53 4.859 15.33 6.149 15.469 7.824C15.474 7.882 15.477 7.94 15.477 7.999C15.477 8.058 15.474 8.117 15.469 8.174C15.332 9.85 13.531 11.14 12.343 12.329C11.152 13.521 9.859 15.328 8.18 15.465C8.123 15.47 8.066 15.473 8.008 15.473C7.949 15.473 7.891 15.47 7.833 15.465C6.156 15.326 4.864 13.523 3.674 12.333C2.483 11.143 0.677 9.852 0.538 8.174C0.534 8.116 0.531 8.058 0.531 7.999C0.531 7.94 0.534 7.882 0.539 7.824C0.678 6.147 2.483 4.857 3.674 3.667C4.864 2.477 6.156 0.673 7.834 0.535C7.891 0.53 7.949 0.527 8.008 0.527Z"/>' +
   '<path d="M7.261 4.579C6.238 4.188 4.979 3.423 4.204 4.197C3.429 4.972 4.194 6.231 4.584 7.255C4.672 7.486 4.721 7.737 4.721 7.999C4.721 8.262 4.672 8.513 4.584 8.745C4.194 9.768 3.428 11.029 4.203 11.803C4.978 12.577 6.238 11.811 7.262 11.421C7.493 11.332 7.745 11.283 8.008 11.283C8.272 11.283 8.524 11.331 8.757 11.421C9.778 11.812 11.034 12.575 11.808 11.803C12.583 11.029 11.817 9.771 11.425 8.749C11.336 8.516 11.287 8.263 11.287 7.999C11.287 7.736 11.336 7.483 11.425 7.251C11.817 6.229 12.582 4.971 11.808 4.197C11.034 3.424 9.778 4.187 8.757 4.579C8.524 4.668 8.272 4.716 8.008 4.716C7.745 4.716 7.493 4.668 7.261 4.579Z"/>' +
@@ -1592,34 +1596,10 @@ function MoreActionsPopover({
   );
 }
 
-const QUICK_CAPTION_INSTRUCTIONS = ["Rewrite", "Shorter", "Punchier", "More cinematic"];
-
-// Contextual quick-action chips shown inside the "Edit with Agent" popover.
-// Text pieces get copy-oriented rewrites; each media kind gets prompts that
-// match what the agent can actually change on that medium.
-const QUICK_MEDIA_INSTRUCTIONS: Record<"image" | "video" | "audio", string[]> = {
-  image: ["More cinematic", "Brighter", "Change background", "Zoom in"],
-  video: ["Slower", "More dynamic", "Different angle", "More cinematic"],
-  audio: ["Softer", "More energetic", "Slower", "Different mood"],
-};
-function quickInstructionsFor(
-  mode: "caption" | "media",
-  mediaKind?: "image" | "video" | "audio",
-): string[] {
-  if (mode === "media" && mediaKind) return QUICK_MEDIA_INSTRUCTIONS[mediaKind];
-  return QUICK_CAPTION_INSTRUCTIONS;
-}
-
-// One in-popup exchange: the instruction, its live status, and the agent's
-// reply (for text pieces the reply IS the reworked copy applied in place).
-type AskThreadEntry = {
-  id: number;
-  instruction: string;
-  status: "pending" | "done" | "error";
-  replyText?: string;
-  error?: string;
-};
-
+// Thin positioned shell around the shared AskAgentPanel. Owns only the
+// floating card geometry (backdrop, top/left/width/height) — the inner
+// header/thread/composer live in AskAgentPanel so the stage sidebar and
+// this popover render from one source.
 function CaptionAskPopover({
   title,
   currentValue,
@@ -1646,60 +1626,6 @@ function CaptionAskPopover({
    *  the result to the edited element. The popup stays open to iterate. */
   onAsk: (instruction: string) => Promise<InlineAskResult>;
 }) {
-  const [value, setValue] = useState("");
-  const [thread, setThread] = useState<AskThreadEntry[]>([]);
-  const busy = thread.some((t) => t.status === "pending");
-  const idRef = useRef(0);
-  const listRef = useRef<HTMLDivElement | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  useEffect(() => {
-    // rAF: the popover mounts mid-click — focusing on the next frame keeps
-    // the click sequence from stealing focus straight back.
-    const id = requestAnimationFrame(() =>
-      textareaRef.current?.focus({ preventScroll: true }),
-    );
-    return () => cancelAnimationFrame(id);
-  }, []);
-  useEffect(() => {
-    const el = listRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [thread]);
-
-  const send = (instruction: string) => {
-    const v = instruction.trim();
-    if (!v || busy) return;
-    const id = ++idRef.current;
-    setThread((t) => [...t, { id, instruction: v, status: "pending" }]);
-    setValue("");
-    void (async () => {
-      try {
-        const result = await onAsk(v);
-        setThread((t) =>
-          t.map((e) =>
-            e.id === id
-              ? {
-                  ...e,
-                  status: result.ok ? "done" : "error",
-                  replyText: result.assistantText,
-                  error: result.ok ? undefined : (result.error ?? "Something went wrong"),
-                }
-              : e,
-          ),
-        );
-      } catch (err) {
-        setThread((t) =>
-          t.map((e) =>
-            e.id === id
-              ? { ...e, status: "error", error: err instanceof Error ? err.message : "Something went wrong" }
-              : e,
-          ),
-        );
-      } finally {
-        requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }));
-      }
-    })();
-  };
-
   // With a height (piece-level pill): match the parent-most card exactly —
   // same top, same height. Without one (legacy trio path): float below the
   // anchor as before.
@@ -1731,192 +1657,15 @@ function CaptionAskPopover({
           borderColor: "var(--surface-dark-6)",
         }}
         onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") onClose();
-        }}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between p-6" style={{ height: 81 }}>
-          <div className="flex items-center gap-2">
-            <span
-              className="inline-flex size-6 items-center justify-center text-black"
-              dangerouslySetInnerHTML={{
-                __html: AGENT_SYMBOL_SVG.replace(
-                  'width="14" height="14"',
-                  'width="22" height="22"',
-                ),
-              }}
-            />
-            <p className="text-[16px] font-medium leading-[20px] text-black" style={{ fontFamily: '"Telka Extended", Telka, sans-serif' }}>
-              {heading ?? (title ? `Edit ${title}` : "Edit with Agent")}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-[33px] items-center justify-center rounded-[12px] border px-2 text-[12px] font-medium leading-4"
-              style={{
-                borderColor: "var(--surface-dark-6)",
-                color: "var(--content-dark-quaternary)",
-                fontFamily: "Telka, sans-serif",
-              }}
-            >
-              ESC
-            </button>
-            <span
-              className="text-[12px] font-medium leading-4"
-              style={{
-                color: "var(--content-dark-quaternary)",
-                fontFamily: "Telka, sans-serif",
-              }}
-            >
-              to Close
-            </span>
-          </div>
-        </div>
-
-        {/* Body — conversation */}
-        <div
-          ref={listRef}
-          className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4"
-        >
-          {thread.length === 0 && currentValue && (
-            <div className="text-[13px] leading-[18px] line-clamp-3" style={{ color: "var(--content-dark-quaternary)", fontFamily: "Telka, sans-serif" }}>
-              {currentValue}
-            </div>
-          )}
-          {thread.map((t) => (
-            <div key={t.id} className="flex flex-col gap-3">
-              <div className="flex flex-col items-end">
-                <div
-                  className="rounded-[16px] px-[10px] py-[10px] text-[15px] leading-[18px]"
-                  style={{
-                    background: "var(--surface-accent-4)",
-                    color: "var(--content-dark-secondary)",
-                    fontFamily: "Telka, sans-serif",
-                    maxWidth: "85%",
-                  }}
-                >
-                  {t.instruction}
-                </div>
-              </div>
-              {t.status === "pending" && (
-                <div className="flex items-center gap-2">
-                  <span
-                    className="inline-flex size-4 items-center justify-center"
-                    style={{ color: "var(--content-dark-quaternary)" }}
-                    dangerouslySetInnerHTML={{ __html: AGENT_SYMBOL_SVG }}
-                  />
-                  <div
-                    className="text-[12px] leading-4"
-                    style={{
-                      color: "var(--content-dark-quaternary)",
-                      fontFamily: '"Telka Extended", Telka, sans-serif',
-                      fontWeight: 500,
-                    }}
-                  >
-                    <Shimmer>Regenerating...</Shimmer>
-                  </div>
-                </div>
-              )}
-              {t.status === "done" && (
-                <div className="flex items-center gap-2">
-                  <span
-                    className="inline-flex size-4 items-center justify-center"
-                    style={{ color: "var(--content-accent-darkened)" }}
-                    dangerouslySetInnerHTML={{ __html: AGENT_SYMBOL_SVG }}
-                  />
-                  <span
-                    className="text-[12px] leading-4"
-                    style={{
-                      color: "var(--content-dark-quaternary)",
-                      fontFamily: '"Telka Extended", Telka, sans-serif',
-                      fontWeight: 500,
-                    }}
-                  >
-                    Applied
-                  </span>
-                </div>
-              )}
-              {t.status === "error" && (
-                <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
-                  {t.error}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Footer — quick chips + composer */}
-        <div className="flex flex-col gap-[10px] p-3">
-          <div className="flex flex-wrap items-center gap-1">
-            <button
-              type="button"
-              disabled={busy}
-              aria-label="Add"
-              className="inline-flex size-12 shrink-0 items-center justify-center rounded-full transition disabled:opacity-40"
-              style={{ background: "var(--surface-light-2)", color: "var(--content-dark-tertiary)" }}
-            >
-              <Plus className="size-4" strokeWidth={2} />
-            </button>
-            {(suggestions ?? QUICK_CAPTION_INSTRUCTIONS).map((q) => (
-              <button
-                key={q}
-                type="button"
-                disabled={busy}
-                onClick={() => send(q)}
-                className="inline-flex items-center justify-center rounded-[99px] px-3 pt-2 pb-[10px] text-[12px] leading-4 transition disabled:opacity-40"
-                style={{
-                  background: "transparent",
-                  color: "var(--content-dark-quaternary)",
-                  fontFamily: "Telka, sans-serif",
-                  fontWeight: 500,
-                }}
-              >
-                {q}
-              </button>
-            ))}
-          </div>
-          <div
-            className="flex items-center justify-between gap-2 rounded-[16px] border p-2"
-            style={{
-              background: "var(--surface-light-2)",
-              borderColor: "var(--surface-dark-6)",
-            }}
-          >
-            <input
-              ref={textareaRef as unknown as React.RefObject<HTMLInputElement>}
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send(value);
-                } else if (e.key === "Escape") {
-                  onClose();
-                }
-              }}
-              placeholder="Describe the change..."
-              disabled={busy}
-              className="flex-1 bg-transparent pl-4 text-[15px] leading-[18px] outline-none placeholder:opacity-50 disabled:opacity-60"
-              style={{
-                color: "var(--content-dark-primary)",
-                fontFamily: "Telka, sans-serif",
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => send(value)}
-              disabled={!value.trim() || busy}
-              aria-label="Ask agent"
-              className="flex h-10 min-w-12 items-center justify-center rounded-[18px] px-3 py-[10px] text-white transition disabled:opacity-40"
-              style={{ background: "var(--surface-dark-1)" }}
-            >
-              <ArrowUp className="size-5" strokeWidth={2.25} />
-            </button>
-          </div>
-        </div>
+        <AskAgentPanel
+          title={title}
+          currentValue={currentValue}
+          heading={heading}
+          suggestions={suggestions}
+          onAsk={onAsk}
+          onClose={onClose}
+        />
       </div>
     </>
   );
