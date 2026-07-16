@@ -1434,6 +1434,7 @@ export const GenerativeCard = memo(function GenerativeCard({
             rect={askPop.rect}
             placement={askPop.placement}
             heading={askPop.mode === "media" ? "Edit with agent" : undefined}
+            suggestions={quickInstructionsFor(askPop.mode, askPop.mediaKind)}
             onClose={() => {
               releaseAskTarget();
               setAskPop(null);
@@ -1444,10 +1445,18 @@ export const GenerativeCard = memo(function GenerativeCard({
               // the result is applied to the retained piece IN PLACE.
               const el = pieceElRef.current;
               if (askPop.mode === "media") {
+                // Add the looping glow to the exact media element being
+                // reworked so the user sees it's in flight. Removed in the
+                // finally block regardless of outcome.
+                if (el) el.classList.add("gen-regen-glow");
+                try {
                 const result = await onInlineAsk({
                   kind: "media",
                   mediaKind: askPop.mediaKind ?? "image",
-                  mediaUrl: el?.getAttribute("src") ?? askPop.currentValue,
+                  // ALWAYS iterate from the latest URL the popup knows about
+                  // (updated after each successful regen). The <img>'s live
+                  // src may lag if the last edit didn't emit a mediaUrl chunk.
+                  mediaUrl: askPop.currentValue || el?.getAttribute("src") || "",
                   cardTitle: askPop.cardTitle || undefined,
                   instruction,
                 });
@@ -1455,7 +1464,15 @@ export const GenerativeCard = memo(function GenerativeCard({
                   el.setAttribute("src", result.mediaUrl);
                   if (el instanceof HTMLVideoElement || el instanceof HTMLAudioElement) el.load();
                 }
+                if (result.ok && result.mediaUrl) {
+                  // Chain subsequent edits off the freshly generated URL,
+                  // not the original one the popover was opened with.
+                  setAskPop((p) => (p ? { ...p, currentValue: result.mediaUrl! } : p));
+                }
                 return result;
+                } finally {
+                  if (el) el.classList.remove("gen-regen-glow");
+                }
               }
               const result = await onInlineAsk({
                 kind: "piece",
