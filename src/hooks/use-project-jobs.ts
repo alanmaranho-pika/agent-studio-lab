@@ -12,7 +12,7 @@
 
 import { useEffect, useRef } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
+import { getBrowserSupabase } from "@/lib/supabase-browser";
 import { listProjectJobs, pollProjectJob } from "@/lib/projects.functions";
 
 export type ProjectJobRow = {
@@ -131,8 +131,9 @@ export function useProjectJobs(
     void tick();
     const id = window.setInterval(tick, POLL_INTERVAL_MS);
 
-    const channel = supabase
-      .channel(`project-jobs-${projectId}`)
+    const client = getBrowserSupabase();
+    const channel = client
+      ?.channel(`project-jobs-${projectId}`)
       .on(
         "postgres_changes",
         {
@@ -151,7 +152,7 @@ export function useProjectJobs(
     return () => {
       cancelled = true;
       window.clearInterval(id);
-      void supabase.removeChannel(channel);
+      if (client && channel) void client.removeChannel(channel);
     };
   }, [projectId, list, poll]);
 }

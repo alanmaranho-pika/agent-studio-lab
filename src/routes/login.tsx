@@ -2,8 +2,8 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { PikaWordmark } from "@/components/pika-wordmark";
-import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
+import { getBrowserSupabase } from "@/lib/supabase-browser";
 
 const searchSchema = z.object({
   redirect: z.string().max(500).optional(),
@@ -35,9 +35,11 @@ function LoginPage() {
 
   // If already signed in, skip the form.
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    const client = getBrowserSupabase();
+    if (!client) return;
+    client.auth.getSession().then(({ data }) => {
       if (data.session) void navigate({ to: target, replace: true });
-    });
+    }).catch(() => {});
   }, [navigate, target]);
 
   const submit = async (e: React.FormEvent) => {
@@ -45,14 +47,16 @@ function LoginPage() {
     setError(null);
     setBusy(true);
     try {
+      const client = getBrowserSupabase();
+      if (!client) throw new Error("Hosted auth is not configured for this build.");
       const { error: authErr } =
         mode === "signup"
-          ? await supabase.auth.signUp({
+          ? await client.auth.signUp({
               email,
               password,
               options: { emailRedirectTo: window.location.origin },
             })
-          : await supabase.auth.signInWithPassword({ email, password });
+          : await client.auth.signInWithPassword({ email, password });
       if (authErr) throw authErr;
       void navigate({ to: target, replace: true });
     } catch (err) {
