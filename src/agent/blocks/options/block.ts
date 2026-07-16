@@ -32,7 +32,17 @@ export function optionsToHtml(block: OptionsBlockValue): string {
       return `<button data-action="answer" data-value="${esc(item.value)}"${item.next ? ` data-next="${esc(item.next)}"` : ""}${item.ack ? ` data-ack="${esc(item.ack)}"` : ""}>${visual}<span data-title>${esc(item.title)}</span>${subtitle}</button>`;
     })
     .join("");
-  return `<div data-options${block.cols ? ` data-cols="${block.cols}"` : ""}>${items}</div>`;
+  // UI-only "Custom" tile — always appended so the user can type a free-text
+  // answer in-place without leaving the options card. Emitted with an empty
+  // data-value so the delegated answer handler ignores its raw click; the
+  // gen-option-enhancer intercepts, expands it into an inline input, and
+  // rewrites data-value from the typed text before dispatching.
+  const custom =
+    `<button data-action="answer" data-value="" data-custom="1" aria-label="Custom answer">` +
+    `<span data-visual="icon" data-icon="plus"></span>` +
+    `<span data-title>Custom</span>` +
+    `</button>`;
+  return `<div data-options${block.cols ? ` data-cols="${block.cols}"` : ""}>${items}${custom}</div>`;
 }
 
 export const OptionsBlock: BlockDef<typeof OptionsBlockSchema, OptionsBlockValue> = {
