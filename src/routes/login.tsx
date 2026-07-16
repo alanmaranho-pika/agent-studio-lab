@@ -1,7 +1,9 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { PikaWordmark } from "@/components/pika-wordmark";
+import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 
 const searchSchema = z.object({
   redirect: z.string().max(500).optional(),
@@ -31,11 +33,27 @@ function LoginPage() {
 
   const target = redirect && redirect.startsWith("/") ? redirect : "/projects";
 
+  // If already signed in, skip the form.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) void navigate({ to: target, replace: true });
+    });
+  }, [navigate, target]);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setBusy(true);
     try {
+      const { error: authErr } =
+        mode === "signup"
+          ? await supabase.auth.signUp({
+              email,
+              password,
+              options: { emailRedirectTo: window.location.origin },
+            })
+          : await supabase.auth.signInWithPassword({ email, password });
+      if (authErr) throw authErr;
       void navigate({ to: target, replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -48,6 +66,12 @@ function LoginPage() {
     setError(null);
     setBusy(true);
     try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+      });
+      if (result.error) throw result.error;
+      if (result.redirected) return; // browser is navigating to Google
+      // Popup flow: session is set, go on.
       void navigate({ to: target, replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
