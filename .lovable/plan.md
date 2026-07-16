@@ -1,63 +1,88 @@
-# Replicate `agent-studio` into this project
 
-## What the repo is
+## Goal
 
-`alanmaranho-pika/agent-studio` is a TanStack Start app (same stack as this project) exported from Lovable. It's a video/image generation "Agent Studio" with a chat-driven creative canvas, timeline editor, and asset toolkit. Local projects and uploaded assets are stored in the browser's IndexedDB, so a Supabase backend is optional.
+Bring back the Supabase backend so each user signs in with Google, and their projects and generated/uploaded assets are saved to their own account in the cloud. Existing local (IndexedDB) projects get pushed up the first time a user signs in.
 
-Key stack pieces from `package.json`:
-- AI SDK: `@ai-sdk/anthropic`, `@ai-sdk/openai-compatible`, `@ai-sdk/react`, `@anthropic-ai/sdk`
-- MCP client: `@modelcontextprotocol/sdk`, `@ai-sdk/mcp`
-- UI: full shadcn/Radix set, `@phosphor-icons/react`, `tailwindcss`
-- Cloudflare Workers deploy: `@cloudflare/vite-plugin`
-- Runtime: Node 22, npm (their setup); we run on bun here, which is fine
+## 1. Enable Lovable Cloud + Google sign-in
 
-The tree is large (~2,300 entries): custom Telka fonts, dozens of demo images/videos (mostly `.asset.json` reference files), and a deep `src/components/studio/agent/*` module including `agent-shell.tsx` (~93 KB) and `stage-generations.tsx` (~57 KB).
+- Enable Lovable Cloud (provisions Supabase project, keys, and the managed `_authenticated` route gate).
+- Configure Google as the social provider.
+- Add a public `/auth` route with a "Continue with Google" button (uses the Lovable-brokered OAuth helper — iframe-safe in preview).
+- Root route subscribes once to `onAuthStateChange` to invalidate the router/queries on sign-in / sign-out.
+- Sign-out button in the account popover clears cache and redirects to `/auth`.
 
-## Approach
+## 2. Database schema (migration)
 
-Because the tree is huge and content-heavy, I'll port it in phases and check the preview between phases rather than dumping everything at once.
+Tables in `public`, all with RLS + explicit grants:
 
-### Phase 1 — Foundations
-- Add dependencies from their `package.json` that we don't already have (AI SDK, MCP SDK, Phosphor icons, missing Radix packages, etc.).
-- Port config: `components.json`, `eslint.config.js`, `bunfig.toml` diffs, `.env.example`, `.prettierrc` if different.
-- Port `public/fonts/Telka-*.otf` and `public/robots.txt`.
-- Port `src/styles.css` (their Telka font-face + design tokens) and any global CSS.
-- Port `src/lib/*` (utils, storage, AI clients, MCP helpers).
+```text
+profiles
+  id uuid PK  (references auth.users on delete cascade)
+  display_name text
+  avatar_url text
+  created_at, updated_at timestamptz
+  -- auto-created via on_auth_user_created trigger
 
-### Phase 2 — Routes & shell
-- Replace placeholder `src/routes/index.tsx` with their home route.
-- Add every other route file under `src/routes/` (studio, project, api endpoints under `src/routes/api/`).
-- Port `src/routes/__root.tsx` head metadata (title, description, og) — replace current "Lovable App" placeholder.
-- Wire providers (`QueryClientProvider`, any studio-wide context) inside `RootComponent`.
+projects
+  id uuid PK
+  user_id uuid  (references auth.users, not null)
+  title text, status text
+  skill text, studio_mode text, studio_model text
+  project_state jsonb          -- ProjectState blob (same shape as today)
+  created_at, updated_at timestamptz
 
-### Phase 3 — Shared components
-- Port `src/components/*` non-studio pieces: `side-nav`, `account-popover`, `pika-mark`, `pika-wordmark`, `project-thumbnail`, `marketing/*`, `ai-elements/*` (conversation, prompt-input, shimmer).
-- Port shadcn `src/components/ui/*` variants they've customized.
+project_assets
+  id uuid PK
+  project_id uuid  (references projects on delete cascade)
+  user_id uuid     (denormalized for RLS)
+  kind text, name text, mime text, size_bytes int
+  storage_path text    -- path in the `project-assets` bucket
+  metadata jsonb
+  created_at timestamptz
+```
 
-### Phase 4 — Studio module
-- Port `src/components/studio/agent/*` (agent shell, symbol, ethereal backdrop, intents, motion primitives, dropzone, generations, render progress, skeleton, timeline subfolder).
-- Port related hooks/state (timeline model, playback, edits, variant editor).
-- Port toolkit + anime-modes screens that consume the asset images.
+RLS: each user can CRUD only rows where `user_id = auth.uid()`. Profiles readable by owner. No `anon` grants.
 
-### Phase 5 — Assets
-- Copy binary assets: font files, `src/assets/anime-modes/*.jpg`, `src/assets/toolkit/*.jpg`, `src/assets/symbol.svg`, `src/assets/showcases/*`, `src/assets/pika-api/*`.
-- Note: many entries in the repo are `*.mp4.asset.json` pointer files, not the mp4 itself. I'll port them as-is; if their loader expects to fetch real mp4s from a CDN referenced inside those JSON files, videos will stream from there. If they expect local binaries, we may need you to provide URLs or upload the mp4s.
+## 3. Storage
 
-### Phase 6 — Server functions & API routes
-- Port `createServerFn` handlers (AI streaming, MCP calls) into TanStack Start-compatible modules.
-- Port `src/routes/api/*` server routes for webhooks/streaming endpoints.
-- Set up runtime secrets (`ANTHROPIC_API_KEY`, any others they reference) via the secrets tool — I'll list what's needed after reading `.env.example` and the server code.
+- Private `project-assets` bucket (Supabase Storage).
+- Path convention: `<user_id>/<project_id>/<asset_id>.<ext>`.
+- RLS on `storage.objects` restricts read/write to the owning user (first path segment = `auth.uid()`).
+- Client uploads directly via the Supabase JS client; server functions issue signed URLs for downloads/exports.
 
-### Phase 7 — Verify
-- Run typecheck/build, load the preview, click through home → studio → generation flow, and fix runtime errors.
+## 4. Replace the local shims
 
-## Constraints & caveats
+Today the app runs on `createLocalDatabaseShim()` (returns empty results) and `local-projects.ts` (IndexedDB). Rewrite the data layer:
 
-1. **Direct-fetch of raw files is blocked** because the repo default branch requires auth for `raw.githubusercontent.com` even though the API says it's public. In build mode I'll clone via `git` in the sandbox (`git clone --depth 1`) to get every file, then port them in.
-2. **Serverless runtime differences.** Their `@cloudflare/vite-plugin` deploy config maps closely to this template's Cloudflare Workers runtime, but any Node-only dependency they use (e.g. anything that spawns subprocesses) will need to be swapped or removed.
-3. **Secrets you'll need to provide.** At minimum `ANTHROPIC_API_KEY`; likely also OpenAI-compatible base URL/key and Pika API credentials. I'll surface the exact list once I've read `.env.example` in build mode.
-4. **This is a large port.** Expect several iterations to reach a fully working preview. I'll pause after each phase for you to sanity-check.
+- `src/lib/projects.functions.ts` → server functions (list/get/create/update/delete project) using `requireSupabaseAuth`.
+- `src/lib/project-assets.server.ts` → server helpers for asset rows + signed URLs.
+- Browser client from `@/integrations/supabase/client` used only for auth + direct Storage uploads.
+- Delete `local-database-shim.ts` and `local-projects.ts` once callers are migrated.
 
-## Ready to build?
+Routes:
+- `/projects`, `/library`, `/studio/:projectId`, `/account` move under `_authenticated/` (already there — just ensure loaders call the new server fns).
+- `/` stays public (landing); `Sign in` CTA → `/auth`.
 
-Approve this plan and I'll start Phase 1 (clone the repo, install deps, port config + fonts + styles).
+## 5. One-time IndexedDB → Supabase migration
+
+On first successful sign-in per browser:
+1. Detect projects in IndexedDB.
+2. For each project: create the Supabase row, upload every stored asset Blob to Storage, insert `project_assets` rows, rewrite `project_state` asset refs to the new ids.
+3. Mark the IndexedDB DB as `migrated:<user_id>` so it only runs once; keep the local data as a fallback for one release, then drop.
+
+A small "Importing your local projects…" toast covers the migration; failures are logged and retried on next sign-in.
+
+## 6. Technical notes
+
+- Server fns live in `*.functions.ts` under `src/lib/`; never import `client.server` at module scope.
+- `src/start.ts` keeps the existing `errorMiddleware`; append `attachSupabaseAuth` to `functionMiddleware`.
+- Env: `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` for the browser; `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` (+ `SUPABASE_SERVICE_ROLE_KEY` for admin ops like the profile trigger backfill) on the server. All auto-provisioned by Lovable Cloud.
+- Google provider must be enabled via `supabase--configure_social_auth` in the same turn Google sign-in ships.
+- No changes to AI/FAL/Anthropic pipelines — they keep reading their own secrets.
+
+## What you'll see when done
+
+- Landing page has "Sign in with Google".
+- After signing in, you land on `/projects` showing your own projects only.
+- Creating a project, uploading a reference image, and generating outputs all persist to your account and reload correctly on another device.
+- Your previous local projects appear automatically after the first sign-in.
