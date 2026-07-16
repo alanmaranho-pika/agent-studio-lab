@@ -8,6 +8,7 @@ import { useEffect, useRef } from "react";
 import { Film, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProjectThumbnail } from "@/components/project-thumbnail";
+import logoAsset from "@/assets/logo.png.asset.json";
 import {
   listProjects,
   createProject,
@@ -118,8 +119,13 @@ function ProjectsPage() {
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
       <div className="flex h-screen flex-1 flex-col overflow-hidden">
         <header className="px-8 pb-4 pt-6">
-          <div className="mx-auto flex w-full max-w-6xl items-start justify-between gap-4">
-            <div>
+          <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <img
+                src={logoAsset.url}
+                alt="Logo"
+                className="h-10 w-10 object-contain"
+              />
               <h1 className="font-display text-2xl font-semibold tracking-tight">
                 Projects
               </h1>
