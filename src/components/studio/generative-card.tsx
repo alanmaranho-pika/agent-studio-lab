@@ -1838,7 +1838,16 @@ function CaptionAskPopover({
 
         {/* Footer — quick chips + composer */}
         <div className="flex flex-col gap-[10px] p-3">
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap items-center gap-1">
+            <button
+              type="button"
+              disabled={busy}
+              aria-label="Add"
+              className="inline-flex size-12 shrink-0 items-center justify-center rounded-full transition disabled:opacity-40"
+              style={{ background: "var(--surface-light-2)", color: "var(--content-dark-tertiary)" }}
+            >
+              <Plus className="size-4" strokeWidth={2} />
+            </button>
             {(suggestions ?? QUICK_CAPTION_INSTRUCTIONS).map((q) => (
               <button
                 key={q}
