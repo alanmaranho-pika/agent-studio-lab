@@ -19,6 +19,7 @@ import type { StageIntent } from "@/components/studio/agent/intents";
 import type { InlineAskArgs } from "@/components/studio/agent/agent-shell";
 import type { InlineAskResult } from "@/components/studio/agent/stage-generations";
 import { Shimmer } from "@/components/ai-elements/shimmer";
+import { ArrowUp } from "lucide-react";
 import {
   AssetPickerDialog,
   type PickerAccept,
@@ -1667,34 +1668,122 @@ function CaptionAskPopover({
         aria-hidden="true"
       />
       <div
-        className="fixed z-50 flex flex-col gap-2 rounded-2xl border border-border bg-background p-3 shadow-xl"
-        style={{ top, left, width: rect.width, height }}
+        className="fixed z-50 flex flex-col overflow-hidden rounded-[24px] border shadow-xl"
+        style={{
+          top,
+          left,
+          width: rect.width,
+          height,
+          background: "var(--surface-light-1)",
+          borderColor: "var(--surface-dark-6)",
+        }}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onClose();
+        }}
       >
-        <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-          {heading ?? (title || "Caption")}
+        {/* Header */}
+        <div className="flex items-center justify-between p-6" style={{ height: 81 }}>
+          <div className="flex items-center gap-2">
+            <span
+              className="inline-flex size-6 items-center justify-center text-black"
+              dangerouslySetInnerHTML={{
+                __html: AGENT_SYMBOL_SVG.replace(
+                  'width="14" height="14"',
+                  'width="22" height="22"',
+                ),
+              }}
+            />
+            <p className="text-[16px] font-medium leading-[20px] text-black" style={{ fontFamily: '"Telka Extended", Telka, sans-serif' }}>
+              {heading ?? (title ? `Edit ${title}` : "Edit with Agent")}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-[33px] items-center justify-center rounded-[12px] border px-2 text-[12px] font-medium leading-4"
+              style={{
+                borderColor: "var(--surface-dark-6)",
+                color: "var(--content-dark-quaternary)",
+                fontFamily: "Telka, sans-serif",
+              }}
+            >
+              ESC
+            </button>
+            <span
+              className="text-[12px] font-medium leading-4"
+              style={{
+                color: "var(--content-dark-quaternary)",
+                fontFamily: "Telka, sans-serif",
+              }}
+            >
+              to Close
+            </span>
+          </div>
         </div>
-        <div className="text-xs text-muted-foreground line-clamp-2">{currentValue}</div>
 
-        {/* The popup-local conversation — never mirrored to the stage. */}
-        <div ref={listRef} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+        {/* Body — conversation */}
+        <div
+          ref={listRef}
+          className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4"
+        >
+          {thread.length === 0 && currentValue && (
+            <div className="text-[13px] leading-[18px] line-clamp-3" style={{ color: "var(--content-dark-quaternary)", fontFamily: "Telka, sans-serif" }}>
+              {currentValue}
+            </div>
+          )}
           {thread.map((t) => (
-            <div key={t.id} className="flex flex-col gap-1">
-              <div className="ml-6 self-end rounded-xl bg-muted/60 px-2.5 py-1.5 text-xs text-foreground">
-                {t.instruction}
+            <div key={t.id} className="flex flex-col gap-3">
+              <div className="flex flex-col items-end">
+                <div
+                  className="rounded-[16px] px-[10px] py-[10px] text-[15px] leading-[18px]"
+                  style={{
+                    background: "var(--surface-accent-4)",
+                    color: "var(--content-dark-secondary)",
+                    fontFamily: "Telka, sans-serif",
+                    maxWidth: "85%",
+                  }}
+                >
+                  {t.instruction}
+                </div>
               </div>
               {t.status === "pending" && (
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <span className="size-1.5 animate-pulse rounded-full bg-primary" />
-                  <Shimmer>Reworking…</Shimmer>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="inline-flex size-4 items-center justify-center"
+                    style={{ color: "var(--content-dark-quaternary)" }}
+                    dangerouslySetInnerHTML={{ __html: AGENT_SYMBOL_SVG }}
+                  />
+                  <div
+                    className="text-[12px] leading-4"
+                    style={{
+                      color: "var(--content-dark-quaternary)",
+                      fontFamily: '"Telka Extended", Telka, sans-serif',
+                      fontWeight: 500,
+                    }}
+                  >
+                    <Shimmer>Regenerating...</Shimmer>
+                  </div>
                 </div>
               )}
               {t.status === "done" && (
-                <div className="flex flex-col gap-0.5 text-xs">
-                  <span className="font-medium text-emerald-600">✓ Applied</span>
-                  {t.replyText && (
-                    <span className="line-clamp-3 text-muted-foreground">{t.replyText}</span>
-                  )}
+                <div className="flex items-center gap-2">
+                  <span
+                    className="inline-flex size-4 items-center justify-center"
+                    style={{ color: "var(--content-accent-darkened)" }}
+                    dangerouslySetInnerHTML={{ __html: AGENT_SYMBOL_SVG }}
+                  />
+                  <span
+                    className="text-[12px] leading-4"
+                    style={{
+                      color: "var(--content-dark-quaternary)",
+                      fontFamily: '"Telka Extended", Telka, sans-serif',
+                      fontWeight: 500,
+                    }}
+                  >
+                    Applied
+                  </span>
                 </div>
               )}
               {t.status === "error" && (
@@ -1706,52 +1795,65 @@ function CaptionAskPopover({
           ))}
         </div>
 
-        <div className="flex flex-wrap gap-1">
-          {QUICK_CAPTION_INSTRUCTIONS.map((q) => (
-            <button
-              key={q}
-              type="button"
+        {/* Footer — quick chips + composer */}
+        <div className="flex flex-col gap-[10px] p-3">
+          <div className="flex flex-wrap gap-1">
+            {QUICK_CAPTION_INSTRUCTIONS.map((q) => (
+              <button
+                key={q}
+                type="button"
+                disabled={busy}
+                onClick={() => send(q)}
+                className="flex items-center justify-center rounded-[99px] px-3 pt-2 pb-[10px] text-[12px] leading-4 transition disabled:opacity-40"
+                style={{
+                  background: "var(--surface-accent-5)",
+                  color: "var(--content-accent-darkened)",
+                  fontFamily: "Telka, sans-serif",
+                  fontWeight: 500,
+                }}
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+          <div
+            className="flex items-center justify-between gap-2 rounded-[16px] border p-2"
+            style={{
+              background: "var(--surface-light-2)",
+              borderColor: "var(--surface-dark-6)",
+            }}
+          >
+            <input
+              ref={textareaRef as unknown as React.RefObject<HTMLInputElement>}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send(value);
+                } else if (e.key === "Escape") {
+                  onClose();
+                }
+              }}
+              placeholder="Describe the change..."
               disabled={busy}
-              onClick={() => send(q)}
-              className="rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs hover:bg-muted disabled:opacity-40"
+              className="flex-1 bg-transparent pl-4 text-[15px] leading-[18px] outline-none placeholder:opacity-50 disabled:opacity-60"
+              style={{
+                color: "var(--content-dark-primary)",
+                fontFamily: "Telka, sans-serif",
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => send(value)}
+              disabled={!value.trim() || busy}
+              aria-label="Ask agent"
+              className="flex h-10 min-w-12 items-center justify-center rounded-[18px] px-3 py-[10px] text-white transition disabled:opacity-40"
+              style={{ background: "var(--surface-dark-1)" }}
             >
-              {q}
+              <ArrowUp className="size-5" strokeWidth={2.25} />
             </button>
-          ))}
-        </div>
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-              e.preventDefault();
-              send(value);
-            } else if (e.key === "Escape") {
-              onClose();
-            }
-          }}
-          placeholder="Describe the change…"
-          rows={2}
-          disabled={busy}
-          className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
-        />
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full px-3 py-1 text-xs text-muted-foreground hover:bg-muted"
-          >
-            {thread.some((t) => t.status === "done") ? "Done" : "Cancel"}
-          </button>
-          <button
-            type="button"
-            onClick={() => send(value)}
-            disabled={!value.trim() || busy}
-            className="rounded-full bg-foreground px-3 py-1 text-xs text-background disabled:opacity-40"
-          >
-            Ask agent
-          </button>
+          </div>
         </div>
       </div>
     </>
