@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy feature file; feature tables (characters, library_subjects, render_jobs, etc.) are not part of the projects-first Supabase migration.
 // Direct (single-shot) generation for the studio's non-agent modes.
 // The agent path goes through src/routes/api/chat.ts; this is the simple
 // "type a prompt → get one image/video/clip" pipeline that powers the

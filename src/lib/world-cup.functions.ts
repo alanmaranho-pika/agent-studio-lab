@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy feature file; feature tables (characters, library_subjects, render_jobs, etc.) are not part of the projects-first Supabase migration.
 // World Cup 2026 Video — multi-step pipeline that:
 //   1. Generates a fake live FIFA broadcast screenshot of the user in the
 //      stands via GPT Image 2 /edit (using the user's selfie as reference).

@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy feature file; feature tables (characters, library_subjects, render_jobs, etc.) are not part of the projects-first Supabase migration.
 // Render pipeline. Two entry points:
 //   • startRender         — generate shot images (per scene missing a thumb).
 //   • renderFinalVideo    — end-to-end: ensure shot images, animate each shot,

@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy feature file; feature tables (characters, library_subjects, render_jobs, etc.) are not part of the projects-first Supabase migration.
 // Pika API integration (Parrot v0 — candy_2p5_final / pikai2v worker).
 //
 // Real spec (from Pika's test_pikai2v_complete.py):

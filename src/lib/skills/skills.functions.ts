@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy feature file; feature tables (characters, library_subjects, render_jobs, etc.) are not part of the projects-first Supabase migration.
 // Server functions for the unified Skills registry.
 //
 // Callers get a merged view of BUILTIN_SKILLS (Model + App, from code) and

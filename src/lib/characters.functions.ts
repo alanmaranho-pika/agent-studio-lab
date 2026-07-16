@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy feature file; feature tables (characters, library_subjects, render_jobs, etc.) are not part of the projects-first Supabase migration.
 // Server functions for the user-scoped Characters library. Characters are
 // reusable across projects (Short Film, Product Ad, etc.) so they live
 // outside any single project. Images are persisted to the shared

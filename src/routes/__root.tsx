@@ -6,9 +6,12 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { useEffect } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { migrateLocalProjectsToCloud } from "@/lib/local-cloud-migration";
 
 function NotFoundComponent() {
   return (
@@ -118,6 +121,23 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+      void router.invalidate();
+      if (event !== "SIGNED_OUT") void queryClient.invalidateQueries();
+      if (event === "SIGNED_IN" && session?.user?.id) {
+        void migrateLocalProjectsToCloud(session.user.id);
+      }
+    });
+    // Also run migration on hard refresh with an existing session.
+    void supabase.auth.getSession().then(({ data: s }) => {
+      if (s.session?.user?.id) void migrateLocalProjectsToCloud(s.session.user.id);
+    });
+    return () => data.subscription.unsubscribe();
+  }, [router, queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>

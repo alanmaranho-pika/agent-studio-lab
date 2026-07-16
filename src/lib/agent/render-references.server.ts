@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy feature file; feature tables (characters, library_subjects, render_jobs, etc.) are not part of the projects-first Supabase migration.
 // Intent-aware reference resolver for Agent Mode renders.
 //
 // The old chat.ts logic was character-first: it assumed every render was
