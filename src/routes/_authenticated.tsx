@@ -1,21 +1,20 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { SideNav } from "@/components/side-nav";
 import chromeLogo from "@/assets/chrome-logo.png.asset.json";
-import { getBrowserSupabase } from "@/lib/supabase-browser";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
-  beforeLoad: async ({ location }) => {
-    const client = getBrowserSupabase();
-    if (!client) return;
-    const { data } = await client.auth.getSession();
-    if (!data.session) {
-      throw redirect({
-        to: "/login",
-        search: { redirect: location.href },
-      });
-    }
-  },
+  // LOCAL MODE: password gate removed — the app is open, so no auth check /
+  // redirect to /login here. Restore the beforeLoad below when re-enabling it.
+  //
+  // beforeLoad: async ({ location }) => {
+  //   const client = getBrowserSupabase();
+  //   if (!client) return;
+  //   const { data } = await client.auth.getSession();
+  //   if (!data.session) {
+  //     throw redirect({ to: "/login", search: { redirect: location.href } });
+  //   }
+  // },
   component: AuthedLayout,
 });
 

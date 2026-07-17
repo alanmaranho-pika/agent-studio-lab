@@ -1,31 +1,12 @@
 export type AuthedUser = { userId: string; token: string };
 
-// Validate the Supabase bearer token on the request and return the user id.
-export async function requireUser(request: Request): Promise<AuthedUser> {
-  const header = request.headers.get("authorization") ?? request.headers.get("Authorization");
-  const token = header?.startsWith("Bearer ") ? header.slice(7).trim() : null;
-  if (!token) throw unauthorized("Missing bearer token");
-
-  const { createClient } = await import("@supabase/supabase-js");
-  const { MY_SUPABASE_URL, MY_SUPABASE_PUBLISHABLE_KEY } = await import(
-    "@/integrations/supabase/my-config"
-  );
-  const supabase = createClient(
-    MY_SUPABASE_URL,
-    MY_SUPABASE_PUBLISHABLE_KEY,
-    { auth: { persistSession: false, autoRefreshToken: false } },
-  );
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data.user) throw unauthorized(error?.message ?? "Invalid token");
-  return { userId: data.user.id, token };
-}
-
-function unauthorized(reason: string): Error & { statusCode: number } {
-  const err = new Error(`Unauthorized: ${reason}`) as Error & {
-    statusCode: number;
-  };
-  err.statusCode = 401;
-  return err;
+// LOCAL MODE: Supabase auth is disabled for local development. This no longer
+// validates a bearer token — it returns a fixed "local-user" identity so the
+// chat/agent API route runs without a hosted database or a real session.
+// The original token-validating implementation is preserved in git history
+// (before the "localhost" branch). Restore it there to re-enable real auth.
+export async function requireUser(_request: Request): Promise<AuthedUser> {
+  return { userId: "local-user", token: "local" };
 }
 
 export function unauthorizedResponse(message = "Unauthorized"): Response {

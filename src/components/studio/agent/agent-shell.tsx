@@ -47,12 +47,14 @@ import {
 import type { StageIntent } from "@/components/studio/agent/intents";
 import { renderTurnToHtml } from "@/lib/agent/render-turn-html";
 import { RenderTurnSchema, type RenderTurn } from "@/lib/agent/ui-schema";
+import {
+  StageCanvasMount,
+  isCanvasRenderableTurn,
+  useCanvasRenderer,
+} from "@/components/studio/agent/canvas";
 import { useViewportBand } from "@/hooks/use-viewport-band";
 import { readSkillMd, writeSkillMd } from "@/lib/skills/skill-md.functions";
-import {
-  AssetPickerDialog,
-  type PickerResult,
-} from "@/components/studio/asset-picker-dialog";
+import { AssetPickerDialog, type PickerResult } from "@/components/studio/asset-picker-dialog";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import {
   AnimatePresence,
@@ -67,10 +69,7 @@ import {
   useTurnZone,
   WordsRamp,
 } from "@/components/studio/agent/motion-primitives";
-import {
-  sniffSkeletonHint,
-  StageSkeleton,
-} from "@/components/studio/agent/stage-skeleton";
+import { sniffSkeletonHint, StageSkeleton } from "@/components/studio/agent/stage-skeleton";
 import { StageDropzone } from "@/components/studio/agent/stage-dropzone";
 import { StageRenderProgress } from "@/components/studio/agent/stage-render-progress";
 
@@ -142,8 +141,20 @@ type InlineEditPayload =
     };
 
 export type InlineAskArgs =
-  | { kind: "piece"; pieceLabel: string; currentValue: string; cardTitle?: string; instruction: string }
-  | { kind: "media"; mediaKind: "image" | "video" | "audio"; mediaUrl: string; cardTitle?: string; instruction: string };
+  | {
+      kind: "piece";
+      pieceLabel: string;
+      currentValue: string;
+      cardTitle?: string;
+      instruction: string;
+    }
+  | {
+      kind: "media";
+      mediaKind: "image" | "video" | "audio";
+      mediaUrl: string;
+      cardTitle?: string;
+      instruction: string;
+    };
 
 type AgentMessageMetadata = {
   mode?: "inline-edit";
@@ -172,7 +183,11 @@ function metadataOf(m: UIMessage): AgentMessageMetadata {
 
 function isInlineEditMessage(m: UIMessage): boolean {
   const meta = metadataOf(m);
-  return meta.mode === "inline-edit" || textOf(m).startsWith(INLINE_REWORK_MARKER) || isLegacyInlinePatchMessage(m);
+  return (
+    meta.mode === "inline-edit" ||
+    textOf(m).startsWith(INLINE_REWORK_MARKER) ||
+    isLegacyInlinePatchMessage(m)
+  );
 }
 
 function isLegacyInlinePatchMessage(m: UIMessage): boolean {
@@ -180,14 +195,17 @@ function isLegacyInlinePatchMessage(m: UIMessage): boolean {
   const text = textOf(m);
   if (/data-card|data-options|data-gen-view/i.test(text)) return false;
   return toolPartsOf(m).some((part) => {
-    if (part.type !== "tool-commit_project_patch" || part.state !== "output-available") return false;
+    if (part.type !== "tool-commit_project_patch" || part.state !== "output-available")
+      return false;
     const patch = (part.output as { patch?: unknown } | undefined)?.patch as
-      | { scenes?: Array<Record<string, unknown>> }
-      | undefined;
+      { scenes?: Array<Record<string, unknown>> } | undefined;
     if (!patch || !Array.isArray(patch.scenes) || patch.scenes.length !== 1) return false;
     const scenePatch = patch.scenes[0];
     const keys = Object.keys(scenePatch).filter((key) => key !== "id");
-    return keys.length > 0 && keys.every((key) => key === "title" || key === "prompt" || key === "voPrompt");
+    return (
+      keys.length > 0 &&
+      keys.every((key) => key === "title" || key === "prompt" || key === "voPrompt")
+    );
   });
 }
 
@@ -384,9 +402,7 @@ async function readInlineEditStream(
       }
       const resolvedToolName =
         chunk.toolName ??
-        (typeof chunk.toolCallId === "string"
-          ? toolNameByCallId.get(chunk.toolCallId)
-          : undefined);
+        (typeof chunk.toolCallId === "string" ? toolNameByCallId.get(chunk.toolCallId) : undefined);
       if (
         chunk.type === "tool-output-available" &&
         resolvedToolName === "commit_project_patch" &&
@@ -448,14 +464,26 @@ function assistantToolAssets(
           name?: string;
           label?: string;
           image?: { id?: string; url?: string; mime?: string; name?: string };
-          assets?: Array<{ id?: string; url?: string; mime?: string; name?: string; label?: string }>;
+          assets?: Array<{
+            id?: string;
+            url?: string;
+            mime?: string;
+            name?: string;
+            label?: string;
+          }>;
           ok?: boolean;
           result?: unknown;
         }
       | undefined;
     if (!o) continue;
     if ((p.type === "tool-generate_image" || p.type === "tool-run_model_app") && o.url && o.mime) {
-      out.push({ url: resolveUrl(o.id, o.url), mime: o.mime, name: o.name, label: o.label, id: o.id });
+      out.push({
+        url: resolveUrl(o.id, o.url),
+        mime: o.mime,
+        name: o.name,
+        label: o.label,
+        id: o.id,
+      });
     } else if (p.type === "tool-generate_scene_anchor" && o.url) {
       out.push({
         url: resolveUrl(o.id, o.url),
@@ -466,7 +494,14 @@ function assistantToolAssets(
       });
     } else if (p.type === "tool-search_stock_media" && Array.isArray(o.assets)) {
       for (const a of o.assets) {
-        if (a.url && a.mime) out.push({ url: resolveUrl(a.id, a.url), mime: a.mime, name: a.name, label: a.label, id: a.id });
+        if (a.url && a.mime)
+          out.push({
+            url: resolveUrl(a.id, a.url),
+            mime: a.mime,
+            name: a.name,
+            label: a.label,
+            id: a.id,
+          });
       }
     } else if (p.type === "tool-tool_invoke" && o.ok && o.result) {
       const r = o.result as {
@@ -474,11 +509,23 @@ function assistantToolAssets(
         assets?: Array<{ id?: string; url?: string; mime?: string; name?: string; label?: string }>;
       };
       if (r.image?.url && r.image?.mime) {
-        out.push({ url: resolveUrl(r.image.id, r.image.url), mime: r.image.mime, name: r.image.name, id: r.image.id });
+        out.push({
+          url: resolveUrl(r.image.id, r.image.url),
+          mime: r.image.mime,
+          name: r.image.name,
+          id: r.image.id,
+        });
       }
       if (Array.isArray(r.assets)) {
         for (const a of r.assets) {
-          if (a.url && a.mime) out.push({ url: resolveUrl(a.id, a.url), mime: a.mime, name: a.name, label: a.label, id: a.id });
+          if (a.url && a.mime)
+            out.push({
+              url: resolveUrl(a.id, a.url),
+              mime: a.mime,
+              name: a.name,
+              label: a.label,
+              id: a.id,
+            });
         }
       }
     }
@@ -499,9 +546,9 @@ function withToolAssets(m: UIMessage, baseHtml: string, assets: ProjectAsset[]):
   }
   const toolAssets = assistantToolAssets(m, assets);
   if (!toolAssets.length) return html;
-  const existing = extractProjectPatch(html) as
-    | { assetsAppend?: Array<{ url?: string; mime?: string }> }
-    | null;
+  const existing = extractProjectPatch(html) as {
+    assetsAppend?: Array<{ url?: string; mime?: string }>;
+  } | null;
   const existingUrls = new Set((existing?.assetsAppend ?? []).map((a) => a.url));
   const merged = [
     ...(existing?.assetsAppend ?? []),
@@ -568,7 +615,8 @@ function describeChatError(error: Error): { message: string; interrupted: boolea
     error.name === "AbortError";
   if (interrupted) {
     return {
-      message: "The connection dropped mid-response — often a dev hot-reload. Nothing was saved for this turn.",
+      message:
+        "The connection dropped mid-response — often a dev hot-reload. Nothing was saved for this turn.",
       interrupted: true,
     };
   }
@@ -621,23 +669,28 @@ const ARTIFACT_META: Record<ArtifactKind, { label: string; icon: typeof Film; hi
 
 function detectArtifacts(html: string): ArtifactKind[] {
   const kinds = new Set<ArtifactKind>();
-  const patch = extractProjectPatch(html) as
-    | {
-        meta?: { logline?: string };
-        scenesAppend?: unknown[];
-        castAppend?: unknown[];
-        music?: unknown;
-        assetsAppend?: Array<{ kind?: string; mime?: string; label?: string }>;
-      }
-    | null;
+  const patch = extractProjectPatch(html) as {
+    meta?: { logline?: string };
+    scenesAppend?: unknown[];
+    castAppend?: unknown[];
+    music?: unknown;
+    assetsAppend?: Array<{ kind?: string; mime?: string; label?: string }>;
+  } | null;
   if (!patch) return [];
-  if (patch.meta?.logline || (patch.scenesAppend && patch.scenesAppend.length > 0)) kinds.add("shots");
+  if (patch.meta?.logline || (patch.scenesAppend && patch.scenesAppend.length > 0))
+    kinds.add("shots");
   if (patch.castAppend && patch.castAppend.length > 0) kinds.add("cast");
   if (patch.music) kinds.add("music");
   if (Array.isArray(patch.assetsAppend)) {
     for (const a of patch.assetsAppend) {
       const mime = a.mime ?? "";
-      if (a.kind === "music" || a.kind === "voiceover" || a.kind === "audio" || mime.startsWith("audio/")) kinds.add("music");
+      if (
+        a.kind === "music" ||
+        a.kind === "voiceover" ||
+        a.kind === "audio" ||
+        mime.startsWith("audio/")
+      )
+        kinds.add("music");
       if (a.kind === "final" || (a.label && /final/i.test(a.label))) kinds.add("renders");
     }
   }
@@ -744,7 +797,16 @@ export function AgentShell(props: AgentShellProps) {
         if (!callId || appliedToolCallIds.current.has(callId)) continue;
         appliedToolCallIds.current.add(callId);
         const out = p.output as
-          | { error?: string; id?: string; url?: string; assets?: ProjectAsset[]; patch?: unknown; mode?: string; jobId?: string; result?: unknown }
+          | {
+              error?: string;
+              id?: string;
+              url?: string;
+              assets?: ProjectAsset[];
+              patch?: unknown;
+              mode?: string;
+              jobId?: string;
+              result?: unknown;
+            }
           | undefined;
         if (!out || out.error) continue;
         if (p.type === "tool-generate_image" && out.id && out.url) {
@@ -831,9 +893,7 @@ export function AgentShell(props: AgentShellProps) {
   const [navTick, setNavTick] = useState(0);
   const liveIndex = stageTurns.length - 1;
   const cursor =
-    busy || turnCursor === null || turnCursor >= liveIndex
-      ? null
-      : Math.max(0, turnCursor);
+    busy || turnCursor === null || turnCursor >= liveIndex ? null : Math.max(0, turnCursor);
   const browsing = cursor !== null;
   const browsingTurn = browsing ? stageTurns[cursor] : null;
 
@@ -845,8 +905,7 @@ export function AgentShell(props: AgentShellProps) {
       setTurnCursor((prev) => {
         const cur = prev ?? stageTurns.length - 1;
         if (dir === "back") return Math.max(0, cur - 1);
-        if (dir === "forward")
-          return cur + 1 >= stageTurns.length - 1 ? null : cur + 1;
+        if (dir === "forward") return cur + 1 >= stageTurns.length - 1 ? null : cur + 1;
         return null;
       });
     },
@@ -882,6 +941,23 @@ export function AgentShell(props: AgentShellProps) {
   // guard-repaired output landed) — never from half-streamed JSON.
   const blocksReady = !!activeExtract && activeExtract.phase !== "partial";
 
+  // Canvas (Pixi) renderer — behind a runtime flag (?renderer=canvas or
+  // localStorage "pika:renderer"). Only fully-supported, non-salvaged turns
+  // go to canvas; everything else falls back to the DOM path per turn.
+  const canvasEnabled = useCanvasRenderer();
+  const canvasTurn =
+    canvasEnabled &&
+    blocksReady &&
+    activeExtract &&
+    !activeExtract.salvaged &&
+    isCanvasRenderableTurn(activeExtract.turn)
+      ? activeExtract.turn
+      : null;
+  // Full-stage takeover: the canvas owns the entire stage zone (echo, prose,
+  // status, blocks) for settled fully-supported turns. Busy/streaming, error,
+  // and fallback turns render the existing DOM stage.
+  const canvasStageActive = !!canvasTurn && !busy && !error;
+
   const activeHtml = useMemo(
     () =>
       activeAssistant
@@ -897,15 +973,15 @@ export function AgentShell(props: AgentShellProps) {
   const isGenerativeCard =
     !!activeHtml &&
     !extractedStageGen &&
-    (/data-card[\s>]/.test(activeHtml)
-      || /data-options[\s>]/.test(activeHtml)
-      || /data-gen-actions[\s>]/.test(activeHtml)
-      || /data-upload[\s>]/.test(activeHtml)
-      || /class="gen-upload/.test(activeHtml)
-      || /<form[\s>]/i.test(activeHtml)
-      || /<img\b/i.test(activeHtml)
-      || /<video\b/i.test(activeHtml)
-      || /<audio\b/i.test(activeHtml)) &&
+    (/data-card[\s>]/.test(activeHtml) ||
+      /data-options[\s>]/.test(activeHtml) ||
+      /data-gen-actions[\s>]/.test(activeHtml) ||
+      /data-upload[\s>]/.test(activeHtml) ||
+      /class="gen-upload/.test(activeHtml) ||
+      /<form[\s>]/i.test(activeHtml) ||
+      /<img\b/i.test(activeHtml) ||
+      /<video\b/i.test(activeHtml) ||
+      /<audio\b/i.test(activeHtml)) &&
     !/<div\s+data-card(?:\s[^>]*)?>\s*<\/div>/.test(activeHtml);
   // Only fall back to the screenplay view for the initial render of a
   // resumed project (no assistant reply yet). Never override an actual
@@ -914,9 +990,14 @@ export function AgentShell(props: AgentShellProps) {
   const activeStageGen =
     extractedStageGen ??
     (!activeAssistant && project.scenes.length > 0
-      ? ({ kind: "script-beats", focusSceneId: project.scenes[0]?.id, actions: [] } satisfies StageGeneration)
+      ? ({
+          kind: "script-beats",
+          focusSceneId: project.scenes[0]?.id,
+          actions: [],
+        } satisfies StageGeneration)
       : null);
-  const activeAssistantIsRenderable = !!activeAssistant && isStageRenderableAssistant(activeAssistant);
+  const activeAssistantIsRenderable =
+    !!activeAssistant && isStageRenderableAssistant(activeAssistant);
 
   // Ack/prose come straight from the typed payload when we have one — the
   // stage and the transcript must read from the same source of truth. The
@@ -958,8 +1039,7 @@ export function AgentShell(props: AgentShellProps) {
     async (answer: CardAnswer) => {
       if (busy) return;
       // Chamber the declared next-turn shape before the busy flip.
-      pendingNextHintRef.current =
-        answer.next ?? activeExtractRef.current?.turn.next ?? null;
+      pendingNextHintRef.current = answer.next ?? activeExtractRef.current?.turn.next ?? null;
       setChamberedAck(answer.ack?.trim() || null);
       // Answering (even from a revisited turn) always branches forward: the
       // reply becomes the newest message, so snap the stage back to live.
@@ -1032,8 +1112,7 @@ export function AgentShell(props: AgentShellProps) {
     const t = Date.now();
     let wait = 0;
     if (t < ackShowAtRef.current) wait = ackShowAtRef.current - t;
-    else if (ackShownRef.current && t < ackHoldUntilRef.current)
-      wait = ackHoldUntilRef.current - t;
+    else if (ackShownRef.current && t < ackHoldUntilRef.current) wait = ackHoldUntilRef.current - t;
     if (wait <= 0) return;
     const timer = window.setTimeout(() => setAckTick((v) => v + 1), wait + 16);
     return () => window.clearTimeout(timer);
@@ -1080,8 +1159,7 @@ export function AgentShell(props: AgentShellProps) {
   }, [centerBusy, tailMessage, pendingTools]);
   const showCardZone =
     !!activeHtml && isGenerativeCard && (!centerBusy || (liveTurnStreaming && blocksReady));
-  const showStageZone =
-    !!activeStageGen && (!centerBusy || (liveTurnStreaming && blocksReady));
+  const showStageZone = !!activeStageGen && (!centerBusy || (liveTurnStreaming && blocksReady));
   // Only show a skeleton when we have POSITIVE evidence a generation is
   // coming — a sniffed/chambered/tool-predicted shape. A null hint (no
   // declaration, no UI-bearing tool) means the turn is likely prose-only, so
@@ -1108,8 +1186,7 @@ export function AgentShell(props: AgentShellProps) {
   // A queued background render, with nothing else claiming the gen slot,
   // shows the render-progress frame (the visible "rendering" state) so the
   // stage isn't blank while a clip cooks. Content/skeleton always win.
-  const showRenderProgress =
-    generating && !showCardZone && !showStageZone && !showSkeleton;
+  const showRenderProgress = generating && !showCardZone && !showStageZone && !showSkeleton;
   const renderProgressLabel = useMemo(() => {
     const p = assets.find((a) => a.kind === "pending" || a.mime === PENDING_MIME);
     return p?.label || p?.name || "Generating…";
@@ -1140,9 +1217,16 @@ export function AgentShell(props: AgentShellProps) {
     async (
       args:
         | InlineAskArgs
-        | { kind: "field"; sceneId: string; field: "title" | "prompt" | "voPrompt"; currentValue: string; instruction: string },
+        | {
+            kind: "field";
+            sceneId: string;
+            field: "title" | "prompt" | "voPrompt";
+            currentValue: string;
+            instruction: string;
+          },
     ): Promise<InlineAskResult> => {
-      if (busy || busyField) return { ok: false, error: "Wait for the current response to finish." };
+      if (busy || busyField)
+        return { ok: false, error: "Wait for the current response to finish." };
       const requestId =
         typeof crypto !== "undefined" && "randomUUID" in crypto
           ? crypto.randomUUID()
@@ -1219,8 +1303,12 @@ export function AgentShell(props: AgentShellProps) {
 
   // Field-signature wrapper kept for the stage views' Ask sidebar.
   const askAgentInline = useCallback(
-    (args: { sceneId: string; field: "title" | "prompt" | "voPrompt"; currentValue: string; instruction: string }) =>
-      askInline({ kind: "field", ...args }),
+    (args: {
+      sceneId: string;
+      field: "title" | "prompt" | "voPrompt";
+      currentValue: string;
+      instruction: string;
+    }) => askInline({ kind: "field", ...args }),
     [askInline],
   );
 
@@ -1329,16 +1417,18 @@ export function AgentShell(props: AgentShellProps) {
     type SpeechAlternative = { transcript: string };
     type SpeechResult = { isFinal: boolean; 0: SpeechAlternative };
     type SpeechResultEvent = { resultIndex: number; results: ArrayLike<SpeechResult> };
-    const rec = new (speechCtor as new () => {
-      continuous: boolean;
-      interimResults: boolean;
-      lang: string;
-      onresult: ((ev: SpeechResultEvent) => void) | null;
-      onend: (() => void) | null;
-      onerror: (() => void) | null;
-      start: () => void;
-      stop: () => void;
-    })();
+    const rec = new (
+      speechCtor as new () => {
+        continuous: boolean;
+        interimResults: boolean;
+        lang: string;
+        onresult: ((ev: SpeechResultEvent) => void) | null;
+        onend: (() => void) | null;
+        onerror: (() => void) | null;
+        start: () => void;
+        stop: () => void;
+      }
+    )();
     rec.continuous = false;
     rec.interimResults = true;
     rec.lang = typeof navigator !== "undefined" ? navigator.language || "en-US" : "en-US";
@@ -1451,7 +1541,6 @@ export function AgentShell(props: AgentShellProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [busy, input, stageTurns.length, navigateHistory]);
 
-
   // Agent status line.
   const agentStatus = useMemo(() => {
     if (pendingTools.length) return friendlyToolStatus(pendingTools[0]);
@@ -1556,59 +1645,72 @@ export function AgentShell(props: AgentShellProps) {
           className="absolute inset-0 flex flex-col overflow-hidden"
           style={{ paddingTop: reservedTop, paddingBottom: reservedBottom }}
         >
-          {/* relative: popLayout pins exiting zones absolutely against this
+          {/* Full-stage WebGL takeover — one persistent scene with a camera
+              (zoom/pan) for canvas-renderable settled turns. Everything else
+              (busy, errors, unsupported blocks) falls through to the DOM
+              stage below. */}
+          {canvasStageActive && canvasTurn ? (
+            <StageCanvasMount
+              turn={canvasTurn}
+              echoText={lastUserText || undefined}
+              statusText={statusText}
+              seedKey={activeAssistantId ?? undefined}
+              onAnswer={handleCardAnswer}
+            />
+          ) : (
+            <>
+              {/* relative: popLayout pins exiting zones absolutely against this
               container so their successor can dissolve into the same spot. */}
-          <div className="grid-16 relative mx-auto my-auto w-full gap-y-0">
-            {/* LayoutGroup shares one projection context across the zones —
+              <div className="grid-16 relative mx-auto my-auto w-full gap-y-0">
+                {/* LayoutGroup shares one projection context across the zones —
                 without it, a sibling zone unmounting never re-measures the
                 prose column, so its `layout` glide would not fire and the
                 column would snap to its new centered position. */}
-            <LayoutGroup>
-
-            <AnimatePresence initial={false}>
-              {isEmpty && (
-                <motion.div
-                  key="empty-state"
-                  className="absolute inset-0 flex flex-col items-center justify-center text-center"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0, filter: "blur(6px)", transition: { duration: 0.3 } }}
-                >
-                  <AgentSymbol playing={busy} className="mb-5 h-6 w-6 text-foreground/70" />
-                  <h1 className="font-display text-4xl font-normal tracking-tight text-foreground">
-                    What are we making today?
-                  </h1>
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    Say anything below, we'll take it from there
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            {!isEmpty && (
-              <>
-                {/* Agent message column — 8 cols. layout="position" glides it
+                <LayoutGroup>
+                  <AnimatePresence initial={false}>
+                    {isEmpty && (
+                      <motion.div
+                        key="empty-state"
+                        className="absolute inset-0 flex flex-col items-center justify-center text-center"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0, filter: "blur(6px)", transition: { duration: 0.3 } }}
+                      >
+                        <AgentSymbol playing={busy} className="mb-5 h-6 w-6 text-foreground/70" />
+                        <h1 className="font-display text-4xl font-normal tracking-tight text-foreground">
+                          What are we making today?
+                        </h1>
+                        <p className="mt-3 text-sm text-muted-foreground">
+                          Say anything below, we'll take it from there
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  {!isEmpty && (
+                    <>
+                      {/* Agent message column — 8 cols. layout="position" glides it
                     to its new grid-centered position when a sibling zone
                     collapses instead of snapping there in one frame. Position
                     ONLY — full `layout` would also FLIP-scale the box when its
                     height changes between turns, visibly squishing/stretching
                     the message text mid-glide. */}
-                <motion.div
-                  ref={proseColRef}
-                  layout={zoneLayout ? "position" : false}
-                  transition={{ layout: SPRING }}
-                  className="col-span-8 col-start-5 flex flex-col gap-3"
-                >
-                  {/* Last user prompt as small context — cross-fades between turns */}
-                  {lastUserText && (
-                    <FadeSwap id={lastUserText}>
-                      <div className="flex gap-2 text-sm text-muted-foreground">
-                        <span className="opacity-40">|</span>
-                        <span className="text-foreground/80">{lastUserText}</span>
-                      </div>
-                    </FadeSwap>
-                  )}
+                      <motion.div
+                        ref={proseColRef}
+                        layout={zoneLayout ? "position" : false}
+                        transition={{ layout: SPRING }}
+                        className="col-span-8 col-start-5 flex flex-col gap-3"
+                      >
+                        {/* Last user prompt as small context — cross-fades between turns */}
+                        {lastUserText && (
+                          <FadeSwap id={lastUserText}>
+                            <div className="flex gap-2 text-sm text-muted-foreground">
+                              <span className="opacity-40">|</span>
+                              <span className="text-foreground/80">{lastUserText}</span>
+                            </div>
+                          </FadeSwap>
+                        )}
 
-                  {/* Agent message + status, split into two zones: the message
+                        {/* Agent message + status, split into two zones: the message
                       is big display text on top; the status is a small muted
                       line below, with the glyph beside it. Delivery is
                       SEQUENCED as two messages: the acknowledgement of the
@@ -1618,209 +1720,237 @@ export function AgentShell(props: AgentShellProps) {
                       the question follows. mode="wait" serializes the swap.
                       Inline edits (popup/sidebar) leave this zone untouched —
                       the stage stays exactly as-is while they run. */}
-                  {(
-                    <div className="flex min-w-0 flex-col gap-4">
-                      <AnimatePresence mode="wait" custom={navDir} initial={false} onExitComplete={bumpLayout}>
-                        {showAckMessage ? (
-                          <motion.div
-                            key={`ack-${displayAck}`}
-                            className="flex min-w-0 flex-col gap-1"
-                            variants={turnZoneV}
-                            custom={navDir}
-                            initial="initial"
-                            animate="animate"
-                            exit="exit"
-                          >
-                            <WordsRamp
-                              text={displayAck}
-                              className="font-display text-2xl font-medium leading-snug tracking-tight text-foreground"
-                            />
-                          </motion.div>
-                        ) : showTurnProse ? (
-                          <motion.div
-                            key={`turn-${activeAssistantId ?? "none"}`}
-                            className="flex min-w-0 flex-col gap-1"
-                            variants={turnZoneV}
-                            custom={navDir}
-                            initial="initial"
-                            animate="animate"
-                            exit="exit"
-                          >
-                            <AssistantMessage text={activeProse} />
-                          </motion.div>
-                        ) : !activeProse && !busy ? (
-                          <motion.div
-                            key="idle-hi"
-                            className="font-display text-2xl font-medium leading-snug tracking-tight text-foreground/40"
-                            variants={turnZoneV}
-                            custom={navDir}
-                            initial="initial"
-                            animate="animate"
-                            exit="exit"
-                          >
-                            Hi — describe what you'd like to make and I'll get started.
-                          </motion.div>
-                        ) : null}
-                      </AnimatePresence>
+                        {
+                          <div className="flex min-w-0 flex-col gap-4">
+                            <AnimatePresence
+                              mode="wait"
+                              custom={navDir}
+                              initial={false}
+                              onExitComplete={bumpLayout}
+                            >
+                              {showAckMessage ? (
+                                <motion.div
+                                  key={`ack-${displayAck}`}
+                                  className="flex min-w-0 flex-col gap-1"
+                                  variants={turnZoneV}
+                                  custom={navDir}
+                                  initial="initial"
+                                  animate="animate"
+                                  exit="exit"
+                                >
+                                  <WordsRamp
+                                    text={displayAck}
+                                    className="font-display text-2xl font-medium leading-snug tracking-tight text-foreground"
+                                  />
+                                </motion.div>
+                              ) : showTurnProse ? (
+                                <motion.div
+                                  key={`turn-${activeAssistantId ?? "none"}`}
+                                  className="flex min-w-0 flex-col gap-1"
+                                  variants={turnZoneV}
+                                  custom={navDir}
+                                  initial="initial"
+                                  animate="animate"
+                                  exit="exit"
+                                >
+                                  <AssistantMessage text={activeProse} />
+                                </motion.div>
+                              ) : !activeProse && !busy ? (
+                                <motion.div
+                                  key="idle-hi"
+                                  className="font-display text-2xl font-medium leading-snug tracking-tight text-foreground/40"
+                                  variants={turnZoneV}
+                                  custom={navDir}
+                                  initial="initial"
+                                  animate="animate"
+                                  exit="exit"
+                                >
+                                  Hi — describe what you'd like to make and I'll get started.
+                                </motion.div>
+                              ) : null}
+                            </AnimatePresence>
 
-                      <div className="flex items-center gap-2">
-                        <AgentSymbol
-                          playing={busy}
-                          className={cn(
-                            "h-5 w-5 shrink-0 text-[#969098]",
-                            !busy && "agent-symbol-pulse",
-                          )}
-                        />
-                        {/* Status swaps animate (fade + move up); while busy
+                            <div className="flex items-center gap-2">
+                              <AgentSymbol
+                                playing={busy}
+                                className={cn(
+                                  "h-5 w-5 shrink-0 text-[#969098]",
+                                  !busy && "agent-symbol-pulse",
+                                )}
+                              />
+                              {/* Status swaps animate (fade + move up); while busy
                             the shimmer's ::after paints the sweeping gradient
                             clipped to a data-text duplicate of the glyphs. */}
-                        <FadeSwap id={statusText} className="min-w-0">
-                          <span
-                            className={cn(
-                              "text-sm",
-                              busy ? "agent-status-shimmer" : "text-foreground/40",
-                            )}
-                            data-text={busy ? statusText : undefined}
-                          >
-                            {statusText}
-                          </span>
-                        </FadeSwap>
-                      </div>
-                    </div>
-                  )}
+                              <FadeSwap id={statusText} className="min-w-0">
+                                <span
+                                  className={cn(
+                                    "text-sm",
+                                    busy ? "agent-status-shimmer" : "text-foreground/40",
+                                  )}
+                                  data-text={busy ? statusText : undefined}
+                                >
+                                  {statusText}
+                                </span>
+                              </FadeSwap>
+                            </div>
+                          </div>
+                        }
 
-                  {/* Error banner */}
-                  {error && (
-                    <div className="flex items-center justify-between gap-4 rounded-2xl border border-destructive/40 bg-destructive/10 px-5 py-3 text-sm text-destructive">
-                      <span>{describeChatError(error).message}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          clearError();
-                          void regenerate();
-                        }}
-                        disabled={busy}
-                        className="shrink-0 rounded-full border border-destructive/40 px-3 py-1 text-xs font-medium transition hover:bg-destructive/10 disabled:opacity-40"
-                      >
-                        Retry
-                      </button>
-                    </div>
-                  )}
-                </motion.div>
+                        {/* Error banner */}
+                        {error && (
+                          <div className="flex items-center justify-between gap-4 rounded-2xl border border-destructive/40 bg-destructive/10 px-5 py-3 text-sm text-destructive">
+                            <span>{describeChatError(error).message}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                clearError();
+                                void regenerate();
+                              }}
+                              disabled={busy}
+                              className="shrink-0 rounded-full border border-destructive/40 px-3 py-1 text-xs font-medium transition hover:bg-destructive/10 disabled:opacity-40"
+                            >
+                              Retry
+                            </button>
+                          </div>
+                        )}
+                      </motion.div>
 
-
-                {/* Gen UI column — 10 cols, centered. While streaming, the
+                      {/* Gen UI column — 10 cols, centered. While streaming, the
                     card renders as soon as the live turn's blocks are fully
                     parsed — never from half-streamed JSON, never a previous
                     turn's card resurrected during busy. Keyed presence: the
                     outgoing card eases out (AnimatePresence keeps it mounted
                     with frozen props during exit) instead of jump-cutting. */}
-                <AnimatePresence mode="popLayout" custom={navDir} initial={false} onExitComplete={bumpLayout}>
-                  {showSkeleton ? (
-                    <motion.div
-                      key="stage-skeleton"
-                      className={
-                        composingHint === "stage"
-                          ? "col-span-14 col-start-2 mt-6"
-                          : "col-span-10 col-start-4 mt-6"
-                      }
-                      variants={skeletonVariants}
-                      custom={navDir}
-                      initial="initial"
-                      animate="animate"
-                      exit="exit"
-                    >
-                      <StageSkeleton hint={composingHint} />
-                    </motion.div>
-                  ) : showCardZone ? (
-                    <motion.div
-                      key={`card-${activeAssistantId ?? "none"}`}
-                      className="col-span-10 col-start-4 mt-6"
-                      variants={cardVariants}
-                      custom={navDir}
-                      initial="initial"
-                      animate="animate"
-                      exit="exit"
-                    >
-                      <GenerativeCard
-                        html={activeHtml}
-                        onAnswer={handleCardAnswer}
-                        assets={assets}
-                        projectId={projectId}
-                        seedKey={activeAssistantId ?? undefined}
-                        onIntent={dispatchIntent}
-                        onInlineAsk={askInline}
-                      />
-                    </motion.div>
-                  ) : showRenderProgress ? (
-                    <motion.div
-                      key="stage-render-progress"
-                      className="col-span-10 col-start-4 mt-6"
-                      variants={skeletonVariants}
-                      custom={navDir}
-                      initial="initial"
-                      animate="animate"
-                      exit="exit"
-                    >
-                      <StageRenderProgress
-                        label={renderProgressLabel}
-                        aspectRatio={project.meta.aspectRatio}
-                      />
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>
+                      <AnimatePresence
+                        mode="popLayout"
+                        custom={navDir}
+                        initial={false}
+                        onExitComplete={bumpLayout}
+                      >
+                        {showSkeleton ? (
+                          <motion.div
+                            key="stage-skeleton"
+                            className={
+                              composingHint === "stage"
+                                ? "col-span-14 col-start-2 mt-6"
+                                : "col-span-10 col-start-4 mt-6"
+                            }
+                            variants={skeletonVariants}
+                            custom={navDir}
+                            initial="initial"
+                            animate="animate"
+                            exit="exit"
+                          >
+                            <StageSkeleton hint={composingHint} />
+                          </motion.div>
+                        ) : showCardZone ? (
+                          <motion.div
+                            key={`card-${activeAssistantId ?? "none"}`}
+                            className="col-span-10 col-start-4 mt-6"
+                            variants={cardVariants}
+                            custom={navDir}
+                            initial="initial"
+                            animate="animate"
+                            exit="exit"
+                          >
+                            <GenerativeCard
+                              html={activeHtml}
+                              onAnswer={handleCardAnswer}
+                              assets={assets}
+                              projectId={projectId}
+                              seedKey={activeAssistantId ?? undefined}
+                              onIntent={dispatchIntent}
+                              onInlineAsk={askInline}
+                            />
+                          </motion.div>
+                        ) : showRenderProgress ? (
+                          <motion.div
+                            key="stage-render-progress"
+                            className="col-span-10 col-start-4 mt-6"
+                            variants={skeletonVariants}
+                            custom={navDir}
+                            initial="initial"
+                            animate="animate"
+                            exit="exit"
+                          >
+                            <StageRenderProgress
+                              label={renderProgressLabel}
+                              aspectRatio={project.meta.aspectRatio}
+                            />
+                          </motion.div>
+                        ) : null}
+                      </AnimatePresence>
 
-                {/* Stage generation column — full width, capped to remaining viewport */}
-                <AnimatePresence mode="popLayout" custom={navDir} initial={false} onExitComplete={bumpLayout}>
-                  {showStageZone && (
-                    <motion.div
-                      key={`stage-${activeAssistantId ?? "none"}`}
-                      className="col-span-14 col-start-2 mt-6 flex min-h-0 flex-col"
-                      style={{ maxHeight: stageMaxHeight, height: stageMaxHeight }}
-                      variants={stageVariants}
-                      custom={navDir}
-                      initial="initial"
-                      animate="animate"
-                      exit="exit"
-                    >
-                      <StageGenerationView
-                        gen={activeStageGen}
-                        project={project}
-                        assets={assets}
-                        onAnswer={(v, next, ack) => handleCardAnswer({ summary: v, assets: [], next, ack })}
-                        onPatch={onPatch}
-                        onAgentAssist={askAgentInline}
-                        onIntent={dispatchIntent}
-                        busyField={busyField}
-                      />
-                    </motion.div>
+                      {/* Stage generation column — full width, capped to remaining viewport */}
+                      <AnimatePresence
+                        mode="popLayout"
+                        custom={navDir}
+                        initial={false}
+                        onExitComplete={bumpLayout}
+                      >
+                        {showStageZone && (
+                          <motion.div
+                            key={`stage-${activeAssistantId ?? "none"}`}
+                            className="col-span-14 col-start-2 mt-6 flex min-h-0 flex-col"
+                            style={{ maxHeight: stageMaxHeight, height: stageMaxHeight }}
+                            variants={stageVariants}
+                            custom={navDir}
+                            initial="initial"
+                            animate="animate"
+                            exit="exit"
+                          >
+                            <StageGenerationView
+                              gen={activeStageGen}
+                              project={project}
+                              assets={assets}
+                              onAnswer={(v, next, ack) =>
+                                handleCardAnswer({ summary: v, assets: [], next, ack })
+                              }
+                              onPatch={onPatch}
+                              onAgentAssist={askAgentInline}
+                              onIntent={dispatchIntent}
+                              busyField={busyField}
+                            />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </>
                   )}
-                </AnimatePresence>
-              </>
-            )}
-            </LayoutGroup>
-          </div>
+                </LayoutGroup>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
       {/* --- Top-center project pill (outside shell) --- */}
-      <div ref={topBandRef} className="pointer-events-none fixed inset-x-0 top-4 z-40 flex justify-center">
+      <div
+        ref={topBandRef}
+        className="pointer-events-none fixed inset-x-0 top-4 z-40 flex justify-center"
+      >
         <button
           type="button"
           onClick={onOpenProjectSwitcher}
           className="group pointer-events-auto flex h-12 items-center gap-2 rounded-2xl bg-foreground px-4 py-3 text-[color:var(--content-light-secondary)] transition hover:opacity-95"
-          style={{ fontFamily: '"Telka Extended", "Telka", system-ui, sans-serif', fontWeight: 500, fontSize: 16, lineHeight: 1 }}
+          style={{
+            fontFamily: '"Telka Extended", "Telka", system-ui, sans-serif',
+            fontWeight: 500,
+            fontSize: 16,
+            lineHeight: 1,
+          }}
         >
           {projectThumbUrl ? (
-            <img src={projectThumbUrl} alt="" className="h-6 w-6 shrink-0 rounded-md object-cover" />
+            <img
+              src={projectThumbUrl}
+              alt=""
+              className="h-6 w-6 shrink-0 rounded-md object-cover"
+            />
           ) : (
             <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-background/10">
               <Sparkles className="h-3.5 w-3.5" />
             </span>
           )}
-          <span className="max-w-[24rem] truncate">
-            {projectTitle || "Untitled project"}
-          </span>
+          <span className="max-w-[24rem] truncate">{projectTitle || "Untitled project"}</span>
           <ChevronDown className="h-3.5 w-3.5 opacity-70 transition group-hover:opacity-100" />
         </button>
       </div>
@@ -1860,9 +1990,7 @@ export function AgentShell(props: AgentShellProps) {
         >
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
           <span className="uppercase tracking-wider opacity-60">Skill</span>
-          <span className="truncate max-w-[14rem]">
-            {selectedApp?.label ?? "None selected"}
-          </span>
+          <span className="truncate max-w-[14rem]">{selectedApp?.label ?? "None selected"}</span>
         </button>
       </div>
 
@@ -1894,7 +2022,10 @@ export function AgentShell(props: AgentShellProps) {
       </AnimatePresence>
 
       {/* --- Bottom cluster (outside shell) --- */}
-      <div ref={bottomBandRef} className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex flex-col items-center gap-3 px-6">
+      <div
+        ref={bottomBandRef}
+        className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex flex-col items-center gap-3 px-6"
+      >
         {isEmpty && (
           <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-2">
             {SUGGESTIONS.map((s) => (
@@ -1933,7 +2064,6 @@ export function AgentShell(props: AgentShellProps) {
           >
             <LayoutGrid className="h-4 w-4" />
           </button>
-
 
           <div className="flex h-[56px] items-center gap-2 rounded-[24px] border border-border bg-card p-2">
             <button
@@ -1987,7 +2117,6 @@ export function AgentShell(props: AgentShellProps) {
               </button>
             ) : null}
           </div>
-
         </div>
       </div>
 
@@ -2007,10 +2136,7 @@ export function AgentShell(props: AgentShellProps) {
 
       {/* Drop files anywhere on the stage to hand them to the agent. Gated
           while busy or the picker is open so we never double-handle a drop. */}
-      <StageDropzone
-        onDropFiles={handleStageDrop}
-        disabled={busy || attachOpen}
-      />
+      <StageDropzone onDropFiles={handleStageDrop} disabled={busy || attachOpen} />
 
       {/* Hidden toolbar wiring so agent-mode users can still change model via
           the existing popover if the app menu opens it (kept off-screen). */}
@@ -2023,23 +2149,14 @@ export function AgentShell(props: AgentShellProps) {
           <TranscriptPanel messages={messages} onClose={() => setTranscriptOpen(false)} />
         )}
         {skillEditorOpen && (
-          <SkillEditorPanel
-            selectedApp={selectedApp}
-            onClose={() => setSkillEditorOpen(false)}
-          />
+          <SkillEditorPanel selectedApp={selectedApp} onClose={() => setSkillEditorOpen(false)} />
         )}
       </AnimatePresence>
     </>
   );
 }
 
-function TranscriptPanel({
-  messages,
-  onClose,
-}: {
-  messages: UIMessage[];
-  onClose: () => void;
-}) {
+function TranscriptPanel({ messages, onClose }: { messages: UIMessage[]; onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -2158,7 +2275,8 @@ function formatToolRow(p: ToolPart): string {
   }
   if (name === "render_turn") {
     const input = p.input as { blocks?: Array<{ type?: string }> } | undefined;
-    const output = p.output as { ok?: boolean; turn?: { blocks?: Array<{ type?: string }> } } | undefined;
+    const output = p.output as
+      { ok?: boolean; turn?: { blocks?: Array<{ type?: string }> } } | undefined;
     const source = output?.turn?.blocks ?? input?.blocks ?? [];
     const types = source.map((b) => b?.type ?? "?").join(", ");
     return `render_turn · ${state}${types ? ` · blocks: [${types}]` : ""}`;
@@ -2323,9 +2441,7 @@ function formatTurnTranscript(turn: RenderTurn): string {
     switch (block.type) {
       case "options":
         parts.push(
-          block.items
-            .map((i) => `• ${i.title}${i.subtitle ? ` — ${i.subtitle}` : ""}`)
-            .join("\n"),
+          block.items.map((i) => `• ${i.title}${i.subtitle ? ` — ${i.subtitle}` : ""}`).join("\n"),
         );
         break;
       case "actions":
@@ -2358,7 +2474,7 @@ function formatTurnTranscript(turn: RenderTurn): string {
       case "moodboard": {
         const bits = block.items.map((t) =>
           t.kind === "image"
-            ? t.label ?? "image"
+            ? (t.label ?? "image")
             : t.kind === "palette"
               ? `palette ${t.colors.join(" ")}`
               : `type "${t.text.replace(/\n/g, " ")}"`,
@@ -2373,9 +2489,7 @@ function formatTurnTranscript(turn: RenderTurn): string {
           .map((i) => `• ${i.meta ? `${i.meta} — ` : ""}${i.text}`)
           .join("\n");
         const actions = (block.actions ?? []).map((a) => `[${a.label}]`).join("  ");
-        parts.push(
-          [block.title, items, actions].filter(Boolean).join("\n"),
-        );
+        parts.push([block.title, items, actions].filter(Boolean).join("\n"));
         break;
       }
       case "storyboard": {
@@ -2386,9 +2500,7 @@ function formatTurnTranscript(turn: RenderTurn): string {
           })
           .join("\n");
         const actions = (block.actions ?? []).map((a) => `[${a.label}]`).join("  ");
-        parts.push(
-          [block.title, items, actions].filter(Boolean).join("\n"),
-        );
+        parts.push([block.title, items, actions].filter(Boolean).join("\n"));
         break;
       }
       case "stage": {
@@ -2416,7 +2528,10 @@ function formatAssistantTranscript(raw: string): string {
   // Prefer explicit prose / ack blocks when present.
   const proseMatch = raw.match(/<p[^>]*data-(?:prose|ack)[^>]*>([\s\S]*?)<\/p>/i);
   const lead = proseMatch
-    ? proseMatch[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
+    ? proseMatch[1]
+        .replace(/<[^>]+>/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
     : "";
 
   // Collect option-picker choices, if any.
@@ -2433,7 +2548,10 @@ function formatAssistantTranscript(raw: string): string {
       .replace(/\s+/g, " ")
       .trim();
     const sub = subtitle
-      ? subtitle.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
+      ? subtitle
+          .replace(/<[^>]+>/g, "")
+          .replace(/\s+/g, " ")
+          .trim()
       : "";
     if (label) options.push(sub ? `${label} — ${sub}` : label);
   }
@@ -2456,7 +2574,6 @@ function formatAssistantTranscript(raw: string): string {
   if (!parts.length && fallback) parts.push(fallback);
   return parts.join("\n\n");
 }
-
 
 // ---------- primitives ----------
 
@@ -2520,10 +2637,30 @@ type Suggestion = {
 };
 
 const SUGGESTIONS: Suggestion[] = [
-  { label: "Music Video", prompt: "Music video", icon: Music2, gradient: "linear-gradient(135deg,#1F1147 0%,#F27A54 100%)" },
-  { label: "30s Product Ad", prompt: "30-second product ad", icon: ShoppingBag, gradient: "linear-gradient(135deg,#BFD4E6 0%,#6D8FA8 100%)" },
-  { label: "2min Short Drama", prompt: "Short drama, 2 minutes", icon: Film, gradient: "linear-gradient(135deg,#7A5A3A 0%,#2B1E12 100%)" },
-  { label: "Fashion TikTok Hook", prompt: "TikTok hook — fashion", icon: Shirt, gradient: "linear-gradient(135deg,#C0392B 0%,#5A1A12 100%)" },
+  {
+    label: "Music Video",
+    prompt: "Music video",
+    icon: Music2,
+    gradient: "linear-gradient(135deg,#1F1147 0%,#F27A54 100%)",
+  },
+  {
+    label: "30s Product Ad",
+    prompt: "30-second product ad",
+    icon: ShoppingBag,
+    gradient: "linear-gradient(135deg,#BFD4E6 0%,#6D8FA8 100%)",
+  },
+  {
+    label: "2min Short Drama",
+    prompt: "Short drama, 2 minutes",
+    icon: Film,
+    gradient: "linear-gradient(135deg,#7A5A3A 0%,#2B1E12 100%)",
+  },
+  {
+    label: "Fashion TikTok Hook",
+    prompt: "TikTok hook — fashion",
+    icon: Shirt,
+    gradient: "linear-gradient(135deg,#C0392B 0%,#5A1A12 100%)",
+  },
 ];
 
 function SuggestionChip({

@@ -2,56 +2,19 @@
 // Server-side Supabase client with service role key - bypasses RLS.
 // Use this for admin operations in server functions and server routes only.
 // For user-authenticated queries (with RLS), use the auth middleware instead.
-import { createClient } from '@supabase/supabase-js';
+// ---------------------------------------------------------------------------
+// LOCAL MODE: Supabase is disabled for local development. The admin client is
+// routed through the in-memory local shim so server functions run without a
+// hosted database (and without needing MY_SUPABASE_SERVICE_ROLE_KEY).
+//
+// The original service-role client is preserved in git history (before the
+// "localhost" branch). Restore it there to re-enable Supabase.
+// ---------------------------------------------------------------------------
 import type { Database } from './types';
-import { MY_SUPABASE_URL } from './my-config';
-
-function isNewSupabaseApiKey(value: string): boolean {
-  return value.startsWith('sb_publishable_') || value.startsWith('sb_secret_');
-}
-
-function createSupabaseFetch(supabaseKey: string): typeof fetch {
-  return (input, init) => {
-    const headers = new Headers(
-      typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined,
-    );
-
-    if (init?.headers) {
-      new Headers(init.headers).forEach((value, key) => headers.set(key, value));
-    }
-
-    // New Supabase API keys are opaque strings, not bearer JWTs.
-    if (isNewSupabaseApiKey(supabaseKey) && headers.get('Authorization') === `Bearer ${supabaseKey}`) {
-      headers.delete('Authorization');
-    }
-
-    headers.set('apikey', supabaseKey);
-    return fetch(input, { ...init, headers });
-  };
-}
+import { createLocalClient } from '@/lib/local-database-shim';
 
 function createSupabaseAdminClient() {
-  // Personal Supabase project. URL is hardcoded; service role key comes from
-  // the MY_SUPABASE_SERVICE_ROLE_KEY secret.
-  const SUPABASE_URL = MY_SUPABASE_URL;
-  const SUPABASE_SERVICE_ROLE_KEY = process.env.MY_SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!SUPABASE_SERVICE_ROLE_KEY) {
-    const message = `Missing environment variable MY_SUPABASE_SERVICE_ROLE_KEY. Add it in project secrets.`;
-    console.error(`[Supabase] ${message}`);
-    throw new Error(message);
-  }
-
-  return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    global: {
-      fetch: createSupabaseFetch(SUPABASE_SERVICE_ROLE_KEY),
-    },
-    auth: {
-      storage: undefined,
-      persistSession: false,
-      autoRefreshToken: false,
-    }
-  });
+  return createLocalClient<Database>();
 }
 
 let _supabaseAdmin: ReturnType<typeof createSupabaseAdminClient> | undefined;
