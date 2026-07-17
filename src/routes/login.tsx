@@ -3,10 +3,11 @@ import { useEffect, useState } from "react";
 import { z } from "zod";
 import { PikaWordmark } from "@/components/pika-wordmark";
 import { getBrowserSupabase } from "@/lib/supabase-browser";
+import { useServerFn } from "@tanstack/react-start";
+import { unlockSite } from "@/lib/gate.functions";
 
 const searchSchema = z.object({
   redirect: z.string().max(500).optional(),
-  mode: z.enum(["signin", "signup"]).optional(),
 });
 
 export const Route = createFileRoute("/login")({
@@ -22,10 +23,10 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const { redirect, mode: modeParam } = Route.useSearch();
+  const { redirect } = Route.useSearch();
+  const unlock = useServerFn(unlockSite);
 
-  const [mode, setMode] = useState<"signin" | "signup">(modeParam ?? "signin");
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -47,40 +48,18 @@ function LoginPage() {
     setBusy(true);
     try {
       const client = getBrowserSupabase();
-      if (!client) throw new Error("Hosted auth is not configured for this build.");
-      const { error: authErr } =
-        mode === "signup"
-          ? await client.auth.signUp({
-              email,
-              password,
-              options: { emailRedirectTo: window.location.origin },
-            })
-          : await client.auth.signInWithPassword({ email, password });
-      if (authErr) throw authErr;
-      void navigate({ to: target, replace: true });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const google = async () => {
-    setError(null);
-    setBusy(true);
-    try {
-      const client = getBrowserSupabase();
-      if (!client) throw new Error("Hosted auth is not configured for this build.");
-      const { error: authErr } = await client.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}${
-            target.startsWith("/") ? target : "/projects"
-          }`,
-        },
+      if (!client) throw new Error("Auth is not configured for this build.");
+      const result = await unlock({ data: { username, password } });
+      if (!result.ok) {
+        setError("Incorrect username or password");
+        return;
+      }
+      const { error: authErr } = await client.auth.signInWithPassword({
+        email: result.email,
+        password: result.password,
       });
       if (authErr) throw authErr;
-      // Full-page redirect to Google — nothing else to do here.
+      void navigate({ to: target, replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -99,20 +78,20 @@ function LoginPage() {
         className="w-full max-w-2xl rounded-2xl border border-hairline bg-card p-8"
       >
         <h1 className="font-display text-2xl font-semibold tracking-tight">
-          {mode === "signup" ? "Create account" : "Sign in"}
+          Enter password
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {mode === "signup" ? "Start using the Pika agent." : "Welcome back."}
+          This studio is private. Enter your access credentials to continue.
         </p>
 
         <label className="mt-5 block text-sm">
-          <span className="text-foreground/80">Email</span>
+          <span className="text-foreground/80">Username</span>
           <input
-            type="email"
+            type="text"
             required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
             className="mt-1 h-11 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
           />
         </label>
@@ -121,7 +100,7 @@ function LoginPage() {
           <input
             type="password"
             required
-            autoComplete={mode === "signup" ? "new-password" : "current-password"}
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="mt-1 h-11 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
@@ -139,28 +118,8 @@ function LoginPage() {
           disabled={busy}
           className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-full bg-foreground px-4 text-sm font-semibold text-background transition hover:opacity-90 disabled:opacity-50"
         >
-          {busy ? "…" : mode === "signup" ? "Create account" : "Sign in"}
+          {busy ? "…" : "Enter"}
         </button>
-
-        <button
-          type="button"
-          onClick={google}
-          disabled={busy}
-          className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-full border border-hairline bg-background px-4 text-sm font-semibold text-foreground transition hover:bg-muted disabled:opacity-50"
-        >
-          Continue with Google
-        </button>
-
-        <p className="mt-4 text-center text-sm text-muted-foreground">
-          {mode === "signup" ? "Already have an account?" : "Don't have an account?"}{" "}
-          <button
-            type="button"
-            className="font-medium text-foreground underline underline-offset-4"
-            onClick={() => setMode(mode === "signup" ? "signin" : "signup")}
-          >
-            {mode === "signup" ? "Sign in" : "Create one"}
-          </button>
-        </p>
       </form>
     </main>
   );
