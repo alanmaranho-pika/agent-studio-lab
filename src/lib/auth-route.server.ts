@@ -7,9 +7,12 @@ export async function requireUser(request: Request): Promise<AuthedUser> {
   if (!token) throw unauthorized("Missing bearer token");
 
   const { createClient } = await import("@supabase/supabase-js");
+  const { MY_SUPABASE_URL, MY_SUPABASE_PUBLISHABLE_KEY } = await import(
+    "@/integrations/supabase/my-config"
+  );
   const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_PUBLISHABLE_KEY!,
+    MY_SUPABASE_URL,
+    MY_SUPABASE_PUBLISHABLE_KEY,
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
   const { data, error } = await supabase.auth.getUser(token);
