@@ -1,53 +1,70 @@
-## Problem
+## Important constraint to know up front
 
-Two implementations of the inline "Ask agent to rework this field" UI exist:
+Lovable Cloud cannot be disconnected from a project once it's been added — that's a platform limitation, not something I can override in code. In practice this means:
 
-- **Canonical (keep)** — `CaptionAskPopover` in `src/components/studio/generative-card.tsx` (~lines 1623–1923). This is the one triggered from images / video / audio pieces and from the field-level "AI Rewrite" button. Pika‑style card: agent‑symbol header + "ESC to Close", `surface-accent-4` user bubble, agent‑symbol "Regenerating…" / "Applied" rows, chip row led by a `+` circle, rounded composer with `ArrowUp` submit.
-- **Legacy (replace)** — `InlineAskSidebar` in `src/components/studio/agent/stage-generations.tsx` (~lines 347–600). Docked sidebar with `Editing` chip, `Current` context block, `Reworking…` bouncing dot, `Check` was/now diff, plain chip row. This is what the user is looking at now on the scene editor.
+- `.env` values `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_SERVICE_ROLE_KEY` are managed by Cloud and get re-injected by the platform.
+- `src/integrations/supabase/client.ts`, `client.server.ts`, `auth-middleware.ts`, `auth-attacher.ts`, `types.ts` are auto-generated against the Cloud project.
+- `supabase/config.toml` pins the Cloud project ref.
+- The `supabase--migration` / `supabase--insert` tools operate on the Cloud project, not your personal one.
 
-The sidebar must render the same panel we built earlier for images.
+To actually run against your personal Supabase we bypass the managed integration and wire in our own client. The managed files stay in the repo but stop being used by app code.
 
-## Approach
+## Plan
 
-Extract the panel content from `CaptionAskPopover` into a reusable component and mount it inside the existing sidebar shell. `CaptionAskPopover`'s outer positioned card also switches to the extracted component so both entry points render from one source.
+### 1. Store your credentials as secrets
+Add these as runtime secrets (I'll open the secure form when we implement):
+- `MY_SUPABASE_URL` — `https://<your-ref>.supabase.co`
+- `MY_SUPABASE_PUBLISHABLE_KEY` — `sb_publishable_...` or legacy anon key
+- `MY_SUPABASE_SERVICE_ROLE_KEY` — service role key
+- `MY_SUPABASE_PROJECT_ID` — your project ref
 
-### New file — `src/components/studio/agent/ask-agent-panel.tsx`
+And browser-visible copies (needed because Vite inlines only `VITE_*` at build):
+- `VITE_MY_SUPABASE_URL`
+- `VITE_MY_SUPABASE_PUBLISHABLE_KEY`
 
-Export `AskAgentPanel` — the header + thread + footer that lives in `CaptionAskPopover` today, with no positioning concerns:
+### 2. Create a parallel, hand-rolled Supabase integration
+New files that read `MY_SUPABASE_*` / `VITE_MY_SUPABASE_*` instead of the Cloud vars:
+- `src/integrations/supabase/my-client.ts` — browser client (mirrors current `client.ts`, same `sb_*` fetch shim).
+- `src/integrations/supabase/my-client.server.ts` — service-role admin client.
+- `src/integrations/supabase/my-auth-middleware.ts` — `requireSupabaseAuth` equivalent bound to your keys.
+- `src/integrations/supabase/my-auth-attacher.ts` — bearer attacher for server-fn RPCs.
+- `src/integrations/supabase/my-types.ts` — placeholder `Database` type (regenerated in step 4).
 
-- Props: `title`, `currentValue`, `heading?`, `suggestions?`, `onAsk`, `onClose`.
-- Owns: `thread` state, composer `value`, `send()` mapping `onAsk` result to `pending / done / error`, auto‑scroll, autofocus, `Enter` / `Shift+Enter` / `Escape`.
-- Renders the exact JSX currently inside `CaptionAskPopover`'s inner card:
-  - Header: `AGENT_SYMBOL_SVG` glyph + title + `ESC` chip + "to Close" label.
-  - Body: empty‑state `currentValue` preview, right‑aligned user bubble on `surface-accent-4`, agent status row with symbol + `Shimmer` "Regenerating…" / "Applied", destructive error block.
-  - Footer: chip row led by a `+` circle button, then `suggestions ?? QUICK_CAPTION_INSTRUCTIONS`; rounded composer input with `ArrowUp` submit.
-- Also exports `QUICK_CAPTION_INSTRUCTIONS`, `QUICK_MEDIA_INSTRUCTIONS`, `quickInstructionsFor`, and re-exports the `InlineAskResult` type so both call sites import from one place.
+The generated Lovable files are left untouched so the platform doesn't fight our edits.
 
-### Update `generative-card.tsx`
+### 3. Swap every import site
+Replace project-wide:
+- `@/integrations/supabase/client` → `@/integrations/supabase/my-client`
+- `@/integrations/supabase/client.server` → `@/integrations/supabase/my-client.server`
+- `@/integrations/supabase/auth-middleware` → `@/integrations/supabase/my-auth-middleware`
+- `@/integrations/supabase/auth-attacher` → `@/integrations/supabase/my-auth-attacher` (in `src/start.ts`)
+- `@/integrations/supabase/types` → `@/integrations/supabase/my-types`
 
-- Delete the local `AskThreadEntry`, quick‑instruction constants, and the entire body of `CaptionAskPopover`.
-- Keep `CaptionAskPopover` as a thin shell: compute `top / left / height` from `rect + placement` exactly as today, render the fixed backdrop + positioned rounded card, and place `<AskAgentPanel …/>` inside it. Public props and all call sites stay unchanged.
+Also update `src/lib/supabase-browser.ts` and `src/lib/auth-route.server.ts` to read the `VITE_MY_*` / `MY_*` vars.
 
-### Update `stage-generations.tsx`
+### 4. Recreate schema in your personal Supabase (you run this)
+I'll produce a single `schema.sql` bundling everything from `supabase/migrations/` plus the two DB functions currently in Cloud (`handle_new_user`, `touch_updated_at`, `set_user_id_from_project`), all GRANTs, RLS policies, and the `project-assets` storage bucket. You paste it into your Supabase SQL editor.
 
-- Replace the entire `InlineAskSidebar` body (Editing chip, Current block, transcript, composer, chip row, `X` close, `Shimmer` "Reworking…", `Check` diff) with `<AskAgentPanel title={openFor.label} currentValue={openFor.value} onAsk={openFor.onAsk} onClose={onClose} />` inside the existing `motion.aside` shell — the 380px docked width, `maxHeight` clamp, and spring entry/exit animation stay.
-- Move `InlineAskResult` to be imported from `ask-agent-panel.tsx`.
-- Drop now‑unused imports (`Check`, `X`, `Shimmer`, `AnimatePresence`, `QUICK_INSTRUCTIONS`, `TranscriptEntry`). `InlineAskContext`, `useInlineAsk`, `AgentAssist`, `busyKey` plumbing all stay so every existing call site keeps working.
+Then regenerate `my-types.ts` locally with the Supabase CLI:
+```
+supabase gen types typescript --project-id <your-ref> > src/integrations/supabase/my-types.ts
+```
+(Or I can inline a `Database` type by hand from the schema — say the word.)
 
-### Behavior parity to preserve
+### 5. Configure auth on your Supabase (you do this in Supabase dashboard)
+- Enable Email provider (and disable auto-confirm if you want confirmation emails).
+- Enable Google provider with your own OAuth client (redirect URLs: `https://<your-ref>.supabase.co/auth/v1/callback` plus the app's origins).
+- Add `Site URL` and additional redirect URLs for the preview + published domains.
 
-- Sidebar entry/exit animation and docked width.
-- `openFor.onAsk(instruction)` remains the sole async path; result shape (`{ ok, assistantText, mediaUrl?, error? }`) unchanged.
-- `Escape` closes the panel from both shells.
-- Quick chips default to `QUICK_CAPTION_INSTRUCTIONS` in both entry points — the sidebar's old `Rewrite / Shorter / More action / Wider shot` list is dropped so images and fields show the same suggestions.
+### 6. Verification
+- Build check.
+- Sign up a new user → confirm a `profiles` row is created by the trigger.
+- Create a project → confirm it appears in your Supabase `projects` table (not the Cloud one).
+- Upload an asset → confirm it lands in your `project-assets` bucket.
 
-### Out of scope
+## What I need from you before build mode
+Just confirm the plan and I'll start with step 1 (opening the secret form). Have your 4 credential values ready.
 
-- No change to who opens the panel, no change to `onAsk` implementations, no change to `CaptionAskPopover`'s positioning math or callers, no backend / server function changes.
-- No visual redesign — the sidebar simply adopts the existing image‑triggered panel look.
-
-## Technical details
-
-- Files: 1 new (`src/components/studio/agent/ask-agent-panel.tsx`), 2 edited (`generative-card.tsx`, `stage-generations.tsx`).
-- Moved imports into the new file: `AGENT_SYMBOL_SVG` from `@/components/studio/agent/agent-symbol`, `ArrowUp` / `Plus` from `lucide-react`, `Shimmer` from `@/components/ai-elements/shimmer`.
-- No route, schema, or public API changes.
+## Follow-ups worth flagging
+- The `supabase--*` tools in this chat will still target Lovable Cloud — schema changes to your personal DB happen via SQL you paste in your own dashboard, not through me.
+- If Lovable Cloud ever wipes/rewrites the `MY_*` secrets or generated files, we'd need to reapply — I don't expect that since the names don't collide with the managed ones, but flagging it.
