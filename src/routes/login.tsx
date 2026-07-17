@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { PikaWordmark } from "@/components/pika-wordmark";
-import { lovable } from "@/integrations/lovable";
 import { getBrowserSupabase } from "@/lib/supabase-browser";
 
 const searchSchema = z.object({
@@ -70,13 +69,18 @@ function LoginPage() {
     setError(null);
     setBusy(true);
     try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+      const client = getBrowserSupabase();
+      if (!client) throw new Error("Hosted auth is not configured for this build.");
+      const { error: authErr } = await client.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}${
+            target.startsWith("/") ? target : "/projects"
+          }`,
+        },
       });
-      if (result.error) throw result.error;
-      if (result.redirected) return; // browser is navigating to Google
-      // Popup flow: session is set, go on.
-      void navigate({ to: target, replace: true });
+      if (authErr) throw authErr;
+      // Full-page redirect to Google — nothing else to do here.
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
