@@ -3,9 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 type BrowserSupabase = typeof supabase;
 
 export function hasBrowserSupabaseConfig(): boolean {
-  return Boolean(
-    import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-  );
+  // Personal Supabase project config is hardcoded — always available.
+  return true;
 }
 
 export function getBrowserSupabase(): BrowserSupabase | null {
