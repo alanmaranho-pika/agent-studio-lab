@@ -22,6 +22,7 @@ import { AgentSymbol } from "@/components/studio/agent/agent-symbol";
 import { EtherealBackdrop } from "@/components/studio/agent/ethereal-backdrop";
 
 import { buildAuthHeaders } from "@/lib/fetch-with-auth";
+import { useProjectJobs } from "@/hooks/use-project-jobs";
 import { cn } from "@/lib/utils";
 import type { ProjectAsset, ProjectPatch, ProjectState } from "@/lib/project-state";
 import {
@@ -693,7 +694,7 @@ export function AgentShell(props: AgentShellProps) {
     onOpenArtifact,
   } = props;
 
-  const { messages, sendMessage, status, error, regenerate, clearError } = useChat({
+  const { messages, setMessages, sendMessage, status, error, regenerate, clearError } = useChat({
     id: projectId,
     messages: initialMessages,
     transport: new DefaultChatTransport({
@@ -701,6 +702,70 @@ export function AgentShell(props: AgentShellProps) {
       headers: () => buildAuthHeaders(),
       body: () => ({ projectId }),
     }),
+  });
+
+  // Background job watcher — run_model_app only QUEUES the fal render (the SSE
+  // turn closes before the clip is done). Without this poll the clip renders
+  // on fal but never lands, so the stage sits on "…rendering" forever. On
+  // completion we append an assistant message carrying an `assetsAppend` patch
+  // (applied by the patch-walking effect below) so the finished clip enters
+  // project state — visible on the timeline/outputs and to the agent's next
+  // turn. Mirrors LegacyStudioShell's watcher.
+  const announcedJobsRef = useRef<Set<string>>(new Set());
+  useProjectJobs(projectId, {
+    onComplete: (job) => {
+      if (announcedJobsRef.current.has(job.jobId)) return;
+      announcedJobsRef.current.add(job.jobId);
+      const label = job.appLabel ?? "Render";
+      const url = job.resultUrl ?? "";
+      const mode = (job.mode ?? "").toLowerCase();
+      const ext = url.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
+      const mime =
+        mode === "video" || ["mp4", "mov", "webm", "m4v"].includes(ext)
+          ? `video/${ext === "mov" ? "quicktime" : ext || "mp4"}`
+          : mode === "audio" || ["mp3", "wav", "m4a", "ogg", "flac"].includes(ext)
+            ? `audio/${ext || "mpeg"}`
+            : `image/${ext || "png"}`;
+      const patch = url
+        ? `<script type="application/json" data-project-patch>${JSON.stringify({
+            assetsAppend: [{ id: job.assetId, url, mime, label }],
+          })}</script>`
+        : "";
+      // Show the finished clip ON the stage as a media card (matches the
+      // `media` block's HTML so it renders inline), not just a text line.
+      const mediaTag = !url
+        ? ""
+        : mime.startsWith("video/")
+          ? `<video src="${url}" class="w-full h-auto rounded-2xl" controls autoplay muted playsinline></video>`
+          : mime.startsWith("audio/")
+            ? `<audio src="${url}" controls class="w-full"></audio>`
+            : `<img src="${url}" class="w-full h-auto rounded-2xl" />`;
+      const body = url
+        ? `<div data-card>${mediaTag}<p data-card-caption>${label} finished.</p></div>${patch}`
+        : `✅ ${label} finished.`;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `job-${job.jobId}`,
+          role: "assistant",
+          parts: [{ type: "text", text: body }],
+        } as UIMessage,
+      ]);
+    },
+    onFail: (job) => {
+      if (announcedJobsRef.current.has(job.jobId)) return;
+      announcedJobsRef.current.add(job.jobId);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `job-${job.jobId}`,
+          role: "assistant",
+          parts: [
+            { type: "text", text: `⚠️ ${job.appLabel ?? "Render"} failed — ${job.error}` },
+          ],
+        } as UIMessage,
+      ]);
+    },
   });
 
   const busy = status === "submitted" || status === "streaming";
@@ -1051,6 +1116,18 @@ export function AgentShell(props: AgentShellProps) {
   useEffect(() => {
     if (showTurnProse && chamberedAck) setChamberedAck(null);
   }, [showTurnProse, chamberedAck]);
+
+  // The echo ("| <what the user just said>") belongs to the FIRST beat of a
+  // turn. When an ack leads, the echo rides in AND exits with it — so the
+  // following question must NOT show it again (it was already answered for).
+  // Latch per answer text: once the ack has carried the echo for this answer,
+  // the prose branch suppresses a redundant re-entry. A turn with no ack never
+  // latches, so its echo shows with the question instead.
+  const echoedWithAckRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (showAckMessage && lastUserText) echoedWithAckRef.current = lastUserText;
+  }, [showAckMessage, lastUserText]);
+  const showProseEcho = !!lastUserText && echoedWithAckRef.current !== lastUserText;
 
   // What appears in the gen-UI slot: the real card / stage view once its
   // blocks are ready, else (while composing) a skeleton of the incoming
@@ -1598,16 +1675,6 @@ export function AgentShell(props: AgentShellProps) {
                   transition={{ layout: SPRING }}
                   className="col-span-8 col-start-5 flex flex-col gap-3"
                 >
-                  {/* Last user prompt as small context — cross-fades between turns */}
-                  {lastUserText && (
-                    <FadeSwap id={lastUserText}>
-                      <div className="flex gap-2 text-sm text-muted-foreground">
-                        <span className="opacity-40">|</span>
-                        <span className="text-foreground/80">{lastUserText}</span>
-                      </div>
-                    </FadeSwap>
-                  )}
-
                   {/* Agent message + status, split into two zones: the message
                       is big display text on top; the status is a small muted
                       line below, with the glyph beside it. Delivery is
@@ -1617,20 +1684,31 @@ export function AgentShell(props: AgentShellProps) {
                       mid-flight), then exits on the standard message exit and
                       the question follows. mode="wait" serializes the swap.
                       Inline edits (popup/sidebar) leave this zone untouched —
-                      the stage stays exactly as-is while they run. */}
+                      the stage stays exactly as-is while they run.
+
+                      The echoed user prompt ("| …") rides INSIDE each turn's
+                      motion.div instead of its own independent FadeSwap, so
+                      it exits/enters as one choreographed piece with the
+                      ack/prose it's answering to — never drifting out of sync. */}
                   {(
                     <div className="flex min-w-0 flex-col gap-4">
                       <AnimatePresence mode="wait" custom={navDir} initial={false} onExitComplete={bumpLayout}>
                         {showAckMessage ? (
                           <motion.div
                             key={`ack-${displayAck}`}
-                            className="flex min-w-0 flex-col gap-1"
+                            className="flex min-w-0 flex-col gap-3"
                             variants={turnZoneV}
                             custom={navDir}
                             initial="initial"
                             animate="animate"
                             exit="exit"
                           >
+                            {lastUserText && (
+                              <div className="flex gap-2 text-sm text-muted-foreground">
+                                <span className="opacity-40">|</span>
+                                <span className="text-foreground/80">{lastUserText}</span>
+                              </div>
+                            )}
                             <WordsRamp
                               text={displayAck}
                               className="font-display text-2xl font-medium leading-snug tracking-tight text-foreground"
@@ -1639,13 +1717,19 @@ export function AgentShell(props: AgentShellProps) {
                         ) : showTurnProse ? (
                           <motion.div
                             key={`turn-${activeAssistantId ?? "none"}`}
-                            className="flex min-w-0 flex-col gap-1"
+                            className="flex min-w-0 flex-col gap-3"
                             variants={turnZoneV}
                             custom={navDir}
                             initial="initial"
                             animate="animate"
                             exit="exit"
                           >
+                            {showProseEcho && (
+                              <div className="flex gap-2 text-sm text-muted-foreground">
+                                <span className="opacity-40">|</span>
+                                <span className="text-foreground/80">{lastUserText}</span>
+                              </div>
+                            )}
                             <AssistantMessage text={activeProse} />
                           </motion.div>
                         ) : !activeProse && !busy ? (

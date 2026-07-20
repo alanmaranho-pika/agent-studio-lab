@@ -18,6 +18,8 @@ type ModelDef = {
 
 const MODELS: ModelDef[] = [
   // Video
+  // Seedance 2.0 lives at the UN-prefixed `bytedance/seedance-2.0/…` on fal —
+  // do NOT add a `fal-ai/` prefix (that path 404s on result; see fal.server.ts).
   { id: "SKL_MODEL_SEEDANCE_2", appId: "model-seedance-2", label: "Seedance 2.0", oneLiner: "Flagship cinematic text-to-video. Best for hero shots.", model: "bytedance/seedance-2.0/text-to-video", mode: "video", matches: ["seedance", "hero shot", "cinematic clip"] },
   { id: "SKL_MODEL_SEEDANCE_2_MINI", appId: "model-seedance-2-mini", label: "Seedance 2.0 Mini", oneLiner: "Fast, lower-cost Seedance — best default for quick clips.", model: "bytedance/seedance-2.0/mini/text-to-video", mode: "video", matches: ["quick clip", "fast video"] },
   { id: "SKL_MODEL_VEO_3", appId: "model-veo-3", label: "Google Veo 3", oneLiner: "Veo 3 cinematic t2v with native audio.", model: "fal-ai/veo3", mode: "video", matches: ["veo", "with sound"] },

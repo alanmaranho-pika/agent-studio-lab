@@ -10,7 +10,7 @@ export const NextHintSchema = z
   .enum(NEXT_UI_HINTS)
   .optional()
   .describe(
-    "What the NEXT turn will most likely show once the user answers — powers the placeholder shown while you compose. Follow your playbook: another question → options; model pick made → media; beats locked → stage; prose-only reply → none.",
+    "What the NEXT turn will most likely show once the user answers — powers the placeholder shown while you compose. Follow your playbook: another question → options; model pick made → media; beats locked → stage; cut ready for review → timeline; prose-only reply → none.",
   );
 
 export const VisualSchema = z.discriminatedUnion("kind", [
@@ -31,9 +31,7 @@ export const VisualSchema = z.discriminatedUnion("kind", [
   }),
   z.object({
     kind: z.literal("image"),
-    url: z
-      .string()
-      .describe("Image URL from project assets / tool results — never invent one"),
+    url: z.string().describe("Image URL from project assets / tool results — never invent one"),
   }),
 ]);
 
@@ -47,9 +45,7 @@ export const OptionItemSchema = z.object({
     ),
   title: z.string().min(1).max(48),
   subtitle: z.string().max(72).optional().describe("One short line, ~6 words"),
-  visual: VisualSchema.optional().describe(
-    "Strongly recommended — options look empty without one",
-  ),
+  visual: VisualSchema.optional().describe("Strongly recommended — options look empty without one"),
   next: NextHintSchema.describe(
     "Per-option override of the turn-level `next` when answers diverge (e.g. 'Upload photo' → upload, 'Describe it' → form)",
   ),

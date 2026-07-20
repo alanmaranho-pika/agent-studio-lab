@@ -17,6 +17,7 @@ import { GalleryBlock, GalleryBlockSchema } from "./gallery/block";
 import { MoodboardBlock, MoodboardBlockSchema } from "./moodboard/block";
 import { ListBlock, ListBlockSchema } from "./list/block";
 import { StoryboardBlock, StoryboardBlockSchema } from "./storyboard/block";
+import { TimelineBlock, TimelineBlockSchema } from "./timeline/block";
 import { StageBlock, StageBlockSchema } from "./stage/block";
 import { ActionsBlock, ActionsBlockSchema } from "./actions/block";
 import { CustomHtmlBlock, CustomHtmlBlockSchema } from "./custom-html/block";
@@ -30,6 +31,7 @@ export const ALL_BLOCKS: BlockDef[] = [
   MoodboardBlock,
   ListBlock,
   StoryboardBlock,
+  TimelineBlock,
   StageBlock,
   ActionsBlock,
   CustomHtmlBlock,
@@ -57,6 +59,7 @@ export const TurnBlockSchema = z.discriminatedUnion("type", [
   MoodboardBlockSchema,
   ListBlockSchema,
   StoryboardBlockSchema,
+  TimelineBlockSchema,
   StageBlockSchema,
   ActionsBlockSchema,
   CustomHtmlBlockSchema,
@@ -80,9 +83,7 @@ export function blockToHtml(block: TurnBlock): string {
  * the payload of the `get_block_reference` tool.
  */
 export function renderBlockCatalog(): string {
-  const lines = ALL_BLOCKS.map(
-    (b) => `- ${b.id} (${b.type}): ${firstLine(b.usageMd)}`,
-  );
+  const lines = ALL_BLOCKS.map((b) => `- ${b.id} (${b.type}): ${firstLine(b.usageMd)}`);
   return `BLOCK CATALOG — the Gen-UI shapes render_turn can emit. IDs (BLK_*) are references; the JSON wire uses the parenthesized \`type\` string.\n${lines.join("\n")}`;
 }
 

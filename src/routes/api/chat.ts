@@ -1576,7 +1576,6 @@ export const Route = createFileRoute("/api/chat")({
               .insert({
                 project_id: projectId as string,
                 user_id: userId,
-                provider: "fal",
                 model: finalModel,
                 app_id: appId,
                 app_label: app.label,

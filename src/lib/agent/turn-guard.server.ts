@@ -40,9 +40,7 @@ export type TurnGuard = {
    * Returns `{ ok: false, errors }` for structural violations the model
    * must fix, or `{ ok: true, turn }` with deterministic repairs applied.
    */
-  finalize: (
-    turn: RenderTurn,
-  ) => { ok: true; turn: RenderTurn } | { ok: false; errors: string[] };
+  finalize: (turn: RenderTurn) => { ok: true; turn: RenderTurn } | { ok: false; errors: string[] };
 };
 
 export function createTurnGuard(): TurnGuard {
@@ -70,11 +68,11 @@ export function createTurnGuard(): TurnGuard {
         );
       }
 
-      // Stage views own the whole stage — no competing interactive block.
-      const hasStage = blocks.some((b) => b.type === "stage");
+      // Stage/timeline views own the whole stage — no competing interactive block.
+      const hasStage = blocks.some((b) => b.type === "stage" || b.type === "timeline");
       if (hasStage && interactive.length > 0) {
         errors.push(
-          "A stage block fills the whole stage — put next steps in its `actions` instead of adding an options/form/upload block.",
+          "A stage/timeline block fills the whole stage — put next steps in its `actions` instead of adding an options/form/upload block.",
         );
       }
 
@@ -153,6 +151,7 @@ export function createTurnGuard(): TurnGuard {
           b.type === "list" ||
           b.type === "storyboard" ||
           b.type === "stage" ||
+          b.type === "timeline" ||
           b.type === "custom_html",
       );
       if (!hasContentBlock && !blocks.some(isInteractiveBlock)) {

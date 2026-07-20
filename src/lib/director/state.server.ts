@@ -74,8 +74,27 @@ export async function mutateProjectState(
     _next_title: nextTitle,
   });
   if (error) {
-    console.error("[director] mutate_state RPC failed:", error);
-    return next;
+    // The serialized-write RPC isn't present in every deployment (e.g. a
+    // personal Supabase without the director migration → PGRST202). Fall
+    // back to a direct update so state still persists — we forgo only the
+    // per-project advisory lock that guards parallel same-turn writes (rare
+    // last-writer-wins), which is far better than silently dropping the
+    // write (renders/uploads would never land on the timeline).
+    const { data: updated, error: updateErr } = await supabaseAdmin
+      .from("projects")
+      .update({
+        project_state: next as unknown as never,
+        ...(nextTitle ? { title: nextTitle } : {}),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", projectId)
+      .select("project_state")
+      .maybeSingle();
+    if (updateErr) {
+      console.error("[director] mutate_state fallback update failed:", updateErr);
+      return next;
+    }
+    return (updated?.project_state as ProjectState | null) ?? next;
   }
   return (written as ProjectState | null) ?? next;
 }

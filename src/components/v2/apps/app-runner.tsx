@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { Loader2, ArrowLeft } from "lucide-react";
 import type { Skill } from "@/lib/skills";
 import { getRecipeForSkill } from "@/lib/app-recipes";
@@ -69,8 +68,6 @@ export function AppRunner({
   const modelApp = isModelApp(skill.id);
   const createProj = useLocalProjectFn(createProject);
   const { signedIn } = useAuthUser();
-  const navigate = useNavigate();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   const [draftProjectId, setDraftProjectId] = useState<string | null>(
     existingProjectId ?? null,
@@ -113,40 +110,6 @@ export function AppRunner({
   // Project is created lazily on first submit (handleSubmit -> ensureProject),
   // so opening an app does not pollute the project list with empty drafts.
 
-  const goToLogin = (draft?: {
-    prompt?: string;
-    assets?: ProjectAsset[];
-    params?: Record<string, string | number | boolean | string[]>;
-    modelOverride?: string;
-  }) => {
-    const qs = typeof window !== "undefined" ? window.location.search : "";
-    const redirect = pathname + qs;
-    if (typeof window !== "undefined") {
-      try {
-        const assets = draft?.assets ?? [];
-        const firstImage = assets.find((a) => a.mime?.startsWith("image/")) ?? assets[0];
-        const payload = {
-          skillId: skill.id,
-          skillLabel: skill.label,
-          prompt: draft?.prompt ?? "",
-          assets,
-          params: draft?.params,
-          modelOverride: draft?.modelOverride,
-          refUrl: firstImage?.url ?? "",
-          refName: firstImage?.name ?? "",
-          ts: Date.now(),
-        };
-        window.sessionStorage.setItem("pika.intent.draft", JSON.stringify(payload));
-      } catch {
-        // ignore storage failures
-      }
-    }
-    void navigate({
-      to: "/login",
-      search: { redirect },
-    });
-  };
-
   const handleSubmit = async ({
     prompt,
     assets,
@@ -160,8 +123,6 @@ export function AppRunner({
     modelOverride?: string;
     intent?: import("@/components/v2/apps/runs-store").TimelineIntent;
   }) => {
-    // Local projects do not require a hosted account.
-    // if (!signedIn) { goToLogin({ prompt, assets, params, modelOverride }); return; }
     const projectId = await ensureProject();
     onStartRun({ skill, projectId, prompt, assets, params, modelOverride, intent });
   };
@@ -250,12 +211,7 @@ export function AppRunner({
                 onSeedConsumed={onSeedConsumed}
                 onSubmit={handleSubmit}
                 onSubViewChange={setSubView}
-                onEnsureProject={async () => {
-                  if (!signedIn) {
-                    goToLogin();
-                    throw new Error("not signed in");
-                  }
-                  return ensureProject();
+                onEnsureProject={async () => {                  return ensureProject();
                 }}
               />
             ) : skill.id === "app-pika-lipsync" ? (
@@ -275,12 +231,7 @@ export function AppRunner({
                 seedAsset={seedAsset ?? null}
                 onSeedConsumed={onSeedConsumed}
                 onSubmit={handleSubmit}
-                onEnsureProject={async () => {
-                  if (!signedIn) {
-                    goToLogin();
-                    throw new Error("not signed in");
-                  }
-                  return ensureProject();
+                onEnsureProject={async () => {                  return ensureProject();
                 }}
               />
 
@@ -292,12 +243,7 @@ export function AppRunner({
                 seedAsset={seedAsset ?? null}
                 onSeedConsumed={onSeedConsumed}
                 onSubmit={handleSubmit}
-                onEnsureProject={async () => {
-                  if (!signedIn) {
-                    goToLogin();
-                    throw new Error("not signed in");
-                  }
-                  return ensureProject();
+                onEnsureProject={async () => {                  return ensureProject();
                 }}
               />
             ) : skill.id === "app-world-cup-2026" ? (
@@ -307,12 +253,7 @@ export function AppRunner({
                 busy={busy}
                 seedAsset={seedAsset ?? null}
                 onSeedConsumed={onSeedConsumed}
-                onEnsureProject={async () => {
-                  if (!signedIn) {
-                    goToLogin();
-                    throw new Error("not signed in");
-                  }
-                  return ensureProject();
+                onEnsureProject={async () => {                  return ensureProject();
                 }}
               />
             ) : skill.id === "app-anime-world-cup-2026" ? (
@@ -322,12 +263,7 @@ export function AppRunner({
                 busy={busy}
                 seedAsset={seedAsset ?? null}
                 onSeedConsumed={onSeedConsumed}
-                onEnsureProject={async () => {
-                  if (!signedIn) {
-                    goToLogin();
-                    throw new Error("not signed in");
-                  }
-                  return ensureProject();
+                onEnsureProject={async () => {                  return ensureProject();
                 }}
               />
             ) : skill.id === "app-time-tourist-v2" ? (
@@ -337,12 +273,7 @@ export function AppRunner({
                 busy={busy}
                 seedAsset={seedAsset ?? null}
                 onSeedConsumed={onSeedConsumed}
-                onEnsureProject={async () => {
-                  if (!signedIn) {
-                    goToLogin();
-                    throw new Error("not signed in");
-                  }
-                  return ensureProject();
+                onEnsureProject={async () => {                  return ensureProject();
                 }}
               />
             ) : modelApp ? (

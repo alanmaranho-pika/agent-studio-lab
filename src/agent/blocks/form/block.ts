@@ -5,7 +5,7 @@ import usageMd from "./block.md?raw";
 
 export const FormBlockSchema = z.object({
   type: z.literal("form"),
-  fields: z.array(FormFieldSchema).min(1).max(4),
+  fields: z.array(FormFieldSchema).min(1).max(2),
   submitLabel: z.string().max(28).optional().describe("Defaults to 'Continue'"),
 });
 

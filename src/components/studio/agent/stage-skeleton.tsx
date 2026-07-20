@@ -68,9 +68,7 @@ const SKELETON_VARIANTS: Record<string, () => ReactNode> = {
     </div>
   ),
   // One wide cinematic slide.
-  storyboard: () => (
-    <Bone className="aspect-[15/8] w-full !rounded-[44px]" />
-  ),
+  storyboard: () => <Bone className="aspect-[15/8] w-full !rounded-[44px]" />,
   list: () => (
     <div className="flex flex-col gap-3">
       {Array.from({ length: 4 }, (_, i) => (
@@ -78,18 +76,25 @@ const SKELETON_VARIANTS: Record<string, () => ReactNode> = {
       ))}
     </div>
   ),
-  form: () => (
-    <Bone className="h-40 w-full !rounded-[24px]" />
-  ),
+  form: () => <Bone className="h-40 w-full !rounded-[24px]" />,
   upload: () => (
     <div className="grid grid-cols-2 gap-4">
       <Bone className="h-[300px] !rounded-[44px]" />
       <Bone className="h-[300px] !rounded-[44px]" />
     </div>
   ),
-  // Full-stage React view (timeline / beats / character).
-  stage: () => (
-    <Bone className="min-h-[320px] w-full flex-1 !rounded-[24px]" />
+  // Full-stage React view (beats / storyboard / character).
+  stage: () => <Bone className="min-h-[320px] w-full flex-1 !rounded-[24px]" />,
+  // Timeline of the cut — player above a clip strip.
+  timeline: () => (
+    <div className="flex flex-col gap-4">
+      <Bone className="aspect-video w-full max-w-3xl self-center !rounded-[24px]" />
+      <div className="flex gap-2">
+        {Array.from({ length: 5 }, (_, i) => (
+          <Bone key={i} className="h-14 flex-1 !rounded-[12px]" />
+        ))}
+      </div>
+    </div>
   ),
   // Generic workspace — used when the shape isn't known yet.
   default: () => (

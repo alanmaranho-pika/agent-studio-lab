@@ -1,6 +1,6 @@
 # BLK_FORM
 
-Structured input — 1–4 named fields the user fills before submitting. Use for briefs, prompts, custom parameters, and any input the app registry describes as `text`, `url`, `number`, `slider`, `color`, `date`, `chips`, or `checkboxes`.
+Structured input — 1–2 named fields the user fills before submitting. Use for briefs, prompts, custom parameters, and any input the app registry describes as `text`, `url`, `number`, `slider`, `color`, `date`, `chips`, or `checkboxes`.
 
 ## When to use
 
@@ -14,6 +14,7 @@ Structured input — 1–4 named fields the user fills before submitting. Use fo
 
 ## Author checklist
 
-- Keep the field count to 1–3. If you need more, split across turns.
+- Keep the field count to 1–2. If you need more, split across turns.
 - Provide `placeholder` for open-ended text. Prefill via `value` when reopening a prior answer.
 - The submit label defaults to "Continue"; override only for a domain-specific verb.
+

@@ -7,7 +7,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuthUser } from "@/hooks/use-auth-user";
@@ -505,37 +504,10 @@ export function ShortFilmPanel({
 
   const suggestFn = useServerFn(suggestShortFilmOptions);
   const qc = useQueryClient();
-  const navigate = useNavigate();
-  const { signedIn, loading: authLoading } = useAuthUser();
+  const { loading: authLoading } = useAuthUser();
 
-  // Server functions in this panel require an authenticated user. If the
-  // visitor is browsing /v2/apps signed-out, bounce them to /login. We seed
-  // `pika.intent.draft` first so the login screen shows the same
-  // "Generating with Short Film — 94%" preview as other apps.
   const requireAuth = (): boolean => {
-    if (authLoading) return false;
-    if (!signedIn) {
-      try {
-        const seeded = entities.find((e) => !!e.image);
-        const draft = {
-          skillId: skill.id,
-          skillLabel: skill.label,
-          prompt: logline.trim(),
-          refUrl: seeded?.image?.url ?? "",
-          refName: seeded?.name ?? "",
-          ts: Date.now(),
-        };
-        window.sessionStorage.setItem("pika.intent.draft", JSON.stringify(draft));
-      } catch {
-        // sessionStorage may be unavailable; login still works without the preview.
-      }
-      void navigate({
-        to: "/login",
-        search: { redirect: window.location.href },
-      });
-      return false;
-    }
-    return true;
+    return !authLoading;
   };
 
   // Mark a generated asset so it shows up in the Outputs panel with the

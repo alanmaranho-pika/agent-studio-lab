@@ -816,30 +816,63 @@ export const GenerativeCard = memo(function GenerativeCard({
         if (hidden) openLibraryPicker(hidden, field ?? attachBtn);
         return;
       }
-      // Field-level "AI Rewrite" button — open the inline-agent popover
-      // anchored on the field, targeting its text input/textarea so the
-      // reworked value lands back in place.
+      // Field-level "AI Rewrite" button — rewrite the field's text IN PLACE
+      // (no popover). Sends the current value with a default "Rewrite"
+      // instruction and drops the reworked copy straight back into the input.
       const rewriteBtn = target.closest<HTMLElement>('[data-field-rewrite]');
       if (rewriteBtn && onInlineAsk) {
         e.preventDefault();
         e.stopPropagation();
+        if (rewriteBtn.getAttribute("data-busy") === "1") return; // in flight
         const field = rewriteBtn.closest<HTMLElement>('.gen-field');
         const input = field?.querySelector<HTMLInputElement | HTMLTextAreaElement>(
           'textarea, input[type="text"], input[type="url"], input[type="email"], input[type="number"], input[type="search"], input:not([type])',
         );
         if (!input || !field) return;
-        pieceElRef.current = input as unknown as HTMLElement;
-        const rect = field.getBoundingClientRect();
+        const current = input.value ?? "";
+        // Nothing to rewrite yet — focus the field so the user can type first.
+        if (!current.trim()) {
+          input.focus();
+          return;
+        }
         const labelEl = field.querySelector<HTMLElement>('.gen-field-label');
         const title = (labelEl?.textContent ?? input.getAttribute("name") ?? "text").trim();
-        setAskPop({
-          mode: "caption",
-          title,
-          currentValue: input.value ?? "",
-          rect: { top: rect.top, left: rect.right + 8, width: 320, height: rect.height },
-          placement: "right",
-          cardTitle: title,
-        });
+        // Busy affordance: swap the label to "Rewriting…" and lock the button.
+        const labelSpan = rewriteBtn.querySelector<HTMLElement>("span");
+        const originalLabel = labelSpan?.textContent ?? "";
+        rewriteBtn.setAttribute("data-busy", "1");
+        rewriteBtn.style.opacity = "0.6";
+        rewriteBtn.style.pointerEvents = "none";
+        if (labelSpan) labelSpan.textContent = "Rewriting…";
+        void (async () => {
+          try {
+            const result = await onInlineAsk({
+              kind: "piece",
+              pieceLabel: title || "text",
+              currentValue: current,
+              cardTitle: title || undefined,
+              instruction: "Rewrite",
+            });
+            if (result.ok && result.assistantText) {
+              input.value = result.assistantText;
+              input.dispatchEvent(new Event("input", { bubbles: true }));
+              input.dispatchEvent(new Event("change", { bubbles: true }));
+              // Brief highlight so the in-place change is unmissable.
+              input.animate(
+                [
+                  { backgroundColor: "rgba(207, 195, 255, 0.45)" },
+                  { backgroundColor: "transparent" },
+                ],
+                { duration: 900, easing: "ease-out" },
+              );
+            }
+          } finally {
+            rewriteBtn.removeAttribute("data-busy");
+            rewriteBtn.style.opacity = "";
+            rewriteBtn.style.pointerEvents = "";
+            if (labelSpan) labelSpan.textContent = originalLabel;
+          }
+        })();
         return;
       }
       // Selection pill — toggleable choice chip. Single-select per data-group

@@ -36,16 +36,17 @@ export type FalSubmitResult = {
   responseUrl: string;
 };
 
-// Normalize a fal model id to the queue path fal actually serves. The Seedance
-// 2.0 family is stored across the app WITHOUT the `fal-ai/` provider prefix
-// (unlike its ByteDance sibling Seedream, which is `fal-ai/bytedance/seedream/…`),
-// so `queue.fal.run/bytedance/seedance-2.0/…` 404s at submit — the reason
-// "Seedance … isn't working." We fix it at the single submission boundary
-// rather than rewriting every catalog/param/comparison string (which are keyed
-// on the un-prefixed id). Other un-prefixed ids (cassetteai/…, openai/…) are
-// valid fal namespaces and are left untouched.
+// fal serves every model at `queue.fal.run/<model-id>` using the id exactly as
+// the catalog stores it — pass through unchanged.
+//
+// GOTCHA: the Seedance 2.0 family lives at the UN-prefixed `bytedance/seedance-2.0/…`
+// (verified: `queue.fal.run/bytedance/seedance-2.0/text-to-video` renders).
+// Prepending `fal-ai/` does NOT 404 at submit — fal's queue optimistically
+// accepts `fal-ai/bytedance/…` as a namespace and returns IN_QUEUE — but the
+// model doesn't exist there, so the job "completes" in ~0.05s and the RESULT
+// fetch 404s ("Path /seedance-2.0/… not found"). That silent failure is what
+// read as "Seedance videos aren't rendering." So never rewrite these ids.
 export function normalizeFalModelPath(model: string): string {
-  if (model.startsWith("bytedance/seedance-2.0/")) return `fal-ai/${model}`;
   return model;
 }
 

@@ -1,32 +1,18 @@
-// Small "agent" glyph — rotated squircle with a matching cutout.
-// Approximates the mark in the design (a 4-petal rotated diamond).
+// The Agent Symbol — canonical static mark for the agent glyph (traced from
+// the design system's agent-symbol.svg export). `AgentMark` is the JSX form;
+// `AGENT_MARK_SVG_MARKUP` is the same path as a raw-HTML string for
+// imperative DOM contexts (gen-option-enhancer's AI Rewrite / Agent Decides
+// icons) that build markup outside React.
+const AGENT_MARK_PATH_D =
+  "M12.0073 1.1665C14.4646 1.16692 16.4151 3.98263 18.171 5.70157C18.2177 5.74733 18.2639 5.7936 18.3097 5.84038C20.0254 7.59601 22.834 9.5457 22.8345 12.0005C22.8345 14.4544 20.0271 16.4035 18.3125 18.1591C18.2657 18.207 18.2183 18.2544 18.1705 18.3012C16.4145 20.0195 14.4642 22.8341 12.0073 22.8345C9.55054 22.8345 7.5983 20.0223 5.84153 18.3048C5.79452 18.2589 5.74802 18.2124 5.70205 18.1654C3.98334 16.4088 1.1665 14.4581 1.1665 12.0005C1.16702 9.54197 3.98412 7.59001 5.70445 5.83366C5.74938 5.78779 5.79481 5.74241 5.84072 5.69753C7.59782 3.97989 9.55015 1.1665 12.0073 1.1665ZM11.6972 6.68251C9.85081 6.47638 7.61459 4.98267 6.30049 6.29604C4.98642 7.60937 6.47881 9.84626 6.68369 11.6928C6.6949 11.7938 6.70066 11.8965 6.70068 12.0005C6.70068 12.1044 6.69495 12.207 6.68379 12.3078C6.47945 14.1546 4.9856 16.3906 6.29986 17.7039C7.61431 19.0175 9.8516 17.5236 11.6985 17.3183C11.7999 17.3071 11.9029 17.3013 12.0073 17.3013C12.1133 17.3013 12.2178 17.3073 12.3206 17.3189C14.1639 17.5272 16.3957 19.0181 17.7078 17.7067C19.0213 16.3938 17.5259 14.1588 17.3178 12.3133C17.3062 12.2107 17.3003 12.1063 17.3003 12.0005C17.3003 11.8947 17.3063 11.7904 17.3179 11.6878C17.5262 9.84239 19.0199 7.60653 17.7059 6.2942C16.394 4.98397 14.1639 6.47307 12.3216 6.68198C12.2185 6.69367 12.1136 6.69969 12.0073 6.69971C11.9025 6.69971 11.799 6.69387 11.6972 6.68251Z";
+
 export function AgentMark({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 100 100"
-      className={className}
-      aria-hidden
-      focusable="false"
-    >
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        fill="currentColor"
-        d="
-          M50 2
-          C58 22 78 42 98 50
-          C78 58 58 78 50 98
-          C42 78 22 58 2 50
-          C22 42 42 22 50 2
-          Z
-          M50 30
-          C46 40 40 46 30 50
-          C40 54 46 60 50 70
-          C54 60 60 54 70 50
-          C60 46 54 40 50 30
-          Z
-        "
-      />
+    <svg viewBox="0 0 24 24" className={className} aria-hidden focusable="false">
+      <path fillRule="evenodd" clipRule="evenodd" fill="currentColor" d={AGENT_MARK_PATH_D} />
     </svg>
   );
 }
+
+/** Raw-HTML twin of {@link AgentMark} for non-React DOM building. */
+export const AGENT_MARK_SVG_MARKUP = `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true" focusable="false"><path fill-rule="evenodd" clip-rule="evenodd" d="${AGENT_MARK_PATH_D}"/></svg>`;

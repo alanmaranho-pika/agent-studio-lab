@@ -19,4 +19,4 @@ The skill that creates skills. Walk the user through authoring a new pack under 
 3. **Review** — Show the composed skill.md as a `list` for confirmation.
 4. **Commit** — Call `tool_invoke skills.create({ id, label, kind, intent, steps, matches, usesBlocks })` — the server writes the pack to disk and refreshes the registry.
 
-Reference blocks to draw on: run `get_block_reference({ ids: [BLK_OPTIONS, BLK_FORM, BLK_UPLOAD, BLK_MEDIA, BLK_GALLERY, BLK_MOODBOARD, BLK_STORYBOARD, BLK_STAGE, BLK_LIST, BLK_ACTIONS, BLK_CUSTOM_HTML] })` for the full spec.
+Reference blocks to draw on: run `get_block_reference({ ids: [BLK_OPTIONS, BLK_FORM, BLK_UPLOAD, BLK_MEDIA, BLK_GALLERY, BLK_MOODBOARD, BLK_STORYBOARD, BLK_TIMELINE, BLK_STAGE, BLK_LIST, BLK_ACTIONS, BLK_CUSTOM_HTML] })` for the full spec.

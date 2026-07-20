@@ -16,6 +16,7 @@ export type BlockId =
   | "BLK_MOODBOARD"
   | "BLK_LIST"
   | "BLK_STORYBOARD"
+  | "BLK_TIMELINE"
   | "BLK_STAGE"
   | "BLK_ACTIONS"
   | "BLK_CUSTOM_HTML";
@@ -67,12 +68,47 @@ export function actionButtonsHtml(
 }
 
 export const ICON_SLUGS = [
-  "music", "users", "user", "voice", "mic", "camera", "film", "image",
-  "palette", "sparkles", "wand", "zap", "sun", "moon", "cloud", "star",
-  "heart", "play", "volume", "speaker", "video", "clapperboard", "type",
-  "layers", "square", "circle", "triangle", "smile", "bag", "shirt",
-  "coffee", "flame", "waves", "tree", "building", "car", "rocket", "globe",
-  "message", "arrow", "plus",
+  "music",
+  "users",
+  "user",
+  "voice",
+  "mic",
+  "camera",
+  "film",
+  "image",
+  "palette",
+  "sparkles",
+  "wand",
+  "zap",
+  "sun",
+  "moon",
+  "cloud",
+  "star",
+  "heart",
+  "play",
+  "volume",
+  "speaker",
+  "video",
+  "clapperboard",
+  "type",
+  "layers",
+  "square",
+  "circle",
+  "triangle",
+  "smile",
+  "bag",
+  "shirt",
+  "coffee",
+  "flame",
+  "waves",
+  "tree",
+  "building",
+  "car",
+  "rocket",
+  "globe",
+  "message",
+  "arrow",
+  "plus",
 ] as const;
 
 export const NEXT_UI_HINTS = [
@@ -84,6 +120,7 @@ export const NEXT_UI_HINTS = [
   "moodboard",
   "storyboard",
   "list",
+  "timeline",
   "stage",
   "none",
 ] as const;

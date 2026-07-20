@@ -17,6 +17,7 @@
 
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
+import { AGENT_MARK_SVG_MARKUP as AGENT_MARK_SVG } from "@/components/studio/agent/agent-mark";
 import {
   Music,
   Users,
@@ -168,8 +169,6 @@ function clearScatter(opt: HTMLElement): void {
   opt.style.setProperty("--ty", "0px");
 }
 
-// The "Agent Symbol" — matches <AgentMark /> (rotated 4-petal diamond with cutout).
-const AGENT_MARK_SVG = `<svg viewBox="0 0 100 100" width="16" height="16" aria-hidden="true" focusable="false"><path fill-rule="evenodd" clip-rule="evenodd" fill="currentColor" d="M50 2 C58 22 78 42 98 50 C78 58 58 78 50 98 C42 78 22 58 2 50 C22 42 42 22 50 2 Z M50 30 C46 40 40 46 30 50 C40 54 46 60 50 70 C54 60 60 54 70 50 C60 46 54 40 50 30 Z"/></svg>`;
 
 
 function isRatioVisual(v: string): v is "ratio-9-16" | "ratio-16-9" | "ratio-1-1" {
@@ -711,6 +710,20 @@ export function enhanceInputFields(root: HTMLElement): void {
       }
     });
 
+    // Group the label + input together with their own inset (16px), leaving
+    // the toolbar (appended below, after this group) at the card's single
+    // 16px inset — matches the Figma field layout (card padding + nested
+    // label/input padding, tools row un-nested).
+    if (!card.querySelector(":scope > .gen-field-group")) {
+      const group = document.createElement("div");
+      group.className = "gen-field-group";
+      card.insertBefore(group, card.firstChild);
+      Array.from(card.children).forEach((child) => {
+        if (child === group) return;
+        group.appendChild(child);
+      });
+    }
+
 
     // Style the input itself.
     el.classList.add("gen-field-input");
@@ -778,8 +791,7 @@ export function enhanceInputFields(root: HTMLElement): void {
       rewrite.type = "button";
       rewrite.setAttribute("data-field-rewrite", "1");
       rewrite.className = "gen-field-tool gen-field-tool-rewrite";
-      rewrite.innerHTML =
-        '<svg viewBox="0 0 100 100" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" fill="currentColor" d="M50 2 C58 22 78 42 98 50 C78 58 58 78 50 98 C42 78 22 58 2 50 C22 42 42 22 50 2 Z M50 30 C46 40 40 46 30 50 C40 54 46 60 50 70 C54 60 60 54 70 50 C60 46 54 40 50 30 Z"/></svg><span>AI Rewrite</span>';
+      rewrite.innerHTML = `${AGENT_MARK_SVG}<span>AI Rewrite</span>`;
       tools.appendChild(rewrite);
 
       card.appendChild(tools);
@@ -835,9 +847,12 @@ export function enhanceActionRows(root: HTMLElement): void {
   //    Button-56 treatment.
   root
     .querySelectorAll<HTMLElement>(
-      "div:not([data-options]):not(.gen-actions):not([data-gen-actions])",
+      "div:not([data-options]):not(.gen-actions):not([data-gen-actions]):not([data-field-tools])",
     )
     .forEach((div) => {
+      // The field toolbar ([+] attach + AI Rewrite) owns its own styling —
+      // never CTA-ize it into a pill row.
+      if (div.hasAttribute("data-field-tools") || div.closest("[data-field-tools]")) return;
       if (
         div.closest(
           "[data-options], .gen-options, .gen-option, .gen-actions, [data-gen-actions]",

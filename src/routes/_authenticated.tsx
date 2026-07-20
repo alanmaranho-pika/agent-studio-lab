@@ -1,21 +1,37 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { SideNav } from "@/components/side-nav";
-import chromeLogo from "@/assets/chrome-logo.png.asset.json";
+import chromeLogo from "@/assets/logo.png";
 import { getBrowserSupabase } from "@/lib/supabase-browser";
+import { getSharedCredentials } from "@/lib/gate.functions";
+
+// No visible login form — the app signs into the shared account silently so
+// RLS-protected server functions keep working. Deduped across concurrent
+// route loads with a module-level promise.
+let silentSignIn: Promise<void> | null = null;
+
+function ensureSignedIn(): Promise<void> {
+  const client = getBrowserSupabase();
+  if (!client) return Promise.resolve();
+  if (!silentSignIn) {
+    silentSignIn = (async () => {
+      const { data } = await client.auth.getSession();
+      if (data.session) return;
+      try {
+        const { email, password } = await getSharedCredentials();
+        const { error } = await client.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      } catch (error) {
+        console.error("[auth] silent sign-in failed", error);
+        silentSignIn = null;
+      }
+    })();
+  }
+  return silentSignIn;
+}
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
-  beforeLoad: async ({ location }) => {
-    const client = getBrowserSupabase();
-    if (!client) return;
-    const { data } = await client.auth.getSession();
-    if (!data.session) {
-      throw redirect({
-        to: "/login",
-        search: { redirect: location.href },
-      });
-    }
-  },
+  beforeLoad: () => ensureSignedIn(),
   component: AuthedLayout,
 });
 
@@ -26,7 +42,7 @@ function AuthedLayout() {
           brand slot when the rail slides in. */}
       <div className="pointer-events-none absolute left-3 top-7 z-50 flex w-[80px] justify-center">
         <img
-          src={chromeLogo.url}
+          src={chromeLogo}
           alt="Agent"
           className="h-10 w-10 object-contain drop-shadow-sm"
         />

@@ -8,7 +8,7 @@ import { useEffect, useRef } from "react";
 import { Film, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProjectThumbnail } from "@/components/project-thumbnail";
-import logoAsset from "@/assets/logo.png.asset.json";
+import logoUrl from "@/assets/logo.png";
 import {
   listProjects,
   createProject,
@@ -122,7 +122,7 @@ function ProjectsPage() {
           <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <img
-                src={logoAsset.url}
+                src={logoUrl}
                 alt="Logo"
                 className="h-10 w-10 object-contain"
               />
