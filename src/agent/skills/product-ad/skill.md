@@ -21,17 +21,18 @@ usesBlocks: [BLK_UPLOAD, BLK_FORM, BLK_OPTIONS, BLK_STORYBOARD, BLK_MEDIA, BLK_A
 
 - **Present:** `BLK_FORM` — `{tagline, audience, lengthSec (8/15/30/1m), aspect (16:9/9:16/1:1/4:5)}`.
 
-## Step 3 — Concepts
+## Step 3 — Audio plan (FIRST, before concepts)
+
+- **Present:** `BLK_FORM` — audio mode (music bed / voiceover / talking spokesperson / mix) + direction.
+- **Why first:** concept pacing, copy lines, and whether talent must speak on camera all depend on this.
+
+## Step 4 — Concepts
 
 - Generate 2–3 ad concepts and present them via `BLK_LIST` or a `BLK_STORYBOARD` for review.
 
-## Step 4 — Style
+## Step 5 — Style
 
 - **Present:** `BLK_OPTIONS` — Cinematic / Clean studio / Lifestyle / Editorial. Also collect on-screen talent (optional, multi).
-
-## Step 5 — Audio
-
-- **Present:** `BLK_FORM` — audio mode + direction.
 
 ## Step 6 — Produce
 
