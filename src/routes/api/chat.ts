@@ -1748,7 +1748,9 @@ export const Route = createFileRoute("/api/chat")({
                   requestId: inlineEdit.requestId,
                   inlineEdit,
                 }
-              : undefined,
+              : // Ground-truth debug markers for the client HUD: the phase the
+                // server actually ran this turn + the skill it was scoped to.
+                { phase, skill: selectedAppId ?? undefined },
           onError: (error) => {
             console.error("[chat] toUIMessageStreamResponse error:", error);
             if (error == null) return "Unknown error";

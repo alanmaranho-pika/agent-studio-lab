@@ -504,6 +504,7 @@ export const getProject = createServerFn({ method: "GET" })
       id: string;
       role: "user" | "assistant";
       parts: Json;
+      createdAt: string;
     };
 
     const textOfParts = (parts: unknown): string =>
@@ -537,6 +538,7 @@ export const getProject = createServerFn({ method: "GET" })
       id: m.id,
       role: m.role as "user" | "assistant",
       parts: m.parts as Json,
+      createdAt: m.created_at,
     }));
     const visibleMessages: ProjectMessageRow[] = [];
     let inInlineTurn = false;

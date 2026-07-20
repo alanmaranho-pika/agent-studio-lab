@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AuthenticatedProjectsRouteImport } from './routes/_authenticated/projects'
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
+import { Route as AuthenticatedBlocksRouteImport } from './routes/_authenticated/blocks'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AuthenticatedStudioIndexRouteImport } from './routes/_authenticated/studio.index'
 import { Route as ApiPublicRenderTickRouteImport } from './routes/api/public/render-tick'
@@ -50,6 +51,11 @@ const AuthenticatedProjectsRoute = AuthenticatedProjectsRouteImport.update({
 const AuthenticatedLibraryRoute = AuthenticatedLibraryRouteImport.update({
   id: '/library',
   path: '/library',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedBlocksRoute = AuthenticatedBlocksRouteImport.update({
+  id: '/blocks',
+  path: '/blocks',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
@@ -96,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/account': typeof AuthenticatedAccountRoute
+  '/blocks': typeof AuthenticatedBlocksRoute
   '/library': typeof AuthenticatedLibraryRoute
   '/projects': typeof AuthenticatedProjectsRoute
   '/api/chat': typeof ApiChatRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/account': typeof AuthenticatedAccountRoute
+  '/blocks': typeof AuthenticatedBlocksRoute
   '/library': typeof AuthenticatedLibraryRoute
   '/projects': typeof AuthenticatedProjectsRoute
   '/api/chat': typeof ApiChatRoute
@@ -126,6 +134,7 @@ export interface FileRoutesById {
   '/$': typeof SplatRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/_authenticated/account': typeof AuthenticatedAccountRoute
+  '/_authenticated/blocks': typeof AuthenticatedBlocksRoute
   '/_authenticated/library': typeof AuthenticatedLibraryRoute
   '/_authenticated/projects': typeof AuthenticatedProjectsRoute
   '/api/chat': typeof ApiChatRoute
@@ -142,6 +151,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/account'
+    | '/blocks'
     | '/library'
     | '/projects'
     | '/api/chat'
@@ -156,6 +166,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/account'
+    | '/blocks'
     | '/library'
     | '/projects'
     | '/api/chat'
@@ -171,6 +182,7 @@ export interface FileRouteTypes {
     | '/$'
     | '/_authenticated'
     | '/_authenticated/account'
+    | '/_authenticated/blocks'
     | '/_authenticated/library'
     | '/_authenticated/projects'
     | '/api/chat'
@@ -237,6 +249,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLibraryRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/blocks': {
+      id: '/_authenticated/blocks'
+      path: '/blocks'
+      fullPath: '/blocks'
+      preLoaderRoute: typeof AuthenticatedBlocksRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/account': {
       id: '/_authenticated/account'
       path: '/account'
@@ -291,6 +310,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
+  AuthenticatedBlocksRoute: typeof AuthenticatedBlocksRoute
   AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRoute
   AuthenticatedProjectsRoute: typeof AuthenticatedProjectsRoute
   AuthenticatedStudioProjectIdRoute: typeof AuthenticatedStudioProjectIdRoute
@@ -299,6 +319,7 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAccountRoute: AuthenticatedAccountRoute,
+  AuthenticatedBlocksRoute: AuthenticatedBlocksRoute,
   AuthenticatedLibraryRoute: AuthenticatedLibraryRoute,
   AuthenticatedProjectsRoute: AuthenticatedProjectsRoute,
   AuthenticatedStudioProjectIdRoute: AuthenticatedStudioProjectIdRoute,

@@ -49,11 +49,16 @@ export function uploadToHtml(block: UploadBlockValue): string {
     const skip = block.skipValue
       ? `<button type="button" data-action="answer" data-value="${esc(block.skipValue)}" class="gen-cta gen-cta-secondary">Agent Decides</button>`
       : "";
+    // Figma 27116-65755: the URL card's prominent 32px line IS the input
+    // (placeholder "Paste URL"), with a small example hint below — mirroring
+    // the file card's title + "PNG, JPG…" hint rhythm.
     const urlCard =
       `<div class="gen-upload-card gen-upload-card--url">` +
       `<span class="gen-upload-icon">${LINK_ICON}</span>` +
-      `<span class="gen-upload-body"><span class="gen-upload-title">Paste URL</span>` +
-      `<input type="url" name="url" placeholder="www…" class="gen-upload-url-input" /></span>` +
+      `<span class="gen-upload-body">` +
+      `<input type="url" name="url" placeholder="Paste URL" class="gen-upload-url-input" />` +
+      `<span class="gen-upload-hint">www.yourproduct.com</span>` +
+      `</span>` +
       `</div>`;
     return [
       `<div data-card><form data-action="answer">`,

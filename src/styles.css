@@ -1073,7 +1073,7 @@
   display: grid !important;
   gap: 16px;
   width: 100%;
-  grid-auto-rows: 360px;
+  grid-auto-rows: 320px;
 }
 .gen-upload[data-cols="1"] {
   grid-template-columns: minmax(0, 420px);
@@ -1089,26 +1089,29 @@
   flex-direction: column;
   justify-content: space-between;
   gap: 12px;
-  height: 360px;
-  padding: 40px 32px;
+  height: 320px; /* Figma 27116-65755 */
+  padding: 48px 40px; /* py-48 px-40 */
   border-radius: 44px;
-  background: var(--surface-light-1);
+  background: var(--surface-light-1); /* white */
   text-align: left;
   cursor: pointer;
+  transform: rotate(var(--card-rot, 0deg)); /* Figma scatter, matches option cards */
   transition:
     transform 0.2s ease,
     border-color 0.2s ease,
     box-shadow 0.2s ease;
 }
 .gen-upload-card--file {
-  border: 2px dashed color-mix(in srgb, var(--content-dark-tertiary) 55%, transparent);
+  --card-rot: -3.34deg;
+  border: 1px dashed var(--surface-dark-4); /* Figma: surface/dark-#4, rgba(13,13,13,.25) */
 }
 .gen-upload-card--url {
-  border: 1px solid color-mix(in srgb, var(--content-dark-tertiary) 38%, transparent);
+  --card-rot: 2deg;
+  border: 1px solid var(--surface-dark-5); /* Figma: surface/dark-#5, rgba(13,13,13,.1) */
   cursor: text;
 }
 .gen-upload-card:hover {
-  transform: translateY(-2px);
+  transform: rotate(var(--card-rot, 0deg)) translateY(-2px);
   border-color: var(--content-dark-tertiary);
 }
 .gen-upload-icon {
@@ -1124,7 +1127,7 @@
 .gen-upload-body {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 12px; /* Figma 27116-65772: title → placeholder gap */
 }
 .gen-upload-title {
   font-family: "Telka", system-ui, sans-serif;
@@ -1141,8 +1144,9 @@
 }
 .gen-upload-url-input {
   font-family: "Telka", system-ui, sans-serif;
-  font-size: 15px;
-  line-height: 18px;
+  font-weight: 400;
+  font-size: 32px; /* Figma 27116-65755: the URL input IS the prominent line */
+  line-height: 1.25;
   color: var(--content-dark-secondary);
   background: transparent;
   border: 0;
@@ -1151,7 +1155,8 @@
   width: 100%;
 }
 .gen-upload-url-input::placeholder {
-  color: var(--content-dark-tertiary);
+  color: rgb(34 34 34 / 0.2); /* Figma: "Paste URL" placeholder at 20% */
+  opacity: 1;
 }
 .gen-upload-actions {
   display: flex;
@@ -1159,6 +1164,26 @@
   justify-content: center;
   gap: 12px;
   margin-top: 16px;
+}
+
+/* Blocks showcase page — cap the tall previews so a single block fits one
+ * viewport. Media (direct child of the card) and the storyboard slide are
+ * held to 90vh, sized down proportionally on wide screens. */
+.blocks-page [data-card] > img,
+.blocks-page [data-card] > video {
+  width: auto;
+  max-width: 100%;
+  max-height: 90vh;
+  margin-inline: auto;
+  display: block;
+}
+.blocks-page .gen-storyboard {
+  height: 90vh;
+  max-height: 90vh;
+  width: auto;
+  max-width: 100%;
+  min-height: 0;
+  margin-inline: auto;
 }
 
 /* ─────────────────────────────────────────────────────────────────

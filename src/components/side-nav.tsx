@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { FolderOpen, Library } from "lucide-react";
+import { FolderOpen, Library, Blocks } from "lucide-react";
 import type { ComponentType } from "react";
 
 import { AccountPopover } from "@/components/account-popover";
@@ -12,6 +12,7 @@ const NAV_ITEMS: ReadonlyArray<{
 }> = [
   { to: "/projects", label: "Projects", icon: FolderOpen },
   { to: "/library", label: "Library", icon: Library },
+  { to: "/blocks", label: "Blocks", icon: Blocks },
 ];
 
 /** Left vertical navigation for the authenticated agent shell. */

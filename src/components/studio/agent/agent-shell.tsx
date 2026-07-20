@@ -23,6 +23,7 @@ import { EtherealBackdrop } from "@/components/studio/agent/ethereal-backdrop";
 
 import { buildAuthHeaders } from "@/lib/fetch-with-auth";
 import { useProjectJobs } from "@/hooks/use-project-jobs";
+import { derivePhase, extractLatestUserText, type AgentPhase } from "@/lib/agent/phase";
 import { cn } from "@/lib/utils";
 import type { ProjectAsset, ProjectPatch, ProjectState } from "@/lib/project-state";
 import {
@@ -150,6 +151,10 @@ type AgentMessageMetadata = {
   mode?: "inline-edit";
   requestId?: string;
   inlineEdit?: InlineEditPayload;
+  createdAt?: string;
+  // Ground-truth debug markers stamped by the server (chat.ts messageMetadata).
+  phase?: import("@/lib/agent/phase").AgentPhase;
+  skill?: string;
 };
 
 type ToolPart = {
@@ -675,6 +680,14 @@ function ArtifactCards({ html, onOpen }: { html: string; onOpen?: (v: string) =>
 
 // ---------- main ----------
 
+// Phase → badge classes for the debug HUD (top-right).
+const PHASE_BADGE: Record<AgentPhase, string> = {
+  discuss: "bg-sky-500/15 text-sky-600",
+  plan: "bg-violet-500/15 text-violet-600",
+  render: "bg-amber-500/15 text-amber-600",
+  edit: "bg-emerald-500/15 text-emerald-600",
+};
+
 export function AgentShell(props: AgentShellProps) {
   const {
     projectId,
@@ -789,6 +802,84 @@ export function AgentShell(props: AgentShellProps) {
     }
     return hit;
   }, [messages]);
+
+  // --- Debug HUD data (top-right markers) ---------------------------------
+
+  // Every skill routed into this session, in order, de-duplicated on
+  // consecutive repeats. select_app announces the routing; run_skill(app)
+  // does the same via the unified primitive.
+  const skillsUsed = useMemo<Array<{ appId: string; label: string }>>(() => {
+    const out: Array<{ appId: string; label: string }> = [];
+    for (const m of messages) {
+      if (m.role !== "assistant") continue;
+      for (const p of toolPartsOf(m)) {
+        if (p.state !== "output-available") continue;
+        if (p.type !== "tool-select_app" && p.type !== "tool-run_skill") continue;
+        const o = p.output as
+          | { appId?: string; label?: string; kind?: string; error?: string }
+          | undefined;
+        if (!o || o.error) continue;
+        // run_skill covers both app routing and model runs; only the app
+        // (routing) form carries a label — model runs are jobs, tracked below.
+        if (!o.label) continue;
+        const appId = o.appId ?? o.label;
+        if (out[out.length - 1]?.appId === appId) continue;
+        out.push({ appId, label: o.label });
+      }
+    }
+    return out;
+  }, [messages]);
+
+  // Generation / job / API calls the agent has fired, newest last. Covers the
+  // render + image tools and the tool_invoke escape hatch (arbitrary app/API
+  // functions). `state` distinguishes in-flight (input-available) from settled.
+  const genCalls = useMemo<
+    Array<{ id: string; name: string; state: string; error: boolean }>
+  >(() => {
+    const GEN_TOOLS = new Set([
+      "tool-run_model_app",
+      "tool-generate_image",
+      "tool-generate_scene_anchor",
+      "tool-search_stock_media",
+      "tool-tool_invoke",
+    ]);
+    const out: Array<{ id: string; name: string; state: string; error: boolean }> = [];
+    for (const m of messages) {
+      if (m.role !== "assistant") continue;
+      for (const p of toolPartsOf(m)) {
+        if (!GEN_TOOLS.has(p.type)) continue;
+        let name = p.type.replace(/^tool-/, "");
+        // tool_invoke wraps a named app/API function — surface that name.
+        if (p.type === "tool-tool_invoke") {
+          const input = p.input as { name?: string } | undefined;
+          if (input?.name) name = input.name;
+        }
+        const error = !!(p.output as { error?: unknown } | undefined)?.error;
+        out.push({
+          id: p.toolCallId ?? `${m.id}:${out.length}`,
+          name,
+          state: p.state ?? "unknown",
+          error,
+        });
+      }
+    }
+    return out;
+  }, [messages]);
+
+  // Which phase the last turn ran in. Prefer the server's ground-truth marker
+  // (stamped on assistant message metadata); fall back to recomputing with the
+  // SAME pure function the server uses when metadata is absent (e.g. history
+  // reloaded from the DB, which doesn't persist metadata).
+  const debugPhase = useMemo<AgentPhase>(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const m = messages[i];
+      if (m.role !== "assistant") continue;
+      const p = metadataOf(m).phase;
+      if (p) return p;
+      break;
+    }
+    return derivePhase(project, selectedApp?.appId ?? null, extractLatestUserText(messages));
+  }, [messages, project, selectedApp]);
 
   // Apply project patches + tool outputs exactly once each.
   const appliedPatchIds = useRef<Set<string>>(new Set());
@@ -1948,6 +2039,72 @@ export function AgentShell(props: AgentShellProps) {
             {selectedApp?.label ?? "None selected"}
           </span>
         </button>
+
+        {/* Skills routed this session, in order (newest highlighted). */}
+        {skillsUsed.length > 0 && (
+          <div className="flex max-w-[18rem] flex-wrap items-center justify-end gap-1 rounded-2xl border border-border bg-card/80 px-2.5 py-1.5 shadow-sm backdrop-blur">
+            <span className="mr-0.5 text-[10px] uppercase tracking-wider text-muted-foreground opacity-60">
+              Skills
+            </span>
+            {skillsUsed.map((s, i) => (
+              <span
+                key={`${s.appId}:${i}`}
+                title={s.appId}
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                  i === skillsUsed.length - 1
+                    ? "bg-emerald-500/15 text-emerald-600"
+                    : "bg-muted text-muted-foreground",
+                )}
+              >
+                {s.label}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Generation / job / API calls the agent has fired. */}
+        {genCalls.length > 0 &&
+          (() => {
+            const latest = genCalls[genCalls.length - 1];
+            const inflight = latest.state !== "output-available";
+            return (
+              <div className="flex items-center gap-1.5 rounded-full border border-border bg-card/80 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur">
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    latest.error
+                      ? "bg-red-500"
+                      : inflight
+                        ? "animate-pulse bg-amber-500"
+                        : "bg-sky-500",
+                  )}
+                  aria-hidden
+                />
+                <span className="uppercase tracking-wider opacity-60">Jobs</span>
+                <span className="max-w-[12rem] truncate font-mono text-[10px]">
+                  {latest.name}
+                  {inflight ? "…" : ""}
+                </span>
+                {genCalls.length > 1 && (
+                  <span className="tabular-nums opacity-60">×{genCalls.length}</span>
+                )}
+              </div>
+            );
+          })()}
+
+        {/* Phase the last turn ran in (server ground-truth, else recomputed). */}
+        <div className="flex items-center gap-1.5 rounded-full border border-border bg-card/80 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur">
+          <span className="uppercase tracking-wider opacity-60">Phase</span>
+          <span
+            className={cn(
+              "rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+              PHASE_BADGE[debugPhase],
+            )}
+          >
+            {debugPhase}
+          </span>
+        </div>
       </div>
 
       {/* --- History browsing chip --- */}
@@ -2132,9 +2289,28 @@ function TranscriptPanel({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  type Row = { id: string; role: "user" | "assistant" | "tool"; text: string };
+  // Persisted messages carry a real `createdAt` (from project_messages).
+  // Messages still in-flight this session don't have one yet — stamp the
+  // moment we first see them so the panel always has a time to show, and
+  // reuse that stamp on every re-render (a ref, so it never drifts).
+  const firstSeenRef = useRef<Map<string, number>>(new Map());
+  const timeOf = (m: UIMessage): number => {
+    const iso = metadataOf(m).createdAt;
+    if (iso) {
+      const t = new Date(iso).getTime();
+      if (!Number.isNaN(t)) return t;
+    }
+    const cached = firstSeenRef.current.get(m.id);
+    if (cached != null) return cached;
+    const now = Date.now();
+    firstSeenRef.current.set(m.id, now);
+    return now;
+  };
+
+  type Row = { id: string; role: "user" | "assistant" | "tool"; text: string; time: number };
   const rows: Row[] = [];
   for (const m of messages) {
+    const time = timeOf(m);
     if (m.role === "user") {
       const text = (m.parts ?? [])
         .filter((p: { type: string }) => p.type === "text")
@@ -2142,7 +2318,7 @@ function TranscriptPanel({
         .join("")
         .replace(INLINE_REWORK_MARKER, "")
         .trim();
-      if (text) rows.push({ id: m.id, role: "user", text });
+      if (text) rows.push({ id: m.id, role: "user", text, time });
       continue;
     }
     if (m.role !== "assistant") continue;
@@ -2152,14 +2328,14 @@ function TranscriptPanel({
     for (const p of (m.parts as unknown as Array<{ type: string }> | undefined) ?? []) {
       if (typeof p.type === "string" && p.type.startsWith("tool-")) {
         const line = formatToolRow(p as unknown as ToolPart);
-        if (line) rows.push({ id: `${m.id}:t${toolIdx++}`, role: "tool", text: line });
+        if (line) rows.push({ id: `${m.id}:t${toolIdx++}`, role: "tool", text: line, time });
       }
     }
     const extract = extractRenderTurn(m);
     const text = extract
       ? formatTurnTranscript(extract.turn)
       : formatAssistantTranscript(renderableHtmlOf(m));
-    if (text) rows.push({ id: m.id, role: "assistant", text });
+    if (text) rows.push({ id: m.id, role: "assistant", text, time });
   }
 
   // Docked debug panel — NOT a modal (no backdrop, doesn't block the stage).
@@ -2192,13 +2368,18 @@ function TranscriptPanel({
         ) : (
           rows.map((r) => (
             <div key={r.id} className="space-y-1">
-              <div
-                className={cn(
-                  "text-[11px] font-medium uppercase tracking-wide",
-                  r.role === "tool" ? "text-emerald-500" : "text-muted-foreground",
-                )}
-              >
-                {r.role === "user" ? "You" : r.role === "assistant" ? "Agent" : "Tool"}
+              <div className="flex items-baseline gap-2">
+                <span
+                  className={cn(
+                    "text-[11px] font-medium uppercase tracking-wide",
+                    r.role === "tool" ? "text-emerald-500" : "text-muted-foreground",
+                  )}
+                >
+                  {r.role === "user" ? "You" : r.role === "assistant" ? "Agent" : "Tool"}
+                </span>
+                <span className="text-[10px] tabular-nums text-muted-foreground/70">
+                  {formatTranscriptTime(r.time)}
+                </span>
               </div>
               <div
                 className={cn(
@@ -2216,6 +2397,14 @@ function TranscriptPanel({
       </div>
     </motion.div>
   );
+}
+
+function formatTranscriptTime(ms: number): string {
+  return new Date(ms).toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 // Compact one-line summary of a tool part for the transcript debug view.

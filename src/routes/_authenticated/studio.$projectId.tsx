@@ -176,6 +176,7 @@ function Studio() {
       id: m.id,
       role: m.role,
       parts: (Array.isArray(m.parts) ? m.parts : []) as UIMessage["parts"],
+      metadata: { createdAt: m.createdAt },
     })) as UIMessage[];
     // Only pin once we actually have query data for this project — until
     // then return an empty array (don't pin) so the real seed wins when

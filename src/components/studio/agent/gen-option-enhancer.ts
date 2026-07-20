@@ -650,6 +650,11 @@ export function enhanceInputFields(root: HTMLElement): void {
 
   inputs.forEach((el) => {
     if (el.getAttribute("data-enhanced-field") === "1") return;
+    // Upload cards (BLK_UPLOAD) are hand-designed: the Paste-URL card is a
+    // flat tile — icon top, 32px title + placeholder bottom (Figma node
+    // 27116-65772) — NOT a form field. No inner group box, no attach/AI
+    // Rewrite tools.
+    if (el.closest(".gen-upload-card")) return;
     el.setAttribute("data-enhanced-field", "1");
 
     // Find (or create) the wrapping card.
@@ -758,12 +763,15 @@ export function enhanceInputFields(root: HTMLElement): void {
       if (!el.getAttribute("rows")) el.setAttribute("rows", "3");
     }
 
-    // Append the field toolbar ([+] attach + AI Rewrite) once per field.
+    // Append the field toolbar ([+] attach + AI Rewrite) once per field —
+    // TEXTAREA only. Long-form fields (character traits, scene descriptions)
+    // benefit from attach/rewrite; short single-line fields (name, url) don't
+    // need them, and omitting the row lets the card shrink to fit the input.
     // The buttons carry data hooks — generative-card wires the actual
     // behavior (library picker for attach, inline-agent popover for
     // rewrite). A hidden multi-file input rides with the field so the
     // form-submit collector picks up any attachments alongside the text.
-    if (!card.querySelector('[data-field-tools="1"]')) {
+    if (el.tagName === "TEXTAREA" && !card.querySelector('[data-field-tools="1"]')) {
       const name = (el.getAttribute("name") || "").trim();
 
       const hiddenFile = document.createElement("input");
