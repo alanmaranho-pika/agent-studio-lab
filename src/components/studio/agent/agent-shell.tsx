@@ -18,6 +18,9 @@ import {
   MoreHorizontal,
   AlignLeft,
   SquarePlus,
+  Undo2,
+  Redo2,
+  Sparkles,
 } from "lucide-react";
 import { AgentSymbol } from "@/components/studio/agent/agent-symbol";
 import { EtherealBackdrop } from "@/components/studio/agent/ethereal-backdrop";
@@ -54,7 +57,7 @@ import type { StageIntent } from "@/components/studio/agent/intents";
 import { renderTurnToHtml } from "@/lib/agent/render-turn-html";
 import { RenderTurnSchema, type RenderTurn } from "@/lib/agent/ui-schema";
 import { useViewportBand } from "@/hooks/use-viewport-band";
-import { readSkillMd, writeSkillMd } from "@/lib/skills/skill-md.functions";
+import { readSkillMd, writeSkillMd, improveSkillMd } from "@/lib/skills/skill-md.functions";
 import { AssetPickerDialog, type PickerResult } from "@/components/studio/asset-picker-dialog";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import {
@@ -2825,6 +2828,15 @@ function SkillEditorPanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  // Classic undo/redo: `past`/`future` hold content snapshots; `content` is
+  // live. A snapshot is pushed on each agent revision and on blur after a
+  // manual edit (focus-session granularity).
+  const [past, setPast] = useState<string[]>([]);
+  const [future, setFuture] = useState<string[]>([]);
+  const focusSnapshot = useRef<string>("");
+  // Inline "ask the agent to improve this skill" prompt.
+  const [instruction, setInstruction] = useState("");
+  const [improving, setImproving] = useState(false);
   const appId = selectedApp?.appId;
 
   useEffect(() => {
@@ -2843,6 +2855,9 @@ function SkillEditorPanel({
       const res = await readSkillMd({ data: { appId } });
       setContent(res.content);
       setOriginal(res.content);
+      setPast([]);
+      setFuture([]);
+      focusSnapshot.current = res.content;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -2856,6 +2871,66 @@ function SkillEditorPanel({
 
   const dirty = content !== original;
   const canSave = dirty && !saving && !loading && !!appId;
+  const canUndo = past.length > 0 && !improving;
+  const canRedo = future.length > 0 && !improving;
+
+  // Replace content and record the prior value as an undo step.
+  const commit = (next: string) => {
+    if (next === content) return;
+    setPast((p) => [...p, content]);
+    setFuture([]);
+    setContent(next);
+    focusSnapshot.current = next;
+  };
+
+  const undo = () => {
+    setPast((p) => {
+      if (!p.length) return p;
+      const prev = p[p.length - 1];
+      setFuture((f) => [content, ...f]);
+      setContent(prev);
+      focusSnapshot.current = prev;
+      return p.slice(0, -1);
+    });
+  };
+
+  const redo = () => {
+    setFuture((f) => {
+      if (!f.length) return f;
+      const next = f[0];
+      setPast((p) => [...p, content]);
+      setContent(next);
+      focusSnapshot.current = next;
+      return f.slice(1);
+    });
+  };
+
+  // On blur, checkpoint a manual edit so it becomes one undo step.
+  const commitManualEdit = () => {
+    if (content !== focusSnapshot.current) {
+      const before = focusSnapshot.current;
+      setPast((p) => [...p, before]);
+      setFuture([]);
+      focusSnapshot.current = content;
+    }
+  };
+
+  const improve = async () => {
+    if (!appId || !instruction.trim() || improving) return;
+    setImproving(true);
+    setError(null);
+    try {
+      const res = await improveSkillMd({
+        data: { appId, content, instruction: instruction.trim() },
+      });
+      commit(res.content);
+      setInstruction("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setImproving(false);
+    }
+  };
 
   const save = async () => {
     if (!appId) return;
@@ -2894,6 +2969,25 @@ function SkillEditorPanel({
         <div className="flex items-center gap-1">
           <button
             type="button"
+            onClick={undo}
+            disabled={!canUndo}
+            title="Undo"
+            className="rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-30"
+          >
+            <Undo2 className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={redo}
+            disabled={!canRedo}
+            title="Redo"
+            className="rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-30"
+          >
+            <Redo2 className="h-3.5 w-3.5" />
+          </button>
+          <span className="mx-1 h-4 w-px bg-border" />
+          <button
+            type="button"
             onClick={() => void load()}
             disabled={!appId || loading}
             className="rounded-md px-2 py-1 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-40"
@@ -2922,11 +3016,59 @@ function SkillEditorPanel({
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
+            onFocus={() => {
+              focusSnapshot.current = content;
+            }}
+            onBlur={commitManualEdit}
             spellCheck={false}
-            className="h-full w-full resize-none rounded-lg border border-border bg-background p-3 font-mono text-[12px] leading-relaxed text-foreground outline-none focus:border-primary"
+            disabled={improving}
+            className="h-full w-full resize-none rounded-lg border border-border bg-background p-3 font-mono text-[12px] leading-relaxed text-foreground outline-none focus:border-primary disabled:opacity-60"
           />
         )}
       </div>
+      {appId && !loading && (
+        <div className="border-t border-border px-5 py-3">
+          <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+            <Sparkles className="h-3 w-3" />
+            Ask the agent to improve this skill
+          </label>
+          <div className="flex items-end gap-2">
+            <textarea
+              value={instruction}
+              onChange={(e) => setInstruction(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                  e.preventDefault();
+                  void improve();
+                }
+              }}
+              placeholder="e.g. Split the aspect-ratio step into its own turn"
+              rows={2}
+              spellCheck={false}
+              disabled={improving}
+              className="min-h-[2.5rem] flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2 text-[12px] leading-relaxed text-foreground outline-none focus:border-primary disabled:opacity-60"
+            />
+            <button
+              type="button"
+              onClick={() => void improve()}
+              disabled={!instruction.trim() || improving}
+              className="flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-foreground px-3 text-xs font-medium text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {improving ? (
+                <>
+                  <span className="h-3 w-3 animate-spin rounded-full border border-background border-t-transparent" />
+                  Working…
+                </>
+              ) : (
+                "Submit"
+              )}
+            </button>
+          </div>
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            Rewrites the draft above — review, then Save. ⌘/Ctrl+Enter to send.
+          </p>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-3 border-t border-border px-5 py-3">
         <div className="min-w-0 text-[11px] text-muted-foreground">
           {error ? (
