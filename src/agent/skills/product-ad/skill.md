@@ -39,7 +39,8 @@ Approach and direction are separate rounds — never one card (guardrail 1c):
 
 ## Step 5 — Concepts
 
-- Generate 2–3 ad concepts and present them via `BLK_LIST` or a `BLK_STORYBOARD` for review.
+- Generate 2–3 ad concepts and present them as `BLK_OPTIONS` pitch cards — side-by-side, one card per concept: `subtitle` = "Concept A · 30s", `title` = the concept name, `body` = the 2–4 sentence pitch. Concepts are EXCLUSIVE alternatives (guardrail 1d) — never a paginated `BLK_STORYBOARD` or a `BLK_LIST`.
+- Style each concept to its mood (see BLK_OPTIONS "Styling pitch cards"): give every card a distinct `titleFont` (Google Fonts family fitting the concept's feel) and a unique `palette` so the three read as genuinely different directions.
 - **On lock, create scenes.** Translate the chosen concept into an ordered shot list and `commit_project_patch({scenes})` — one scene per shot (n, title, prompt, motionPrompt, duration). A single-shot ad is one scene. These scenes are what the timeline renders, so patch them here even before any video exists.
 
 ## Step 6 — Style

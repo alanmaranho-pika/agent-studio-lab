@@ -149,6 +149,43 @@ const EXAMPLES: Record<string, TurnBlock> = {
   },
 };
 
+// Additional variant payloads rendered below a block's main example.
+const EXTRA_EXAMPLES: Record<string, TurnBlock[]> = {
+  options: [
+    // Pitch cards — exclusive creative alternatives compared side-by-side
+    // (`body` present → theme-tinted card, storyboard-slide anatomy).
+    {
+      type: "options",
+      items: [
+        {
+          value: "Concept A — Botanical Awakening",
+          title: "Botanical Awakening",
+          subtitle: "Concept A · 30s",
+          body: "Open on almond blossoms in soft morning light. A hand pours golden oil into a palm, massaging into sun-kissed skin in slow motion. Close on the bottle glowing in warm sunlight.",
+          titleFont: "Fraunces",
+          palette: { bg: "#1F2A17", fg: "#DDE9B8", accent: "#A8C266" },
+        },
+        {
+          value: "Concept B — City Ritual",
+          title: "City Ritual",
+          subtitle: "Concept B · 30s",
+          body: "A dawn apartment above the skyline. Quick, rhythmic cuts of the morning routine — the oil is the calm beat between them. End on a rooftop stretch as the sun clears the towers.",
+          titleFont: "Space Grotesk",
+          palette: { bg: "#141821", fg: "#CBD8F0", accent: "#7FA6E6" },
+        },
+        {
+          value: "Concept C — After the Storm",
+          title: "After the Storm",
+          subtitle: "Concept C · 30s",
+          body: "Rain streaks a window; a towel wraps wet shoulders. The oil catches candlelight as it spreads warmth over cool skin. The storm fades to a quiet, golden room.",
+          titleFont: "Playfair Display",
+          palette: { bg: "#201828", fg: "#EAD9F0", accent: "#C08AD8" },
+        },
+      ],
+    },
+  ],
+};
+
 // stage + timeline render as full-stage React views driven by project state.
 // A small mock project (scenes with placeholder keyframes) lets us preview
 // them here exactly as they render on the live stage.
@@ -319,6 +356,7 @@ function BlocksPage() {
         <div ref={scrollRef} className="h-full overflow-y-auto">
           {ALL_BLOCKS.map((b) => {
             const example = EXAMPLES[b.type];
+            const extras = EXTRA_EXAMPLES[b.type] ?? [];
             const stageGen = STAGE_GEN[b.type];
             const eightCol = EIGHT_COL.has(b.type);
             return (
@@ -386,6 +424,19 @@ function BlocksPage() {
                     </div>
                   </div>
                 )}
+                {extras.map((extra, i) => (
+                  <div key={`${b.type}-extra-${i}`} className="w-full px-6">
+                    <GenerativeCard
+                      html={blockToHtml(extra)}
+                      onAnswer={noop}
+                      disabled
+                      assets={[]}
+                      projectId="__blocks_preview__"
+                      seedKey={`blocks-${b.type}-extra-${i}`}
+                      aspectRatio="16:9"
+                    />
+                  </div>
+                ))}
               </section>
             );
           })}

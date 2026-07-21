@@ -63,6 +63,9 @@ import {
   Plus,
 } from "lucide-react";
 import { pickSwatchFromText } from "@/lib/theme-swatch";
+import { loadGoogleFont } from "@/lib/google-font-loader";
+
+const HEX_RE = /^#[0-9a-fA-F]{3,8}$/;
 
 const ICONS: Record<string, typeof Music> = {
   music: Music,
@@ -226,6 +229,7 @@ function enhanceOption(btn: HTMLElement): void {
   // spans, or the whole text content.
   const titleEl = btn.querySelector<HTMLElement>("[data-title]");
   const subtitleEl = btn.querySelector<HTMLElement>("[data-subtitle]");
+  const bodyEl = btn.querySelector<HTMLElement>("[data-body]");
   const visualEl = btn.querySelector<HTMLElement>("[data-visual]");
   const imgEl = btn.querySelector<HTMLImageElement>("img");
 
@@ -233,10 +237,48 @@ function enhanceOption(btn: HTMLElement): void {
   let subtitleHtml = subtitleEl?.innerHTML ?? "";
   if (!titleHtml) {
     const spans = Array.from(btn.querySelectorAll("span")).filter(
-      (s) => !s.hasAttribute("data-visual"),
+      (s) => !s.hasAttribute("data-visual") && !s.hasAttribute("data-body"),
     );
     titleHtml = spans[0]?.innerHTML ?? btn.textContent?.trim() ?? "";
     subtitleHtml = spans[1]?.innerHTML ?? "";
+  }
+
+  // Pitch card — an option with prose (`data-body`): concept pitches,
+  // loglines, treatments. Storyboard-slide anatomy (eyebrow / display title /
+  // bottom-aligned mono text) on a theme-tinted card so exclusive creative
+  // alternatives compare side-by-side. Tint is applied per-grid (shared
+  // swatch) in enhanceOptionGrids.
+  if (bodyEl) {
+    const bodyHtml = bodyEl.innerHTML;
+    btn.classList.add("gen-option-pitch");
+
+    // Per-option palette (agent-chosen, mood-matched) — overrides the grid's
+    // shared swatch so each concept reads distinctly. Re-validate the hex
+    // values post-sanitization before writing them to inline styles.
+    const palBg = btn.getAttribute("data-palette-bg");
+    const palFg = btn.getAttribute("data-palette-fg");
+    const palAccent = btn.getAttribute("data-palette-accent");
+    if (palBg && HEX_RE.test(palBg)) btn.style.background = palBg;
+    if (palFg && HEX_RE.test(palFg)) btn.style.color = palFg;
+
+    // Per-option title typeface (agent-chosen Google Font, loaded live).
+    const fontAttr = btn.getAttribute("data-title-font");
+    const family = fontAttr ? loadGoogleFont(fontAttr) : null;
+    const titleStyle = family
+      ? ` style="font-family: '${family}', 'Telka Extended', system-ui, sans-serif"`
+      : "";
+    const eyebrowStyle =
+      palAccent && HEX_RE.test(palAccent) ? ` style="color: ${palAccent}; opacity: 1"` : "";
+
+    btn.innerHTML = `
+      <div class="gen-option-pitch-head">
+        ${subtitleHtml ? `<span class="gen-option-pitch-eyebrow"${eyebrowStyle}>${subtitleHtml}</span>` : ""}
+        <div class="gen-option-pitch-title"${titleStyle}>${titleHtml}</div>
+      </div>
+      <p class="gen-option-pitch-text">${bodyHtml}</p>
+    `;
+    btn.setAttribute("data-enhanced", "1");
+    return;
   }
 
   // Build the visual slot.
@@ -351,7 +393,31 @@ function enhanceOption(btn: HTMLElement): void {
  * option-picker with per-card animated glow + an "Agent Decides" pill.
  * `seedKey` (usually the message id) drives the random-but-stable scatter.
  */
-export function enhanceOptionGrids(root: HTMLElement, seedKey?: string): void {
+/**
+ * Pitch-card aspect ratio: the project ratio eased HALFWAY toward square.
+ * Keep the shorter side; move the longer side to the midpoint of the two.
+ * So 16:9 → 25:18, 3:4 → 6:7, 1:1 → 1:1. The card hints at the project's
+ * orientation without being as extreme (a full 16:9 pitch card is too short
+ * to read comfortably). Returns a CSS `aspect-ratio` value, or null if the
+ * project ratio is unparseable.
+ */
+function pitchCardAspect(ratio?: string): string | null {
+  if (!ratio) return null;
+  const m = ratio.trim().match(/^(\d+(?:\.\d+)?)\s*[:/]\s*(\d+(?:\.\d+)?)$/);
+  if (!m) return null;
+  const w = Number(m[1]);
+  const h = Number(m[2]);
+  if (!w || !h) return null;
+  if (w > h) return `${w + h} / ${2 * h}`; // landscape → e.g. 16:9 → 25:18
+  if (h > w) return `${2 * w} / ${w + h}`; // portrait  → e.g. 3:4  → 6:7
+  return `1 / 1`;
+}
+
+export function enhanceOptionGrids(
+  root: HTMLElement,
+  seedKey?: string,
+  aspectRatio?: string,
+): void {
   normalizeLegacyOptionCards(root);
   const grids = root.querySelectorAll<HTMLElement>("[data-options]");
   grids.forEach((grid, gridIndex) => {
@@ -404,6 +470,29 @@ export function enhanceOptionGrids(root: HTMLElement, seedKey?: string): void {
       ':scope > button[data-action="answer"], :scope > [data-action="answer"]',
     );
     options.forEach((opt) => enhanceOption(opt));
+
+    // Pitch cards share ONE theme swatch (like storyboard slides) so the
+    // set reads as variations of the same project, not unrelated tiles.
+    const pitches = grid.querySelectorAll<HTMLElement>(":scope > .gen-option-pitch");
+    if (pitches.length) {
+      const tint = pickSwatchFromText(
+        Array.from(pitches)
+          .map((p) => p.textContent ?? "")
+          .join(" "),
+      );
+      grid.style.setProperty("--pitch-bg", tint.bg);
+      grid.style.setProperty("--pitch-fg", tint.fg);
+      // Pitch cards take the project's aspect ratio EASED halfway to square
+      // (see pitchCardAspect) instead of the default fixed card height, so the
+      // set hints at the finished piece's orientation while staying readable.
+      // Row height goes auto so aspect-ratio (width-derived) drives it.
+      const ar = pitchCardAspect(aspectRatio);
+      if (ar) {
+        grid.style.gridAutoRows = "auto";
+        grid.style.setProperty("--pitch-ar", ar);
+        grid.setAttribute("data-pitch-ar", "1");
+      }
+    }
 
     // Soft random scatter — only when there's an actual choice to make.
     // Singular items stay perfectly aligned per the stage's layout rules.

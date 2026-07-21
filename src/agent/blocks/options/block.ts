@@ -29,7 +29,12 @@ export function optionsToHtml(block: OptionsBlockValue): string {
         visual = `<span data-visual="image" data-src="${esc(v.url)}"></span>`;
       }
       const subtitle = item.subtitle ? `<span data-subtitle>${esc(item.subtitle)}</span>` : "";
-      return `<button data-action="answer" data-value="${esc(item.value)}"${item.next ? ` data-next="${esc(item.next)}"` : ""}${item.ack ? ` data-ack="${esc(item.ack)}"` : ""}>${visual}<span data-title>${esc(item.title)}</span>${subtitle}</button>`;
+      const body = item.body ? `<span data-body>${esc(item.body)}</span>` : "";
+      const font = item.titleFont ? ` data-title-font="${esc(item.titleFont)}"` : "";
+      const pal = item.palette
+        ? ` data-palette-bg="${esc(item.palette.bg)}" data-palette-fg="${esc(item.palette.fg)}"${item.palette.accent ? ` data-palette-accent="${esc(item.palette.accent)}"` : ""}`
+        : "";
+      return `<button data-action="answer" data-value="${esc(item.value)}"${item.next ? ` data-next="${esc(item.next)}"` : ""}${item.ack ? ` data-ack="${esc(item.ack)}"` : ""}${font}${pal}>${visual}<span data-title>${esc(item.title)}</span>${subtitle}${body}</button>`;
     })
     .join("");
   // UI-only "Custom" tile — always appended so the user can type a free-text

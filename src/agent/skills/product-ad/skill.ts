@@ -60,7 +60,8 @@ export const ProductAdSkill: SkillPack = {
     {
       id: "concept",
       intent:
-        "Generate 2–3 ad concepts. Render them as a visible list in the card; user picks one or asks to regenerate. On lock, translate the concept into an ordered shot list and commit_project_patch({scenes}) — one scene per shot (a single-shot ad is one scene) — so the timeline can render the shots.",
+        "Generate 2–3 ad concepts as side-by-side BLK_OPTIONS pitch cards (subtitle 'Concept A · 30s', title, body = the pitch) — exclusive alternatives, never a paginated storyboard. On lock, translate the chosen concept into an ordered shot list and commit_project_patch({scenes}) — one scene per shot (a single-shot ad is one scene) — so the timeline can render the shots.",
+      presents: ["BLK_OPTIONS"],
       inputs: [],
     },
     {

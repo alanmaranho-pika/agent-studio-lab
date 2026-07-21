@@ -45,7 +45,32 @@ export const OptionItemSchema = z.object({
     ),
   title: z.string().min(1).max(48),
   subtitle: z.string().max(72).optional().describe("One short line, ~6 words"),
-  visual: VisualSchema.optional().describe("Strongly recommended — options look empty without one"),
+  body: z
+    .string()
+    .max(360)
+    .optional()
+    .describe(
+      "2–4 sentence pitch (concepts, loglines, treatments). Turns the option into a tinted full-text 'pitch card' — use when comparing exclusive creative alternatives side-by-side; subtitle becomes the eyebrow (e.g. 'Concept A · 30s')",
+    ),
+  titleFont: z
+    .string()
+    .max(48)
+    .regex(/^[A-Za-z0-9 ]+$/)
+    .optional()
+    .describe(
+      "PITCH CARDS ONLY. Exact Google Fonts family name for THIS option's title, chosen to match its mood (e.g. 'Playfair Display' for elegant, 'Bebas Neue' for bold, 'Space Mono' for technical). The client loads it live from Google Fonts. Letters/digits/spaces only — must be a real family.",
+    ),
+  palette: z
+    .object({
+      bg: z.string().regex(/^#[0-9a-fA-F]{3,8}$/).describe("Card background, deep enough for bright text"),
+      fg: z.string().regex(/^#[0-9a-fA-F]{3,8}$/).describe("Text color — high contrast on bg"),
+      accent: z.string().regex(/^#[0-9a-fA-F]{3,8}$/).optional().describe("Eyebrow / highlight tint"),
+    })
+    .optional()
+    .describe(
+      "PITCH CARDS ONLY. A UNIQUE palette for THIS option matching its mood — so each concept reads distinctly, not as variations of one swatch. Omit to inherit the shared project swatch.",
+    ),
+  visual: VisualSchema.optional().describe("Strongly recommended — options look empty without one (skip for pitch cards with `body`)"),
   next: NextHintSchema.describe(
     "Per-option override of the turn-level `next` when answers diverge (e.g. 'Upload photo' → upload, 'Describe it' → form)",
   ),
