@@ -654,6 +654,26 @@ const TOOL_DONE_SUMMARIES: Record<string, string> = {
   switch_cut: "Switched cuts.",
 };
 
+// Rail header meta pieces ("<format> • …"), per app id. A hardcoded table so
+// the agent never has to reason about which fields fit a given project type —
+// it just fills the normal project fields (scenes, meta.targetDuration,
+// cast, …) via commit_project_patch as usual, and this table decides which of
+// them belong in the header. Add an entry when a new skill's natural unit
+// isn't "shots + running time" (e.g. a single-artifact or library skill).
+type MetaField = "shots" | "duration" | "cast";
+const META_FIELDS_BY_APP: Record<string, MetaField[]> = {
+  "short-film": ["shots", "duration"],
+  "product-ad": ["shots", "duration"],
+  "music-video": ["shots", "duration"],
+  "anime-world-cup": ["shots", "duration"],
+  "talking-head": ["duration"],
+  "character-creator": ["cast"],
+  "create-skill": [],
+};
+// Multi-shot wizards are the common case — an unlisted appId (new skill, or
+// no skill selected yet) falls back to the current "shots + duration" shape.
+const DEFAULT_META_FIELDS: MetaField[] = ["shots", "duration"];
+
 /** Synthesized prose for a tool-only turn (no render_turn, no text). */
 function summarizeToolOnlyTurn(m: UIMessage): string {
   const names = toolPartsOf(m)
@@ -895,21 +915,9 @@ export function AgentShell(props: AgentShellProps) {
     [],
   );
 
-  // Rail header meta: "<format> • N Shots • m:ss".
-  const projectMetaPieces = useMemo(() => {
-    const total = project.scenes.reduce((a, s) => a + (s.duration || 0), 0);
-    const mins = Math.floor(total / 60);
-    const secs = Math.round(total % 60);
-    return [
-      project.meta.format || "New project",
-      `${project.scenes.length} Shot${project.scenes.length === 1 ? "" : "s"}`,
-      `${mins}:${String(secs).padStart(2, "0")}`,
-    ];
-  }, [project.meta.format, project.scenes]);
-
   // Derive the currently-selected skill from the latest successful
-  // `tool-select_app` output. Powers the debug pill under the Export button
-  // and the live skill.md editor.
+  // `tool-select_app` output. Powers the debug pill under the Export button,
+  // the live skill.md editor, and which rail header meta fields apply.
   const selectedApp = useMemo<{ appId: string; label: string } | null>(() => {
     let hit: { appId: string; label: string } | null = null;
     for (const m of messages) {
@@ -924,6 +932,32 @@ export function AgentShell(props: AgentShellProps) {
     }
     return hit;
   }, [messages]);
+
+  // Rail header meta: "<format> • …", fields picked by app via
+  // META_FIELDS_BY_APP (see its comment for why this is a hardcoded table
+  // rather than something the agent decides per turn).
+  const projectMetaPieces = useMemo(() => {
+    const fields =
+      (selectedApp && META_FIELDS_BY_APP[selectedApp.appId]) ?? DEFAULT_META_FIELDS;
+    const pieces = [project.meta.format || "New project"];
+    for (const field of fields) {
+      if (field === "shots") {
+        pieces.push(`${project.scenes.length} Shot${project.scenes.length === 1 ? "" : "s"}`);
+      } else if (field === "duration") {
+        if (project.scenes.length) {
+          const total = project.scenes.reduce((a, s) => a + (s.duration || 0), 0);
+          const mins = Math.floor(total / 60);
+          const secs = Math.round(total % 60);
+          pieces.push(`${mins}:${String(secs).padStart(2, "0")}`);
+        } else {
+          pieces.push(project.meta.targetDuration || "0:00");
+        }
+      } else if (field === "cast") {
+        pieces.push(`${project.cast.length} in cast`);
+      }
+    }
+    return pieces;
+  }, [project.meta.format, project.meta.targetDuration, project.scenes, project.cast, selectedApp]);
 
   // --- Debug HUD data (top-right markers) ---------------------------------
 
@@ -2067,14 +2101,14 @@ export function AgentShell(props: AgentShellProps) {
                                 exit="exit"
                               >
                                 {lastUserText && (
-                                  <div className="flex gap-2 text-sm text-muted-foreground">
+                                  <div className="flex justify-center gap-2 text-center text-sm text-muted-foreground">
                                     <span className="opacity-40">|</span>
                                     <span className="text-foreground/80">{lastUserText}</span>
                                   </div>
                                 )}
                                 <WordsRamp
                                   text={displayAck}
-                                  className="font-display text-2xl font-medium leading-snug tracking-tight text-foreground"
+                                  className="font-display text-center text-2xl font-normal leading-snug tracking-tight text-[#0d0d0d]/50"
                                 />
                               </motion.div>
                             ) : showTurnProse ? (
@@ -2088,7 +2122,7 @@ export function AgentShell(props: AgentShellProps) {
                                 exit="exit"
                               >
                                 {showProseEcho && (
-                                  <div className="flex gap-2 text-sm text-muted-foreground">
+                                  <div className="flex justify-center gap-2 text-center text-sm text-muted-foreground">
                                     <span className="opacity-40">|</span>
                                     <span className="text-foreground/80">{lastUserText}</span>
                                   </div>
@@ -2098,7 +2132,7 @@ export function AgentShell(props: AgentShellProps) {
                             ) : !activeProse && !busy ? (
                               <motion.div
                                 key="idle-hi"
-                                className="font-display text-2xl font-medium leading-snug tracking-tight text-foreground/40"
+                                className="font-display text-center text-2xl font-normal leading-snug tracking-tight text-[#0d0d0d]/25"
                                 variants={turnZoneV}
                                 custom={navDir}
                                 initial="initial"
@@ -2178,6 +2212,7 @@ export function AgentShell(props: AgentShellProps) {
                             assets={assets}
                             projectId={projectId}
                             seedKey={activeAssistantId ?? undefined}
+                            aspectRatio={project.meta.aspectRatio}
                             onIntent={dispatchIntent}
                             onInlineAsk={askInline}
                           />

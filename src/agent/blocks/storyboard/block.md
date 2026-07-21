@@ -7,6 +7,7 @@ Cinematic shot-by-shot storyboard — one slide per shot, navigable with a progr
 - Any per-shot breakdown with metadata (Shot N · Xs), a short title, a visual prompt, and optionally a VO line.
 
 ## When NOT to use
+- EXCLUSIVE alternatives the user picks ONE of (concepts, treatments, directions) — use `options` with per-item `body` (pitch cards, side-by-side). A storyboard paginates; alternatives must be compared at a glance. Slides are for parts of the SAME piece, never competing versions.
 - Flat list without per-shot ceremony — use `list`.
 - Reviewing generated stills — use `gallery`.
 

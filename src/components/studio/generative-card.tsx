@@ -53,6 +53,10 @@ const SANITIZE_CONFIG = {
     "data-count",
     "data-action",
     "data-value",
+    "data-title-font",
+    "data-palette-bg",
+    "data-palette-fg",
+    "data-palette-accent",
     "data-pill",
     "data-upload",
     "data-capture",
@@ -348,6 +352,7 @@ export const GenerativeCard = memo(function GenerativeCard({
   assets,
   projectId,
   seedKey,
+  aspectRatio,
   onIntent,
   onInlineAsk,
 }: {
@@ -358,6 +363,8 @@ export const GenerativeCard = memo(function GenerativeCard({
   projectId: string;
   /** Stable per-message key so option-card scatter is random but repeatable. */
   seedKey?: string;
+  /** Project aspect ratio (e.g. "16:9") — pitch-card options adopt it. */
+  aspectRatio?: string;
   /** Routes media-card actions (regenerate / more) to the shell. */
   onIntent?: (intent: StageIntent) => void;
   /** In-context piece/media edits — the popup conversation runs through the
@@ -392,7 +399,7 @@ export const GenerativeCard = memo(function GenerativeCard({
       lastSafeHtmlRef.current = sanitized;
       // Upgrade any [data-options] grids into styled option-picker cards
       // (per-card glow, ratio illos / icon badges, "Agent Decides" pill).
-      enhanceOptionGrids(root, seedKey);
+      enhanceOptionGrids(root, seedKey, aspectRatio);
       // Paint the regenerate/edit/more icon trio + variant thumb strips the
       // model declares on media cards (clicks are wired in handleClick).
       enhanceCardActions(root);
@@ -408,7 +415,7 @@ export const GenerativeCard = memo(function GenerativeCard({
     return () => {
       cancelled = true;
     };
-  }, [safe, seedKey]);
+  }, [safe, seedKey, aspectRatio]);
 
 
 
@@ -1978,7 +1985,7 @@ export function AssistantMessage({ text }: { text: string }) {
       {prose && (
         <WordsRamp
           text={prose}
-          className="font-display text-2xl font-medium leading-snug tracking-tight text-foreground"
+          className="font-display text-center text-2xl font-normal leading-snug tracking-tight text-[#0d0d0d]/50"
         />
       )}
       {assets.map((asset, i) => {
