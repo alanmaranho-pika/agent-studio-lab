@@ -11,7 +11,16 @@ export const ProductAdSkill: SkillPack = {
     "Turn a product photo (or product URL) into a polished ad — concept, style, model choice, render.",
   outputs: ["video"],
   matches: ["product ad", "commercial", "ad", "marketing"],
-  usesBlocks: ["BLK_UPLOAD", "BLK_FORM", "BLK_OPTIONS", "BLK_STORYBOARD", "BLK_MEDIA", "BLK_ACTIONS"],
+  usesBlocks: [
+    "BLK_UPLOAD",
+    "BLK_FORM",
+    "BLK_OPTIONS",
+    "BLK_STORYBOARD",
+    "BLK_GALLERY",
+    "BLK_MEDIA",
+    "BLK_TIMELINE",
+    "BLK_ACTIONS",
+  ],
   steps: [
     {
       id: "product",
@@ -51,7 +60,7 @@ export const ProductAdSkill: SkillPack = {
     {
       id: "concept",
       intent:
-        "Generate 2–3 ad concepts. Render them as a visible list in the card; user picks one or asks to regenerate.",
+        "Generate 2–3 ad concepts. Render them as a visible list in the card; user picks one or asks to regenerate. On lock, translate the concept into an ordered shot list and commit_project_patch({scenes}) — one scene per shot (a single-shot ad is one scene) — so the timeline can render the shots.",
       inputs: [],
     },
     {
@@ -98,9 +107,17 @@ export const ProductAdSkill: SkillPack = {
       ],
     },
     {
+      id: "timeline",
+      intent:
+        "REQUIRED consolidation surface. Once scenes are patched, render_turn with a BLK_TIMELINE (variant preview) showing every shot in order (placeholder clips before render). Never leave shots as loose media cards. Put next steps in its actions.",
+      presents: ["BLK_TIMELINE"],
+      inputs: [],
+    },
+    {
       id: "produce",
-      intent: "Pick render model (Seedance vs Kling) and render.",
-      presents: ["BLK_OPTIONS"],
+      intent:
+        "Pick render model (Seedance vs Kling), then anchor-first render per shot. After each shot lands, return to the BLK_TIMELINE so renders consolidate there — never a standalone media card. Final review + export live in the timeline's actions.",
+      presents: ["BLK_OPTIONS", "BLK_TIMELINE"],
       inputs: [
         {
           kind: "choice",
