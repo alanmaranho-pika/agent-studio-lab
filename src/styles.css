@@ -500,6 +500,38 @@
     animation: pulse-glow 3s ease-in-out infinite;
   }
 
+  /* Voice-mode reactive glow. `--voice-level` (0..1) is written each animation
+     frame by useVoiceMode directly on the element; CSS maps it to scale/opacity
+     for a soft bounce, with a short transition adding damping over the JS EMA.
+     The faint baseline keeps it "always subtly present" behind the composer. */
+  .voice-glow {
+    --voice-level: 0;
+    height: 900px;
+    max-height: 60vh;
+    background: radial-gradient(
+      120% 100% at 50% 100%,
+      rgba(207, 195, 255, 0.55) 0%,
+      rgba(207, 195, 255, 0.28) 30%,
+      rgba(207, 195, 255, 0.1) 55%,
+      rgba(207, 195, 255, 0) 75%
+    );
+    filter: blur(40px);
+    transform-origin: 50% 100%;
+    transform: scale(calc(0.92 + 0.18 * var(--voice-level)));
+    opacity: calc(0.18 + 0.62 * var(--voice-level));
+    transition:
+      transform 120ms ease-out,
+      opacity 120ms ease-out;
+    will-change: transform, opacity;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .voice-glow {
+      transform: none;
+      opacity: 0.25;
+      transition: none;
+    }
+  }
+
   /* Motion tokens — CSS-side mirror of motion-primitives.tsx (SOFT_EASE /
      SPRING). Enhancer-injected DOM can't use motion components, so its
      keyframes share these tokens to stay in step with the React springs. */

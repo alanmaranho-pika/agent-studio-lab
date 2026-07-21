@@ -3,8 +3,8 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import {
   History,
-  LayoutGrid,
-  Mic,
+  AudioLines,
+  Pencil,
   Plus,
   ChevronDown,
   ChevronUp,
@@ -22,6 +22,7 @@ import {
 import { AgentSymbol } from "@/components/studio/agent/agent-symbol";
 import { EtherealBackdrop } from "@/components/studio/agent/ethereal-backdrop";
 import { ProjectChrome, type ProjectSurface } from "@/components/studio/agent/project-chrome";
+import { useVoiceMode } from "@/components/studio/agent/use-voice-mode";
 import { blockToHtml } from "@/agent/blocks/_registry";
 
 import { buildAuthHeaders } from "@/lib/fetch-with-auth";
@@ -1668,69 +1669,114 @@ export function AgentShell(props: AgentShellProps) {
     void dispatchIntent({ kind: "compose", text });
   };
 
-  // Voice dictation — Web Speech API feeding the same compose intent the
-  // keyboard uses. Interim results preview in the composer; the final
-  // transcript submits through dispatchIntent.
-  const recognitionRef = useRef<{ stop: () => void } | null>(null);
+  // Voice mode — conversational dictation. useVoiceMode owns the mic: one
+  // getUserMedia stream drives the reactive glow, a VAD segments utterances
+  // on natural pauses, and each utterance is transcribed server-side
+  // (/api/transcribe → Whisper via fal). Transcripts (interim + final) feed a
+  // word-by-word "typewriter" reveal so the user watches the dictation land
+  // one word at a time; only once the FINAL transcript is fully revealed does
+  // it auto-send — so the dictation always shows before the agent starts. The
+  // button mutes/unmutes; it never submits.
+  // (Web Speech API was dropped — its cloud recognizer is unavailable in
+  // Electron-based shells, so it silently produced no results.)
+  const voiceGlowRef = useRef<HTMLDivElement | null>(null);
   const [dictating, setDictating] = useState(false);
-  const speechCtor =
-    typeof window !== "undefined"
-      ? ((window as unknown as Record<string, unknown>).SpeechRecognition ??
-        (window as unknown as Record<string, unknown>).webkitSpeechRecognition)
-      : undefined;
-  const speechSupported = typeof speechCtor === "function";
-  const toggleDictation = useCallback(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
+  const [voicePhase, setVoicePhase] = useState<"idle" | "listening" | "transcribing">("idle");
+  const voiceSupported =
+    typeof window !== "undefined" &&
+    !!navigator.mediaDevices?.getUserMedia &&
+    typeof MediaRecorder !== "undefined";
+  const toggleVoice = useCallback(() => setDictating((v) => !v), []);
+
+  // Word-by-word reveal queue. `target` is the latest transcript; `shown` is
+  // how many words have been flashed. A timer advances ONE word every
+  // REVEAL_MS and shows THAT WORD ALONE (not the accumulated string) — this
+  // single-word cadence is what visually distinguishes dictation from typing.
+  // The full transcript is still what gets dispatched. When the final
+  // transcript is fully flashed, it dispatches.
+  const revealRef = useRef<{ target: string; shown: number; final: boolean; timer: number | null }>(
+    { target: "", shown: 0, final: false, timer: null },
+  );
+  const REVEAL_MS = 150;
+  const pumpReveal = useCallback(() => {
+    const st = revealRef.current;
+    const words = st.target.split(/\s+/).filter(Boolean);
+    if (st.shown < words.length) {
+      st.shown += 1;
+      setInput(words[st.shown - 1] ?? ""); // one word at a time
+      st.timer = window.setTimeout(pumpReveal, REVEAL_MS);
       return;
     }
-    if (typeof speechCtor !== "function") return;
-    type SpeechAlternative = { transcript: string };
-    type SpeechResult = { isFinal: boolean; 0: SpeechAlternative };
-    type SpeechResultEvent = { resultIndex: number; results: ArrayLike<SpeechResult> };
-    const rec = new (
-      speechCtor as new () => {
-        continuous: boolean;
-        interimResults: boolean;
-        lang: string;
-        onresult: ((ev: SpeechResultEvent) => void) | null;
-        onend: (() => void) | null;
-        onerror: (() => void) | null;
-        start: () => void;
-        stop: () => void;
-      }
-    )();
-    rec.continuous = false;
-    rec.interimResults = true;
-    rec.lang = typeof navigator !== "undefined" ? navigator.language || "en-US" : "en-US";
-    let finalText = "";
-    rec.onresult = (ev) => {
-      let interim = "";
-      for (let i = ev.resultIndex; i < ev.results.length; i++) {
-        const r = ev.results[i];
-        if (r.isFinal) finalText += r[0].transcript;
-        else interim += r[0].transcript;
-      }
-      setInput(`${finalText}${interim}`.trimStart());
-    };
-    rec.onend = () => {
-      recognitionRef.current = null;
-      setDictating(false);
-      const text = finalText.trim();
+    st.timer = null;
+    if (st.final) {
+      const text = st.target.trim();
+      st.target = "";
+      st.shown = 0;
+      st.final = false;
       if (text) {
-        setInput("");
         void dispatchIntent({ kind: "compose", text });
+        // Let the last word sit briefly, then hand off to the stage echo.
+        window.setTimeout(() => setInput(""), 220);
+      } else {
+        setInput("");
       }
-    };
-    rec.onerror = () => {
-      recognitionRef.current = null;
-      setDictating(false);
-    };
-    recognitionRef.current = rec;
-    setDictating(true);
-    rec.start();
-  }, [dispatchIntent, speechCtor]);
-  useEffect(() => () => recognitionRef.current?.stop(), []);
+    }
+  }, [dispatchIntent]);
+  const queueReveal = useCallback(
+    (text: string, final: boolean) => {
+      const st = revealRef.current;
+      st.target = text;
+      if (final) st.final = true;
+      const count = text.split(/\s+/).filter(Boolean).length;
+      if (st.shown > count) st.shown = count; // transcript revised shorter — snap back
+      if (st.timer == null) pumpReveal();
+    },
+    [pumpReveal],
+  );
+  const resetReveal = useCallback(() => {
+    const st = revealRef.current;
+    if (st.timer != null) window.clearTimeout(st.timer);
+    revealRef.current = { target: "", shown: 0, final: false, timer: null };
+  }, []);
+  const handleVoicePartial = useCallback(
+    (text: string) => queueReveal(text, false),
+    [queueReveal],
+  );
+  const handleVoiceFinal = useCallback(
+    (text: string) => {
+      // If the full-utterance pass came back empty, fall back to whatever the
+      // interim passes already produced rather than wiping it.
+      const t = text.trim() || revealRef.current.target;
+      queueReveal(t, true);
+    },
+    [queueReveal],
+  );
+  const handleVoiceFatal = useCallback(() => setDictating(false), []);
+  useVoiceMode({
+    active: dictating,
+    paused: busy, // glow keeps reacting, but speech is ignored while the agent works
+    glowRef: voiceGlowRef,
+    onPartial: handleVoicePartial,
+    onFinal: handleVoiceFinal,
+    onState: setVoicePhase,
+    onFatal: handleVoiceFatal,
+  });
+  // Reset phase + reveal queue when voice mode is turned off.
+  useEffect(() => {
+    if (!dictating) {
+      setVoicePhase("idle");
+      resetReveal();
+    }
+  }, [dictating, resetReveal]);
+  // Composer placeholder doubles as live voice feedback: "Listening…" the
+  // moment the mic is open, "Transcribing…" while Whisper resolves an
+  // utterance (the beat where partials haven't landed yet), else "Message".
+  const composerPlaceholder =
+    dictating && !busy
+      ? voicePhase === "transcribing"
+        ? "Transcribing…"
+        : "Listening…"
+      : "Message";
 
   // Send picked/dropped assets to the agent as an answer so it can reference
   // them (an active upload turn is answered; on an open stage the agent infers
@@ -2431,6 +2477,16 @@ export function AgentShell(props: AgentShellProps) {
           </button>
         </div>
 
+        {/* Voice-mode reactive glow — a faint lavender wash behind the composer
+          that brightens/bounces with live mic amplitude. `--voice-level` is
+          written each animation frame by useVoiceMode. Kept a SIBLING of the
+          measured bottom band so it never affects useViewportBand's layout. */}
+        <div
+          ref={voiceGlowRef}
+          aria-hidden
+          className="voice-glow pointer-events-none absolute inset-x-0 bottom-0 z-30"
+        />
+
         {/* --- Bottom cluster: pinned BLK_ACTIONS + composer --- */}
         <div
           ref={bottomBandRef}
@@ -2472,27 +2528,20 @@ export function AgentShell(props: AgentShellProps) {
             )}
           </AnimatePresence>
           <div className="pointer-events-auto flex items-center gap-3">
+            {/* Attach — standalone glass icon */}
             <button
               type="button"
-              onClick={onOpenApps}
-              aria-label="Apps"
-              title="Apps"
-              className="flex h-[56px] w-[56px] items-center justify-center rounded-[24px] border border-border bg-card text-muted-foreground transition hover:text-foreground"
+              onClick={() => setAttachOpen(true)}
+              aria-label="Attach a reference"
+              title="Attach a reference"
+              className="flex h-[56px] w-[56px] items-center justify-center rounded-[18px] bg-white/50 text-foreground/70 backdrop-blur-[16px] transition hover:text-foreground"
             >
-              <LayoutGrid className="h-4 w-4" />
+              <Plus className="h-5 w-5" aria-hidden />
             </button>
 
-            <div className="flex h-[56px] items-center gap-2 rounded-[24px] border border-border bg-card p-2">
-              <button
-                type="button"
-                onClick={() => setAttachOpen(true)}
-                aria-label="Attach a reference"
-                title="Attach a reference"
-                className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
-              >
-                <Plus className="h-4 w-4" aria-hidden />
-              </button>
-
+            {/* Input pill — text + voice-dictation transcript, with the
+              voice/send action docked on the right. */}
+            <div className="flex h-[56px] w-[395px] items-center gap-2.5 rounded-[24px] bg-white/50 p-[4px] backdrop-blur-[16px]">
               <textarea
                 ref={inputRef}
                 value={input}
@@ -2504,36 +2553,59 @@ export function AgentShell(props: AgentShellProps) {
                   }
                 }}
                 rows={1}
-                placeholder="Message"
-                className="w-64 resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                placeholder={composerPlaceholder}
+                className={cn(
+                  "min-w-px flex-1 resize-none self-center bg-transparent py-0 pl-3 text-center text-[16px] leading-[20px] text-foreground/70 outline-none placeholder:text-foreground/40",
+                  dictating && "placeholder:text-primary/70",
+                )}
               />
-              {input.trim() && !dictating ? (
+              {dictating ? (
+                // Voice mode is on — the button mutes (stops listening); it
+                // never submits. Utterances auto-send on a natural pause.
+                <button
+                  type="button"
+                  onClick={toggleVoice}
+                  aria-label="Mute microphone"
+                  title="Mute microphone"
+                  className="grid h-[48px] w-[56px] shrink-0 animate-pulse-glow place-items-center rounded-[18px] bg-primary text-primary-foreground transition"
+                >
+                  <AudioLines className="h-5 w-5" />
+                </button>
+              ) : input.trim() ? (
                 <button
                   type="button"
                   onClick={submit}
                   disabled={busy}
                   aria-label="Send message"
-                  className="grid h-7 w-7 place-items-center rounded-full bg-foreground text-background transition hover:opacity-90 disabled:opacity-40"
+                  className="grid h-[48px] w-[56px] shrink-0 place-items-center rounded-[18px] bg-foreground text-background transition hover:opacity-90 disabled:opacity-40"
                 >
-                  <ArrowUp className="h-3.5 w-3.5" />
+                  <ArrowUp className="h-5 w-5" />
                 </button>
-              ) : speechSupported ? (
+              ) : voiceSupported ? (
                 <button
                   type="button"
-                  onClick={toggleDictation}
-                  aria-label={dictating ? "Stop dictation" : "Dictate a message"}
-                  title={dictating ? "Stop dictation" : "Dictate a message"}
-                  className={cn(
-                    "grid h-7 w-7 place-items-center rounded-full transition",
-                    dictating
-                      ? "animate-pulse-glow bg-primary text-primary-foreground"
-                      : "bg-primary/15 text-primary hover:bg-primary/25",
-                  )}
+                  onClick={toggleVoice}
+                  aria-label="Start voice input"
+                  title="Start voice input"
+                  className="grid h-[48px] w-[56px] shrink-0 place-items-center rounded-[18px] bg-[rgba(207,195,255,0.25)] text-primary transition hover:bg-[rgba(207,195,255,0.4)]"
                 >
-                  <Mic className="h-3.5 w-3.5" />
+                  <AudioLines className="h-5 w-5" />
                 </button>
               ) : null}
             </div>
+
+            {/* Vertical divider */}
+            <div className="h-4 w-px bg-border" />
+
+            {/* Pen — standalone glass icon (no function yet) */}
+            <button
+              type="button"
+              aria-label="Edit"
+              title="Edit"
+              className="flex h-[56px] w-[56px] items-center justify-center rounded-[18px] bg-white/50 text-foreground/70 backdrop-blur-[16px] transition hover:text-foreground"
+            >
+              <Pencil className="h-5 w-5" aria-hidden />
+            </button>
           </div>
         </div>
       </ProjectChrome>

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AuthenticatedProjectsRouteImport } from './routes/_authenticated/projects'
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
@@ -36,6 +37,11 @@ const SplatRoute = SplatRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTranscribeRoute = ApiTranscribeRouteImport.update({
+  id: '/api/transcribe',
+  path: '/api/transcribe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiChatRoute = ApiChatRouteImport.update({
@@ -106,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/library': typeof AuthenticatedLibraryRoute
   '/projects': typeof AuthenticatedProjectsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/transcribe': typeof ApiTranscribeRoute
   '/studio/$projectId': typeof AuthenticatedStudioProjectIdRoute
   '/api/asset/$id': typeof ApiAssetIdRoute
   '/api/public/render-tick': typeof ApiPublicRenderTickRoute
@@ -121,6 +128,7 @@ export interface FileRoutesByTo {
   '/library': typeof AuthenticatedLibraryRoute
   '/projects': typeof AuthenticatedProjectsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/transcribe': typeof ApiTranscribeRoute
   '/studio/$projectId': typeof AuthenticatedStudioProjectIdRoute
   '/api/asset/$id': typeof ApiAssetIdRoute
   '/api/public/render-tick': typeof ApiPublicRenderTickRoute
@@ -138,6 +146,7 @@ export interface FileRoutesById {
   '/_authenticated/library': typeof AuthenticatedLibraryRoute
   '/_authenticated/projects': typeof AuthenticatedProjectsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/transcribe': typeof ApiTranscribeRoute
   '/_authenticated/studio/$projectId': typeof AuthenticatedStudioProjectIdRoute
   '/api/asset/$id': typeof ApiAssetIdRoute
   '/api/public/render-tick': typeof ApiPublicRenderTickRoute
@@ -155,6 +164,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/projects'
     | '/api/chat'
+    | '/api/transcribe'
     | '/studio/$projectId'
     | '/api/asset/$id'
     | '/api/public/render-tick'
@@ -170,6 +180,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/projects'
     | '/api/chat'
+    | '/api/transcribe'
     | '/studio/$projectId'
     | '/api/asset/$id'
     | '/api/public/render-tick'
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
     | '/_authenticated/library'
     | '/_authenticated/projects'
     | '/api/chat'
+    | '/api/transcribe'
     | '/_authenticated/studio/$projectId'
     | '/api/asset/$id'
     | '/api/public/render-tick'
@@ -199,6 +211,7 @@ export interface RootRouteChildren {
   SplatRoute: typeof SplatRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   ApiChatRoute: typeof ApiChatRoute
+  ApiTranscribeRoute: typeof ApiTranscribeRoute
   ApiAssetIdRoute: typeof ApiAssetIdRoute
   ApiPublicRenderTickRoute: typeof ApiPublicRenderTickRoute
   ApiPublicHooksPikaPollerRoute: typeof ApiPublicHooksPikaPollerRoute
@@ -226,6 +239,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/transcribe': {
+      id: '/api/transcribe'
+      path: '/api/transcribe'
+      fullPath: '/api/transcribe'
+      preLoaderRoute: typeof ApiTranscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/chat': {
@@ -335,6 +355,7 @@ const rootRouteChildren: RootRouteChildren = {
   SplatRoute: SplatRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   ApiChatRoute: ApiChatRoute,
+  ApiTranscribeRoute: ApiTranscribeRoute,
   ApiAssetIdRoute: ApiAssetIdRoute,
   ApiPublicRenderTickRoute: ApiPublicRenderTickRoute,
   ApiPublicHooksPikaPollerRoute: ApiPublicHooksPikaPollerRoute,
