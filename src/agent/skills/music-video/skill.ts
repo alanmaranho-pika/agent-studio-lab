@@ -23,10 +23,16 @@ export const MusicVideoSkill: SkillPack = {
     },
     {
       id: "style",
-      intent: "Visual style + aspect ratio.",
+      intent: "Visual style.",
       presents: ["BLK_FORM"],
+      inputs: [{ kind: "text", key: "styleNotes", label: "Visual look", long: true }],
+    },
+    {
+      id: "aspect",
+      intent:
+        "Aspect ratio — its own turn as options with ratio visuals, never a form field.",
+      presents: ["BLK_OPTIONS"],
       inputs: [
-        { kind: "text", key: "styleNotes", label: "Visual look", long: true },
         { kind: "choice", key: "aspect", label: "Aspect ratio", options: ["16:9", "9:16", "1:1"] },
       ],
     },

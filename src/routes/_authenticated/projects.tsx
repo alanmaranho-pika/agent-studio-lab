@@ -1,14 +1,9 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { Film, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProjectThumbnail } from "@/components/project-thumbnail";
-import logoUrl from "@/assets/logo.png";
 import {
   listProjects,
   createProject,
@@ -63,8 +58,7 @@ function ProjectsPage() {
 
   const q = useInfiniteQuery({
     queryKey: ["projects-list"],
-    queryFn: ({ pageParam }) =>
-      fetchList({ data: { limit: 24, cursor: pageParam ?? undefined } }),
+    queryFn: ({ pageParam }) => fetchList({ data: { limit: 24, cursor: pageParam ?? undefined } }),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.nextCursor ?? null,
   });
@@ -95,8 +89,7 @@ function ProjectsPage() {
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => remove({ data: { id } }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["projects-list"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects-list"] }),
   });
 
   const projects = (q.data?.pages ?? []).flatMap((p) => p.projects);
@@ -106,29 +99,25 @@ function ProjectsPage() {
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
-    const io = new IntersectionObserver((entries) => {
-      if (entries[0]?.isIntersecting && q.hasNextPage && !q.isFetchingNextPage) {
-        void q.fetchNextPage();
-      }
-    }, { rootMargin: "600px" });
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && q.hasNextPage && !q.isFetchingNextPage) {
+          void q.fetchNextPage();
+        }
+      },
+      { rootMargin: "600px" },
+    );
     io.observe(el);
     return () => io.disconnect();
   }, [q.hasNextPage, q.isFetchingNextPage, q.fetchNextPage]);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background text-foreground">
-      <div className="flex h-screen flex-1 flex-col overflow-hidden">
+    <div className="flex h-full overflow-hidden bg-background text-foreground">
+      <div className="flex h-full flex-1 flex-col overflow-hidden">
         <header className="px-8 pb-4 pt-6">
           <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <img
-                src={logoUrl}
-                alt="Logo"
-                className="h-10 w-10 object-contain"
-              />
-              <h1 className="font-display text-2xl font-semibold tracking-tight">
-                Projects
-              </h1>
+              <h1 className="font-display text-2xl font-semibold tracking-tight">Projects</h1>
             </div>
             <Button
               onClick={handleCreate}
@@ -143,15 +132,18 @@ function ProjectsPage() {
         <div className="relative flex-1 min-h-0">
           <div className="h-full overflow-y-auto px-8 pb-8 pt-4">
             <div className="mx-auto w-full max-w-6xl">
-              {q.isLoading && (
-                <div className="p-6 text-sm text-muted-foreground">Loading…</div>
-              )}
+              {q.isLoading && <div className="p-6 text-sm text-muted-foreground">Loading…</div>}
               {!q.isLoading && projects.length === 0 && (
                 <div className="rounded-3xl border border-dashed border-border bg-card/40 p-12 text-center">
                   <Film className="mx-auto h-8 w-8 text-muted-foreground" />
                   <h2
                     className="mt-4"
-                    style={{ fontFamily: '"Telka Extended", "Telka", system-ui, sans-serif', fontWeight: 400, fontSize: 40, lineHeight: 1.1 }}
+                    style={{
+                      fontFamily: '"Telka Extended", "Telka", system-ui, sans-serif',
+                      fontWeight: 400,
+                      fontSize: 40,
+                      lineHeight: 1.1,
+                    }}
                   >
                     No projects yet
                   </h2>
@@ -174,11 +166,7 @@ function ProjectsPage() {
                     key={p.id}
                     className="group relative overflow-hidden rounded-2xl border border-border bg-card transition hover:border-primary/50 hover:shadow-glow"
                   >
-                    <Link
-                      to="/studio/$projectId"
-                      params={{ projectId: p.id }}
-                      className="block"
-                    >
+                    <Link to="/studio/$projectId" params={{ projectId: p.id }} className="block">
                       <ProjectThumbnail
                         url={p.thumbnailUrl}
                         kind={p.thumbnailKind}
@@ -188,9 +176,7 @@ function ProjectsPage() {
                         brand
                       />
                       <div className="p-4">
-                        <div className="truncate text-base font-semibold">
-                          {p.title}
-                        </div>
+                        <div className="truncate text-base font-semibold">{p.title}</div>
                         <div className="mt-1 truncate text-xs text-muted-foreground">
                           {p.sceneCount} shot{p.sceneCount === 1 ? "" : "s"} · updated{" "}
                           {new Date(p.updatedAt).toLocaleDateString()}

@@ -744,6 +744,33 @@ export const GenerativeCard = memo(function GenerativeCard({
         }
         return;
       }
+      // Per-image gallery "Edit" pill — routes through the same retained-target
+      // media flow as a card's edit action, but targets THIS tile's image.
+      const galleryEditBtn = target.closest<HTMLElement>("[data-gallery-edit]");
+      if (galleryEditBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const item = galleryEditBtn.closest<HTMLElement>(".gen-gallery-item");
+        const media = item?.querySelector<HTMLImageElement>("img") ?? null;
+        const card = galleryEditBtn.closest<HTMLElement>("[data-card]") ?? root;
+        const cardTitle =
+          (card.querySelector<HTMLElement>("[data-card-title]")?.textContent ?? "")
+            .trim() || undefined;
+        const label = (
+          item?.querySelector<HTMLElement>(".gen-gallery-label")?.textContent ?? ""
+        ).trim();
+        pieceElRef.current = media;
+        const rect = galleryEditBtn.getBoundingClientRect();
+        setAskPop({
+          mode: "media",
+          title: label || cardTitle || "",
+          currentValue: media?.getAttribute("src") ?? "",
+          rect: { top: rect.bottom + 8, left: rect.right, width: 320 },
+          cardTitle,
+          mediaKind: "image",
+        });
+        return;
+      }
       // Media-card action trio (regenerate / edit / more).
       const cardActionBtn = target.closest<HTMLElement>("[data-card-action]");
       if (cardActionBtn) {

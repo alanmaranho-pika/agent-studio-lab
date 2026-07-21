@@ -25,7 +25,7 @@ export const ShortFilmSkill: SkillPack = {
   steps: [
     {
       id: "logline",
-      intent: "Logline + length + aspect ratio.",
+      intent: "Logline + length.",
       presents: ["BLK_FORM"],
       inputs: [
         { kind: "text", key: "logline", label: "Logline (1–2 sentences)", long: true },
@@ -35,6 +35,14 @@ export const ShortFilmSkill: SkillPack = {
           label: "Length",
           options: ["8s", "15s", "30s", "1m", "1m 30s", "2m"],
         },
+      ],
+    },
+    {
+      id: "aspect",
+      intent:
+        "Aspect ratio — its own turn as options with ratio visuals, never a form field.",
+      presents: ["BLK_OPTIONS"],
+      inputs: [
         { kind: "choice", key: "aspect", label: "Aspect ratio", options: ["16:9", "9:16", "1:1"] },
       ],
     },

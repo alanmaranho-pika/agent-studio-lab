@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Plus } from "lucide-react";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { AGENT_SYMBOL_SVG } from "@/components/studio/generative-card";
+import { AgentMark } from "@/components/studio/agent/agent-mark";
 import type { InlineAskResult } from "@/components/studio/agent/stage-generations";
 
 export type { InlineAskResult };
@@ -45,14 +46,14 @@ type AskThreadEntry = {
 
 export function AskAgentPanel({
   title,
-  currentValue,
   heading,
   suggestions,
   onAsk,
   onClose,
 }: {
   title: string;
-  currentValue: string;
+  /** Kept for API compatibility; no longer rendered in the panel body. */
+  currentValue?: string;
   heading?: string;
   suggestions?: string[];
   onAsk: (instruction: string) => Promise<InlineAskResult> | InlineAskResult;
@@ -130,15 +131,7 @@ export function AskAgentPanel({
       {/* Header */}
       <div className="flex items-center justify-between p-6" style={{ height: 81 }}>
         <div className="flex items-center gap-2">
-          <span
-            className="inline-flex size-6 items-center justify-center text-black"
-            dangerouslySetInnerHTML={{
-              __html: AGENT_SYMBOL_SVG.replace(
-                'width="14" height="14"',
-                'width="22" height="22"',
-              ),
-            }}
-          />
+          <AgentMark className="size-[22px] shrink-0 text-black" />
           <p
             className="text-[16px] font-medium leading-[20px] text-black"
             style={{ fontFamily: '"Telka Extended", Telka, sans-serif' }}
@@ -176,17 +169,6 @@ export function AskAgentPanel({
         ref={listRef}
         className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4"
       >
-        {thread.length === 0 && currentValue && (
-          <div
-            className="line-clamp-3 text-[13px] leading-[18px]"
-            style={{
-              color: "var(--content-dark-quaternary)",
-              fontFamily: "Telka, sans-serif",
-            }}
-          >
-            {currentValue}
-          </div>
-        )}
         {thread.map((t) => (
           <div key={t.id} className="flex flex-col gap-3">
             <div className="flex flex-col items-end">

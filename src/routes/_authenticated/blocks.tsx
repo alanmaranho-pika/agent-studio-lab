@@ -313,9 +313,9 @@ function BlocksPage() {
   }, []);
 
   return (
-    <div className="blocks-page flex h-screen overflow-hidden bg-background text-foreground">
+    <div className="blocks-page flex h-full overflow-hidden bg-background text-foreground">
       <AnchorNav activeType={activeType} />
-      <div className="relative flex h-screen flex-1 flex-col overflow-hidden">
+      <div className="relative flex h-full flex-1 flex-col overflow-hidden">
         <div ref={scrollRef} className="h-full overflow-y-auto">
           {ALL_BLOCKS.map((b) => {
             const example = EXAMPLES[b.type];

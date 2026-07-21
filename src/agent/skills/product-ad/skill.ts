@@ -31,13 +31,21 @@ export const ProductAdSkill: SkillPack = {
     },
     {
       id: "brief",
-      intent: "Brief: tagline, audience, length, aspect ratio.",
+      intent: "Brief: tagline, audience, length.",
       presents: ["BLK_FORM"],
       inputs: [
         { kind: "text", key: "tagline", label: "Tagline or hook (optional)" },
         { kind: "text", key: "audience", label: "Target audience" },
         { kind: "choice", key: "lengthSec", label: "Length", options: ["8s", "15s", "30s", "1m"] },
-        { kind: "choice", key: "aspect", label: "Aspect ratio", options: ["16:9", "9:16", "1:1", "4:5"] },
+      ],
+    },
+    {
+      id: "aspect",
+      intent:
+        "Aspect ratio — its own turn as options with ratio visuals, never a form field. Other ratios reachable via the Custom tile.",
+      presents: ["BLK_OPTIONS"],
+      inputs: [
+        { kind: "choice", key: "aspect", label: "Aspect ratio", options: ["16:9", "9:16", "1:1"] },
       ],
     },
     {
@@ -57,6 +65,14 @@ export const ProductAdSkill: SkillPack = {
           label: "Look",
           options: ["Cinematic", "Clean studio", "Lifestyle", "Editorial"],
         },
+      ],
+    },
+    {
+      id: "talent",
+      intent:
+        "On-screen talent (optional, multi) — its own turn; skip if the concept needs no one on camera.",
+      presents: ["BLK_OPTIONS"],
+      inputs: [
         { kind: "character", key: "talent", label: "Add on-screen talent (optional)", multi: true },
       ],
     },

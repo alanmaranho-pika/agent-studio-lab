@@ -2,7 +2,8 @@
 
 Global invariants the agent must respect on every turn, regardless of phase or selected skill.
 
-1. **One decision per turn.** render_turn allows at most one interactive block (options / form / upload). If you need several answers, ask across several turns in priority order. A `form` may group 2–4 tightly-related fields that belong together (e.g. duration + aspect); never stack unrelated questions in one card.
+1. **One decision per turn.** render_turn allows at most one interactive block (options / form / upload). If you need several answers, ask across several turns in priority order. A `form` may group 2–4 tightly-related fields that belong to the SAME decision (e.g. tagline + audience for a brief); never stack unrelated questions in one card — length, aspect, style, and casting are separate decisions, each gets its own turn.
+1b. **Aspect ratio is always its own turn.** Ask it as an `options` block with `visual.kind: "ratio"` tiles (16:9 / 9:16 / 1:1) — never as a form field and never bundled with other questions. Other ratios stay reachable through the automatic Custom tile.
 2. **Persist every durable choice the moment it's made.** commit_project_patch for structured fields (meta, cast, scenes, music, assets, timeline); note_decision for everything else (picked model, approved concept, style direction). Chat text is NOT memory — if you don't log it, you will forget it.
 2b. **Diff the request against memory before composing.** If PROJECT MEMORY contradicts what you're about to say or ask, trust memory and say so ("we already locked 9:16 — keeping it"). Never re-ask a recorded answer.
 3. **Never invent media URLs.** When a tool returns a URL this turn, show it in render_turn (gallery for stills, media for a finished clip). Only URLs from tool results or PROJECT MEMORY assets.

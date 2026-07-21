@@ -6,7 +6,6 @@ import {
   LayoutGrid,
   Mic,
   Plus,
-  Sparkles,
   ChevronDown,
   ChevronUp,
   ArrowUp,
@@ -17,9 +16,13 @@ import {
   Users,
   ListVideo,
   MoreHorizontal,
+  AlignLeft,
+  SquarePlus,
 } from "lucide-react";
 import { AgentSymbol } from "@/components/studio/agent/agent-symbol";
 import { EtherealBackdrop } from "@/components/studio/agent/ethereal-backdrop";
+import { ProjectChrome, type ProjectSurface } from "@/components/studio/agent/project-chrome";
+import { blockToHtml } from "@/agent/blocks/_registry";
 
 import { buildAuthHeaders } from "@/lib/fetch-with-auth";
 import { useProjectJobs } from "@/hooks/use-project-jobs";
@@ -34,7 +37,7 @@ import {
 } from "@/components/studio/agent/stage-generations";
 import type { StudioMode } from "@/lib/skills";
 import { StudioToolbar } from "@/components/studio/studio-toolbar";
-import { PENDING_MIME, resolveThumb } from "@/lib/project-state";
+import { PENDING_MIME } from "@/lib/project-state";
 import {
   GenerativeCard,
   AssistantMessage,
@@ -51,10 +54,7 @@ import { renderTurnToHtml } from "@/lib/agent/render-turn-html";
 import { RenderTurnSchema, type RenderTurn } from "@/lib/agent/ui-schema";
 import { useViewportBand } from "@/hooks/use-viewport-band";
 import { readSkillMd, writeSkillMd } from "@/lib/skills/skill-md.functions";
-import {
-  AssetPickerDialog,
-  type PickerResult,
-} from "@/components/studio/asset-picker-dialog";
+import { AssetPickerDialog, type PickerResult } from "@/components/studio/asset-picker-dialog";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import {
   AnimatePresence,
@@ -69,12 +69,10 @@ import {
   useTurnZone,
   WordsRamp,
 } from "@/components/studio/agent/motion-primitives";
-import {
-  sniffSkeletonHint,
-  StageSkeleton,
-} from "@/components/studio/agent/stage-skeleton";
+import { sniffSkeletonHint, StageSkeleton } from "@/components/studio/agent/stage-skeleton";
 import { StageDropzone } from "@/components/studio/agent/stage-dropzone";
 import { StageRenderProgress } from "@/components/studio/agent/stage-render-progress";
+import { LiquidMetal } from "@paper-design/shaders-react";
 
 /**
  * AgentShell — minimalist "one turn at a time" agent view.
@@ -99,7 +97,8 @@ export type AgentShellProps = {
   studioModel: string | null;
   onToolbarChange: (next: { mode: StudioMode; model: string | null }) => void;
   onPatch: (patch: ProjectPatch) => void;
-  onExport: () => void;
+  /** Kept for API compatibility; the Export button was removed from the chrome. */
+  onExport?: () => void;
   onOpenProjectSwitcher?: () => void;
   onOpenApps?: () => void;
   onOpenHistory?: () => void;
@@ -144,8 +143,20 @@ type InlineEditPayload =
     };
 
 export type InlineAskArgs =
-  | { kind: "piece"; pieceLabel: string; currentValue: string; cardTitle?: string; instruction: string }
-  | { kind: "media"; mediaKind: "image" | "video" | "audio"; mediaUrl: string; cardTitle?: string; instruction: string };
+  | {
+      kind: "piece";
+      pieceLabel: string;
+      currentValue: string;
+      cardTitle?: string;
+      instruction: string;
+    }
+  | {
+      kind: "media";
+      mediaKind: "image" | "video" | "audio";
+      mediaUrl: string;
+      cardTitle?: string;
+      instruction: string;
+    };
 
 type AgentMessageMetadata = {
   mode?: "inline-edit";
@@ -178,7 +189,11 @@ function metadataOf(m: UIMessage): AgentMessageMetadata {
 
 function isInlineEditMessage(m: UIMessage): boolean {
   const meta = metadataOf(m);
-  return meta.mode === "inline-edit" || textOf(m).startsWith(INLINE_REWORK_MARKER) || isLegacyInlinePatchMessage(m);
+  return (
+    meta.mode === "inline-edit" ||
+    textOf(m).startsWith(INLINE_REWORK_MARKER) ||
+    isLegacyInlinePatchMessage(m)
+  );
 }
 
 function isLegacyInlinePatchMessage(m: UIMessage): boolean {
@@ -186,14 +201,17 @@ function isLegacyInlinePatchMessage(m: UIMessage): boolean {
   const text = textOf(m);
   if (/data-card|data-options|data-gen-view/i.test(text)) return false;
   return toolPartsOf(m).some((part) => {
-    if (part.type !== "tool-commit_project_patch" || part.state !== "output-available") return false;
+    if (part.type !== "tool-commit_project_patch" || part.state !== "output-available")
+      return false;
     const patch = (part.output as { patch?: unknown } | undefined)?.patch as
-      | { scenes?: Array<Record<string, unknown>> }
-      | undefined;
+      { scenes?: Array<Record<string, unknown>> } | undefined;
     if (!patch || !Array.isArray(patch.scenes) || patch.scenes.length !== 1) return false;
     const scenePatch = patch.scenes[0];
     const keys = Object.keys(scenePatch).filter((key) => key !== "id");
-    return keys.length > 0 && keys.every((key) => key === "title" || key === "prompt" || key === "voPrompt");
+    return (
+      keys.length > 0 &&
+      keys.every((key) => key === "title" || key === "prompt" || key === "voPrompt")
+    );
   });
 }
 
@@ -390,9 +408,7 @@ async function readInlineEditStream(
       }
       const resolvedToolName =
         chunk.toolName ??
-        (typeof chunk.toolCallId === "string"
-          ? toolNameByCallId.get(chunk.toolCallId)
-          : undefined);
+        (typeof chunk.toolCallId === "string" ? toolNameByCallId.get(chunk.toolCallId) : undefined);
       if (
         chunk.type === "tool-output-available" &&
         resolvedToolName === "commit_project_patch" &&
@@ -454,14 +470,26 @@ function assistantToolAssets(
           name?: string;
           label?: string;
           image?: { id?: string; url?: string; mime?: string; name?: string };
-          assets?: Array<{ id?: string; url?: string; mime?: string; name?: string; label?: string }>;
+          assets?: Array<{
+            id?: string;
+            url?: string;
+            mime?: string;
+            name?: string;
+            label?: string;
+          }>;
           ok?: boolean;
           result?: unknown;
         }
       | undefined;
     if (!o) continue;
     if ((p.type === "tool-generate_image" || p.type === "tool-run_model_app") && o.url && o.mime) {
-      out.push({ url: resolveUrl(o.id, o.url), mime: o.mime, name: o.name, label: o.label, id: o.id });
+      out.push({
+        url: resolveUrl(o.id, o.url),
+        mime: o.mime,
+        name: o.name,
+        label: o.label,
+        id: o.id,
+      });
     } else if (p.type === "tool-generate_scene_anchor" && o.url) {
       out.push({
         url: resolveUrl(o.id, o.url),
@@ -472,7 +500,14 @@ function assistantToolAssets(
       });
     } else if (p.type === "tool-search_stock_media" && Array.isArray(o.assets)) {
       for (const a of o.assets) {
-        if (a.url && a.mime) out.push({ url: resolveUrl(a.id, a.url), mime: a.mime, name: a.name, label: a.label, id: a.id });
+        if (a.url && a.mime)
+          out.push({
+            url: resolveUrl(a.id, a.url),
+            mime: a.mime,
+            name: a.name,
+            label: a.label,
+            id: a.id,
+          });
       }
     } else if (p.type === "tool-tool_invoke" && o.ok && o.result) {
       const r = o.result as {
@@ -480,11 +515,23 @@ function assistantToolAssets(
         assets?: Array<{ id?: string; url?: string; mime?: string; name?: string; label?: string }>;
       };
       if (r.image?.url && r.image?.mime) {
-        out.push({ url: resolveUrl(r.image.id, r.image.url), mime: r.image.mime, name: r.image.name, id: r.image.id });
+        out.push({
+          url: resolveUrl(r.image.id, r.image.url),
+          mime: r.image.mime,
+          name: r.image.name,
+          id: r.image.id,
+        });
       }
       if (Array.isArray(r.assets)) {
         for (const a of r.assets) {
-          if (a.url && a.mime) out.push({ url: resolveUrl(a.id, a.url), mime: a.mime, name: a.name, label: a.label, id: a.id });
+          if (a.url && a.mime)
+            out.push({
+              url: resolveUrl(a.id, a.url),
+              mime: a.mime,
+              name: a.name,
+              label: a.label,
+              id: a.id,
+            });
         }
       }
     }
@@ -505,9 +552,9 @@ function withToolAssets(m: UIMessage, baseHtml: string, assets: ProjectAsset[]):
   }
   const toolAssets = assistantToolAssets(m, assets);
   if (!toolAssets.length) return html;
-  const existing = extractProjectPatch(html) as
-    | { assetsAppend?: Array<{ url?: string; mime?: string }> }
-    | null;
+  const existing = extractProjectPatch(html) as {
+    assetsAppend?: Array<{ url?: string; mime?: string }>;
+  } | null;
   const existingUrls = new Set((existing?.assetsAppend ?? []).map((a) => a.url));
   const merged = [
     ...(existing?.assetsAppend ?? []),
@@ -574,7 +621,8 @@ function describeChatError(error: Error): { message: string; interrupted: boolea
     error.name === "AbortError";
   if (interrupted) {
     return {
-      message: "The connection dropped mid-response — often a dev hot-reload. Nothing was saved for this turn.",
+      message:
+        "The connection dropped mid-response — often a dev hot-reload. Nothing was saved for this turn.",
       interrupted: true,
     };
   }
@@ -627,23 +675,28 @@ const ARTIFACT_META: Record<ArtifactKind, { label: string; icon: typeof Film; hi
 
 function detectArtifacts(html: string): ArtifactKind[] {
   const kinds = new Set<ArtifactKind>();
-  const patch = extractProjectPatch(html) as
-    | {
-        meta?: { logline?: string };
-        scenesAppend?: unknown[];
-        castAppend?: unknown[];
-        music?: unknown;
-        assetsAppend?: Array<{ kind?: string; mime?: string; label?: string }>;
-      }
-    | null;
+  const patch = extractProjectPatch(html) as {
+    meta?: { logline?: string };
+    scenesAppend?: unknown[];
+    castAppend?: unknown[];
+    music?: unknown;
+    assetsAppend?: Array<{ kind?: string; mime?: string; label?: string }>;
+  } | null;
   if (!patch) return [];
-  if (patch.meta?.logline || (patch.scenesAppend && patch.scenesAppend.length > 0)) kinds.add("shots");
+  if (patch.meta?.logline || (patch.scenesAppend && patch.scenesAppend.length > 0))
+    kinds.add("shots");
   if (patch.castAppend && patch.castAppend.length > 0) kinds.add("cast");
   if (patch.music) kinds.add("music");
   if (Array.isArray(patch.assetsAppend)) {
     for (const a of patch.assetsAppend) {
       const mime = a.mime ?? "";
-      if (a.kind === "music" || a.kind === "voiceover" || a.kind === "audio" || mime.startsWith("audio/")) kinds.add("music");
+      if (
+        a.kind === "music" ||
+        a.kind === "voiceover" ||
+        a.kind === "audio" ||
+        mime.startsWith("audio/")
+      )
+        kinds.add("music");
       if (a.kind === "final" || (a.label && /final/i.test(a.label))) kinds.add("renders");
     }
   }
@@ -688,6 +741,14 @@ const PHASE_BADGE: Record<AgentPhase, string> = {
   edit: "bg-emerald-500/15 text-emerald-600",
 };
 
+// Mock collaborator stack for the top-right invite cluster — fake UI until
+// real multiplayer lands.
+const MOCK_COLLABORATORS: ReadonlyArray<{ name: string; color: string }> = [
+  { name: "Ana", color: "linear-gradient(135deg, #a18df4, #6e5fc0)" },
+  { name: "Malik", color: "linear-gradient(135deg, #f4b18d, #c07a5f)" },
+  { name: "Kai", color: "linear-gradient(135deg, #8dd3f4, #5f93c0)" },
+];
+
 export function AgentShell(props: AgentShellProps) {
   const {
     projectId,
@@ -700,7 +761,6 @@ export function AgentShell(props: AgentShellProps) {
     studioModel,
     onToolbarChange,
     onPatch,
-    onExport,
     onOpenProjectSwitcher,
     onOpenApps,
     onOpenHistory,
@@ -773,9 +833,7 @@ export function AgentShell(props: AgentShellProps) {
         {
           id: `job-${job.jobId}`,
           role: "assistant",
-          parts: [
-            { type: "text", text: `⚠️ ${job.appLabel ?? "Render"} failed — ${job.error}` },
-          ],
+          parts: [{ type: "text", text: `⚠️ ${job.appLabel ?? "Render"} failed — ${job.error}` }],
         } as UIMessage,
       ]);
     },
@@ -784,6 +842,66 @@ export function AgentShell(props: AgentShellProps) {
   const busy = status === "submitted" || status === "streaming";
   const visibleMessages = useMemo(() => mainStageMessages(messages), [messages]);
   const isEmpty = visibleMessages.length === 0;
+
+  // --- Project surfaces (side-nav view switcher) ---------------------------
+  // "main" is the agent turn stage; "timeline" re-renders the project as the
+  // timeline editor. Surfaces are content-gated: an entry only appears once
+  // the project has something for it to show (a timeline needs scene stills
+  // for an animatic or rendered clips to cut). ProjectChrome hides the
+  // switcher entirely while "main" is the only entry. The "New View" accent
+  // affordance rides along only once a real alternate surface exists.
+  const [surface, setSurface] = useState("main");
+  const hasTimelineContent = useMemo(
+    () =>
+      project.scenes.some((s) => !!s.thumb || !!s.clipUrl) ||
+      assets.some((a) => (a.mime ?? "").startsWith("video/") && a.mime !== PENDING_MIME),
+    [project.scenes, assets],
+  );
+  const surfaces = useMemo<ProjectSurface[]>(() => {
+    const out: ProjectSurface[] = [
+      {
+        id: "main",
+        label: "Main Stage",
+        icon: <AgentSymbol className="h-5 w-5" />,
+      },
+    ];
+    if (hasTimelineContent) {
+      out.push(
+        {
+          id: "timeline",
+          label: "Timeline Editor",
+          icon: <AlignLeft className="h-5 w-5" />,
+        },
+        {
+          id: "new-view",
+          label: "New View",
+          icon: <SquarePlus className="h-5 w-5" />,
+          comingSoon: true,
+          accent: true,
+        },
+      );
+    }
+    return out;
+  }, [hasTimelineContent]);
+  const activeSurfaceLabel = surfaces.find((s) => s.id === surface)?.label ?? "View";
+  // Stable gen descriptor for the manually-opened timeline surface (the view
+  // itself renders from live ProjectState, so this never needs to change).
+  const timelineSurfaceGen = useMemo<StageGeneration>(
+    () => ({ kind: "timeline", actions: [] }),
+    [],
+  );
+
+  // Rail header meta: "<format> • N Shots • m:ss".
+  const projectMetaPieces = useMemo(() => {
+    const total = project.scenes.reduce((a, s) => a + (s.duration || 0), 0);
+    const mins = Math.floor(total / 60);
+    const secs = Math.round(total % 60);
+    return [
+      project.meta.format || "New project",
+      `${project.scenes.length} Shot${project.scenes.length === 1 ? "" : "s"}`,
+      `${mins}:${String(secs).padStart(2, "0")}`,
+    ];
+  }, [project.meta.format, project.scenes]);
 
   // Derive the currently-selected skill from the latest successful
   // `tool-select_app` output. Powers the debug pill under the Export button
@@ -816,8 +934,7 @@ export function AgentShell(props: AgentShellProps) {
         if (p.state !== "output-available") continue;
         if (p.type !== "tool-select_app" && p.type !== "tool-run_skill") continue;
         const o = p.output as
-          | { appId?: string; label?: string; kind?: string; error?: string }
-          | undefined;
+          { appId?: string; label?: string; kind?: string; error?: string } | undefined;
         if (!o || o.error) continue;
         // run_skill covers both app routing and model runs; only the app
         // (routing) form carries a label — model runs are jobs, tracked below.
@@ -900,7 +1017,16 @@ export function AgentShell(props: AgentShellProps) {
         if (!callId || appliedToolCallIds.current.has(callId)) continue;
         appliedToolCallIds.current.add(callId);
         const out = p.output as
-          | { error?: string; id?: string; url?: string; assets?: ProjectAsset[]; patch?: unknown; mode?: string; jobId?: string; result?: unknown }
+          | {
+              error?: string;
+              id?: string;
+              url?: string;
+              assets?: ProjectAsset[];
+              patch?: unknown;
+              mode?: string;
+              jobId?: string;
+              result?: unknown;
+            }
           | undefined;
         if (!out || out.error) continue;
         if (p.type === "tool-generate_image" && out.id && out.url) {
@@ -987,9 +1113,7 @@ export function AgentShell(props: AgentShellProps) {
   const [navTick, setNavTick] = useState(0);
   const liveIndex = stageTurns.length - 1;
   const cursor =
-    busy || turnCursor === null || turnCursor >= liveIndex
-      ? null
-      : Math.max(0, turnCursor);
+    busy || turnCursor === null || turnCursor >= liveIndex ? null : Math.max(0, turnCursor);
   const browsing = cursor !== null;
   const browsingTurn = browsing ? stageTurns[cursor] : null;
 
@@ -1001,18 +1125,19 @@ export function AgentShell(props: AgentShellProps) {
       setTurnCursor((prev) => {
         const cur = prev ?? stageTurns.length - 1;
         if (dir === "back") return Math.max(0, cur - 1);
-        if (dir === "forward")
-          return cur + 1 >= stageTurns.length - 1 ? null : cur + 1;
+        if (dir === "forward") return cur + 1 >= stageTurns.length - 1 ? null : cur + 1;
         return null;
       });
     },
     [busy, stageTurns.length],
   );
-  // New activity always snaps the stage back to live.
+  // New activity always snaps the stage back to live — and back to the main
+  // surface, so the agent's reply is never hidden behind the timeline view.
   useEffect(() => {
     if (busy) {
       setTurnCursor(null);
       setNavDir(1);
+      setSurface("main");
     }
   }, [busy]);
 
@@ -1038,13 +1163,39 @@ export function AgentShell(props: AgentShellProps) {
   // guard-repaired output landed) — never from half-streamed JSON.
   const blocksReady = !!activeExtract && activeExtract.phase !== "partial";
 
-  const activeHtml = useMemo(
-    () =>
-      activeAssistant
-        ? withToolAssets(activeAssistant, renderableHtmlOf(activeAssistant), assets)
-        : "",
-    [activeAssistant, assets],
-  );
+  const activeHtml = useMemo(() => {
+    if (!activeAssistant) return "";
+    // Typed turns serialize WITHOUT their top-level BLK_ACTIONS blocks — the
+    // chrome pins those 24px above the composer instead (pinnedActionsHtml).
+    // Legacy hand-written HTML keeps its inline actions untouched.
+    let base = "";
+    if (activeExtract) {
+      try {
+        base = renderTurnToHtml({
+          ...activeExtract.turn,
+          blocks: (activeExtract.turn.blocks ?? []).filter((b) => b.type !== "actions"),
+        });
+      } catch {
+        base = "";
+      }
+    }
+    if (!base) base = renderableHtmlOf(activeAssistant);
+    return withToolAssets(activeAssistant, base, assets);
+  }, [activeAssistant, activeExtract, assets]);
+
+  // The active turn's BLK_ACTIONS, serialized standalone for the pinned slot
+  // above the input area. Only typed, fully-parsed turns split; a partial
+  // stream never shows half a CTA row.
+  const pinnedActionsHtml = useMemo(() => {
+    if (!activeExtract || activeExtract.phase === "partial") return "";
+    const acts = (activeExtract.turn.blocks ?? []).filter((b) => b.type === "actions");
+    if (!acts.length) return "";
+    try {
+      return acts.map((b) => blockToHtml(b)).join("");
+    } catch {
+      return "";
+    }
+  }, [activeExtract]);
   const extractedStageGen = activeHtml ? extractStageGeneration(activeHtml) : null;
   // Promote a turn to a generative card whenever it contains card markup,
   // an options grid, a bare gen-actions row, or any inline media. This
@@ -1053,15 +1204,15 @@ export function AgentShell(props: AgentShellProps) {
   const isGenerativeCard =
     !!activeHtml &&
     !extractedStageGen &&
-    (/data-card[\s>]/.test(activeHtml)
-      || /data-options[\s>]/.test(activeHtml)
-      || /data-gen-actions[\s>]/.test(activeHtml)
-      || /data-upload[\s>]/.test(activeHtml)
-      || /class="gen-upload/.test(activeHtml)
-      || /<form[\s>]/i.test(activeHtml)
-      || /<img\b/i.test(activeHtml)
-      || /<video\b/i.test(activeHtml)
-      || /<audio\b/i.test(activeHtml)) &&
+    (/data-card[\s>]/.test(activeHtml) ||
+      /data-options[\s>]/.test(activeHtml) ||
+      /data-gen-actions[\s>]/.test(activeHtml) ||
+      /data-upload[\s>]/.test(activeHtml) ||
+      /class="gen-upload/.test(activeHtml) ||
+      /<form[\s>]/i.test(activeHtml) ||
+      /<img\b/i.test(activeHtml) ||
+      /<video\b/i.test(activeHtml) ||
+      /<audio\b/i.test(activeHtml)) &&
     !/<div\s+data-card(?:\s[^>]*)?>\s*<\/div>/.test(activeHtml);
   // Only fall back to the screenplay view for the initial render of a
   // resumed project (no assistant reply yet). Never override an actual
@@ -1070,9 +1221,14 @@ export function AgentShell(props: AgentShellProps) {
   const activeStageGen =
     extractedStageGen ??
     (!activeAssistant && project.scenes.length > 0
-      ? ({ kind: "script-beats", focusSceneId: project.scenes[0]?.id, actions: [] } satisfies StageGeneration)
+      ? ({
+          kind: "script-beats",
+          focusSceneId: project.scenes[0]?.id,
+          actions: [],
+        } satisfies StageGeneration)
       : null);
-  const activeAssistantIsRenderable = !!activeAssistant && isStageRenderableAssistant(activeAssistant);
+  const activeAssistantIsRenderable =
+    !!activeAssistant && isStageRenderableAssistant(activeAssistant);
 
   // Ack/prose come straight from the typed payload when we have one — the
   // stage and the transcript must read from the same source of truth. The
@@ -1114,8 +1270,7 @@ export function AgentShell(props: AgentShellProps) {
     async (answer: CardAnswer) => {
       if (busy) return;
       // Chamber the declared next-turn shape before the busy flip.
-      pendingNextHintRef.current =
-        answer.next ?? activeExtractRef.current?.turn.next ?? null;
+      pendingNextHintRef.current = answer.next ?? activeExtractRef.current?.turn.next ?? null;
       setChamberedAck(answer.ack?.trim() || null);
       // Answering (even from a revisited turn) always branches forward: the
       // reply becomes the newest message, so snap the stage back to live.
@@ -1188,8 +1343,7 @@ export function AgentShell(props: AgentShellProps) {
     const t = Date.now();
     let wait = 0;
     if (t < ackShowAtRef.current) wait = ackShowAtRef.current - t;
-    else if (ackShownRef.current && t < ackHoldUntilRef.current)
-      wait = ackHoldUntilRef.current - t;
+    else if (ackShownRef.current && t < ackHoldUntilRef.current) wait = ackHoldUntilRef.current - t;
     if (wait <= 0) return;
     const timer = window.setTimeout(() => setAckTick((v) => v + 1), wait + 16);
     return () => window.clearTimeout(timer);
@@ -1248,8 +1402,7 @@ export function AgentShell(props: AgentShellProps) {
   }, [centerBusy, tailMessage, pendingTools]);
   const showCardZone =
     !!activeHtml && isGenerativeCard && (!centerBusy || (liveTurnStreaming && blocksReady));
-  const showStageZone =
-    !!activeStageGen && (!centerBusy || (liveTurnStreaming && blocksReady));
+  const showStageZone = !!activeStageGen && (!centerBusy || (liveTurnStreaming && blocksReady));
   // Only show a skeleton when we have POSITIVE evidence a generation is
   // coming — a sniffed/chambered/tool-predicted shape. A null hint (no
   // declaration, no UI-bearing tool) means the turn is likely prose-only, so
@@ -1264,6 +1417,13 @@ export function AgentShell(props: AgentShellProps) {
     !!composingHint &&
     composingHint !== "none";
 
+  // Pinned CTA row — shows with the same readiness gate as the card/stage
+  // zones (never while the next turn composes), and only on the main surface.
+  const showPinnedActions =
+    !!pinnedActionsHtml &&
+    surface === "main" &&
+    (!centerBusy || (liveTurnStreaming && blocksReady));
+
   // A generation is in flight when the project holds a pending placeholder
   // asset (run_model_app / render queued but not yet swapped for the clip).
   // This outlives the agent's turn, so it also keeps the status honest
@@ -1273,11 +1433,31 @@ export function AgentShell(props: AgentShellProps) {
     [assets],
   );
 
+  // Elapsed seconds for the detached status pill — counts while the agent is
+  // composing OR a background render is cooking; resets when both go idle.
+  const activityActive = busy || generating;
+  const activityStartRef = useRef<number | null>(null);
+  const [elapsedSec, setElapsedSec] = useState(0);
+  useEffect(() => {
+    if (!activityActive) {
+      activityStartRef.current = null;
+      setElapsedSec(0);
+      return;
+    }
+    if (activityStartRef.current === null) activityStartRef.current = Date.now();
+    const tick = () =>
+      setElapsedSec(
+        Math.max(0, Math.round((Date.now() - (activityStartRef.current ?? Date.now())) / 1000)),
+      );
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [activityActive]);
+
   // A queued background render, with nothing else claiming the gen slot,
   // shows the render-progress frame (the visible "rendering" state) so the
   // stage isn't blank while a clip cooks. Content/skeleton always win.
-  const showRenderProgress =
-    generating && !showCardZone && !showStageZone && !showSkeleton;
+  const showRenderProgress = generating && !showCardZone && !showStageZone && !showSkeleton;
   const renderProgressLabel = useMemo(() => {
     const p = assets.find((a) => a.kind === "pending" || a.mime === PENDING_MIME);
     return p?.label || p?.name || "Generating…";
@@ -1308,9 +1488,16 @@ export function AgentShell(props: AgentShellProps) {
     async (
       args:
         | InlineAskArgs
-        | { kind: "field"; sceneId: string; field: "title" | "prompt" | "voPrompt"; currentValue: string; instruction: string },
+        | {
+            kind: "field";
+            sceneId: string;
+            field: "title" | "prompt" | "voPrompt";
+            currentValue: string;
+            instruction: string;
+          },
     ): Promise<InlineAskResult> => {
-      if (busy || busyField) return { ok: false, error: "Wait for the current response to finish." };
+      if (busy || busyField)
+        return { ok: false, error: "Wait for the current response to finish." };
       const requestId =
         typeof crypto !== "undefined" && "randomUUID" in crypto
           ? crypto.randomUUID()
@@ -1387,8 +1574,12 @@ export function AgentShell(props: AgentShellProps) {
 
   // Field-signature wrapper kept for the stage views' Ask sidebar.
   const askAgentInline = useCallback(
-    (args: { sceneId: string; field: "title" | "prompt" | "voPrompt"; currentValue: string; instruction: string }) =>
-      askInline({ kind: "field", ...args }),
+    (args: {
+      sceneId: string;
+      field: "title" | "prompt" | "voPrompt";
+      currentValue: string;
+      instruction: string;
+    }) => askInline({ kind: "field", ...args }),
     [askInline],
   );
 
@@ -1497,16 +1688,18 @@ export function AgentShell(props: AgentShellProps) {
     type SpeechAlternative = { transcript: string };
     type SpeechResult = { isFinal: boolean; 0: SpeechAlternative };
     type SpeechResultEvent = { resultIndex: number; results: ArrayLike<SpeechResult> };
-    const rec = new (speechCtor as new () => {
-      continuous: boolean;
-      interimResults: boolean;
-      lang: string;
-      onresult: ((ev: SpeechResultEvent) => void) | null;
-      onend: (() => void) | null;
-      onerror: (() => void) | null;
-      start: () => void;
-      stop: () => void;
-    })();
+    const rec = new (
+      speechCtor as new () => {
+        continuous: boolean;
+        interimResults: boolean;
+        lang: string;
+        onresult: ((ev: SpeechResultEvent) => void) | null;
+        onend: (() => void) | null;
+        onerror: (() => void) | null;
+        start: () => void;
+        stop: () => void;
+      }
+    )();
     rec.continuous = false;
     rec.interimResults = true;
     rec.lang = typeof navigator !== "undefined" ? navigator.language || "en-US" : "en-US";
@@ -1619,7 +1812,6 @@ export function AgentShell(props: AgentShellProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [busy, input, stageTurns.length, navigateHistory]);
 
-
   // Agent status line.
   const agentStatus = useMemo(() => {
     if (pendingTools.length) return friendlyToolStatus(pendingTools[0]);
@@ -1666,18 +1858,6 @@ export function AgentShell(props: AgentShellProps) {
     }
   }, [activeAssistantId, browsing]);
 
-  // Thumbnail stack — most recent project assets that resolve to a picture.
-  const thumbs = useMemo(() => {
-    const out: string[] = [];
-    for (let i = assets.length - 1; i >= 0 && out.length < 3; i--) {
-      const a = assets[i];
-      if (a.kind !== "image" && a.kind !== "video") continue;
-      const t = resolveThumb(a.url, assets);
-      if (t) out.push(t);
-    }
-    return out;
-  }, [assets]);
-
   // Measure the prose (agent message) column so the stage below it can be
   // sized to fit the remaining viewport without ever overflowing under the
   // fixed composer band at the bottom.
@@ -1703,70 +1883,108 @@ export function AgentShell(props: AgentShellProps) {
   const { ref: bottomBandRef, band: bottomBand } = useViewportBand("bottom", 60);
   const reservedTop = topBand + BAND_GAP;
   const reservedBottom = bottomBand + BAND_GAP;
+  // +8 accounts for the chrome wrapper's viewport insets (4px top + bottom).
   const stageMaxHeight = `calc(100dvh - ${
-    reservedTop + reservedBottom + STAGE_GAP + Math.ceil(proseColHeight)
+    reservedTop + reservedBottom + STAGE_GAP + 8 + Math.ceil(proseColHeight)
   }px)`;
 
   return (
     <>
-      {/* --- Agent shell: full viewport stage --- */}
-      <div
-        className="fixed inset-0 z-10 overflow-hidden bg-background text-foreground"
-        style={{ width: "100vw", height: "100vh" }}
+      {/* --- Project chrome: left rail + rounded main-stage wrapper.
+          Everything below renders INSIDE the wrapper; the rail owns
+          navigation (logo = leave project), surface switching, and the
+          library summary. --- */}
+      <ProjectChrome
+        projectTitle={projectTitle}
+        projectMeta={projectMetaPieces}
+        assets={assets}
+        surfaces={surfaces}
+        activeSurface={surface}
+        onSurfaceSelect={setSurface}
+        onLeaveProject={() => onOpenProjectSwitcher?.()}
+        onTitleClick={onOpenProjectSwitcher}
       >
         {/* Ambient "endless space" layer — sits behind all stage content. */}
         <EtherealBackdrop project={project} navDir={navDir} navTick={navTick} />
 
-        {/* Center: single-turn stage.
-            16-col grid: 24px page margins, 16px gutter.
-            Agent message column: 8/16. Gen UI column: 10/16. */}
-        <div
-          className="absolute inset-0 flex flex-col overflow-hidden"
-          style={{ paddingTop: reservedTop, paddingBottom: reservedBottom }}
-        >
-          {/* relative: popLayout pins exiting zones absolutely against this
+        {/* Alternate surfaces take over the stage area; "main" is the agent
+            turn view. */}
+        {surface === "timeline" ? (
+          <div
+            className="absolute inset-x-6 flex min-h-0 flex-col"
+            style={{ top: reservedTop, bottom: reservedBottom }}
+          >
+            {project.scenes.length > 0 ? (
+              <StageGenerationView
+                gen={timelineSurfaceGen}
+                project={project}
+                assets={assets}
+                onAnswer={(v, next, ack) => handleCardAnswer({ summary: v, assets: [], next, ack })}
+                onPatch={onPatch}
+                onAgentAssist={askAgentInline}
+                onIntent={dispatchIntent}
+                busyField={busyField}
+              />
+            ) : (
+              <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+                Nothing on the timeline yet — generate some shots first.
+              </div>
+            )}
+          </div>
+        ) : surface !== "main" ? (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-2 text-center">
+              <span className="font-display text-2xl text-foreground/40">{activeSurfaceLabel}</span>
+              <span className="text-sm text-muted-foreground">Coming soon</span>
+            </div>
+          </div>
+        ) : (
+          <div
+            className="absolute inset-0 flex flex-col overflow-hidden"
+            style={{ paddingTop: reservedTop, paddingBottom: reservedBottom }}
+          >
+            {/* relative: popLayout pins exiting zones absolutely against this
               container so their successor can dissolve into the same spot. */}
-          <div className="grid-16 relative mx-auto my-auto w-full gap-y-0">
-            {/* LayoutGroup shares one projection context across the zones —
+            <div className="grid-16 relative mx-auto my-auto w-full gap-y-0">
+              {/* LayoutGroup shares one projection context across the zones —
                 without it, a sibling zone unmounting never re-measures the
                 prose column, so its `layout` glide would not fire and the
                 column would snap to its new centered position. */}
-            <LayoutGroup>
-
-            <AnimatePresence initial={false}>
-              {isEmpty && (
-                <motion.div
-                  key="empty-state"
-                  className="absolute inset-0 flex flex-col items-center justify-center text-center"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0, filter: "blur(6px)", transition: { duration: 0.3 } }}
-                >
-                  <AgentSymbol playing={busy} className="mb-5 h-6 w-6 text-foreground/70" />
-                  <h1 className="font-display text-4xl font-normal tracking-tight text-foreground">
-                    What are we making today?
-                  </h1>
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    Say anything below, we'll take it from there
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            {!isEmpty && (
-              <>
-                {/* Agent message column — 8 cols. layout="position" glides it
+              <LayoutGroup>
+                <AnimatePresence initial={false}>
+                  {isEmpty && (
+                    <motion.div
+                      key="empty-state"
+                      className="absolute inset-0 flex flex-col items-center justify-center text-center"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0, filter: "blur(6px)", transition: { duration: 0.3 } }}
+                    >
+                      <AgentSymbol playing={busy} className="mb-5 h-6 w-6 text-foreground/70" />
+                      <h1 className="font-display text-4xl font-normal tracking-tight text-foreground">
+                        What are we making today?
+                      </h1>
+                      <p className="mt-3 text-sm text-muted-foreground">
+                        Say anything below, we'll take it from there
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                {!isEmpty && (
+                  <>
+                    {/* Agent message column — 8 cols. layout="position" glides it
                     to its new grid-centered position when a sibling zone
                     collapses instead of snapping there in one frame. Position
                     ONLY — full `layout` would also FLIP-scale the box when its
                     height changes between turns, visibly squishing/stretching
                     the message text mid-glide. */}
-                <motion.div
-                  ref={proseColRef}
-                  layout={zoneLayout ? "position" : false}
-                  transition={{ layout: SPRING }}
-                  className="col-span-8 col-start-5 flex flex-col gap-3"
-                >
-                  {/* Agent message + status, split into two zones: the message
+                    <motion.div
+                      ref={proseColRef}
+                      layout={zoneLayout ? "position" : false}
+                      transition={{ layout: SPRING }}
+                      className="col-span-8 col-start-5 flex flex-col gap-3"
+                    >
+                      {/* Agent message + status, split into two zones: the message
                       is big display text on top; the status is a small muted
                       line below, with the glyph beside it. Delivery is
                       SEQUENCED as two messages: the acknowledgement of the
@@ -1781,456 +1999,544 @@ export function AgentShell(props: AgentShellProps) {
                       motion.div instead of its own independent FadeSwap, so
                       it exits/enters as one choreographed piece with the
                       ack/prose it's answering to — never drifting out of sync. */}
-                  {(
-                    <div className="flex min-w-0 flex-col gap-4">
-                      <AnimatePresence mode="wait" custom={navDir} initial={false} onExitComplete={bumpLayout}>
-                        {showAckMessage ? (
-                          <motion.div
-                            key={`ack-${displayAck}`}
-                            className="flex min-w-0 flex-col gap-3"
-                            variants={turnZoneV}
+                      {
+                        <div className="flex min-w-0 flex-col gap-4">
+                          <AnimatePresence
+                            mode="wait"
                             custom={navDir}
-                            initial="initial"
-                            animate="animate"
-                            exit="exit"
+                            initial={false}
+                            onExitComplete={bumpLayout}
                           >
-                            {lastUserText && (
-                              <div className="flex gap-2 text-sm text-muted-foreground">
-                                <span className="opacity-40">|</span>
-                                <span className="text-foreground/80">{lastUserText}</span>
-                              </div>
-                            )}
-                            <WordsRamp
-                              text={displayAck}
-                              className="font-display text-2xl font-medium leading-snug tracking-tight text-foreground"
-                            />
-                          </motion.div>
-                        ) : showTurnProse ? (
-                          <motion.div
-                            key={`turn-${activeAssistantId ?? "none"}`}
-                            className="flex min-w-0 flex-col gap-3"
-                            variants={turnZoneV}
-                            custom={navDir}
-                            initial="initial"
-                            animate="animate"
-                            exit="exit"
+                            {showAckMessage ? (
+                              <motion.div
+                                key={`ack-${displayAck}`}
+                                className="flex min-w-0 flex-col gap-3"
+                                variants={turnZoneV}
+                                custom={navDir}
+                                initial="initial"
+                                animate="animate"
+                                exit="exit"
+                              >
+                                {lastUserText && (
+                                  <div className="flex gap-2 text-sm text-muted-foreground">
+                                    <span className="opacity-40">|</span>
+                                    <span className="text-foreground/80">{lastUserText}</span>
+                                  </div>
+                                )}
+                                <WordsRamp
+                                  text={displayAck}
+                                  className="font-display text-2xl font-medium leading-snug tracking-tight text-foreground"
+                                />
+                              </motion.div>
+                            ) : showTurnProse ? (
+                              <motion.div
+                                key={`turn-${activeAssistantId ?? "none"}`}
+                                className="flex min-w-0 flex-col gap-3"
+                                variants={turnZoneV}
+                                custom={navDir}
+                                initial="initial"
+                                animate="animate"
+                                exit="exit"
+                              >
+                                {showProseEcho && (
+                                  <div className="flex gap-2 text-sm text-muted-foreground">
+                                    <span className="opacity-40">|</span>
+                                    <span className="text-foreground/80">{lastUserText}</span>
+                                  </div>
+                                )}
+                                <AssistantMessage text={activeProse} />
+                              </motion.div>
+                            ) : !activeProse && !busy ? (
+                              <motion.div
+                                key="idle-hi"
+                                className="font-display text-2xl font-medium leading-snug tracking-tight text-foreground/40"
+                                variants={turnZoneV}
+                                custom={navDir}
+                                initial="initial"
+                                animate="animate"
+                                exit="exit"
+                              >
+                                Hi — describe what you'd like to make and I'll get started.
+                              </motion.div>
+                            ) : null}
+                          </AnimatePresence>
+
+                          {/* Agent status moved to the detached top-center pill —
+                          the message zone is prose only now. */}
+                        </div>
+                      }
+
+                      {/* Error banner */}
+                      {error && (
+                        <div className="flex items-center justify-between gap-4 rounded-2xl border border-destructive/40 bg-destructive/10 px-5 py-3 text-sm text-destructive">
+                          <span>{describeChatError(error).message}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              clearError();
+                              void regenerate();
+                            }}
+                            disabled={busy}
+                            className="shrink-0 rounded-full border border-destructive/40 px-3 py-1 text-xs font-medium transition hover:bg-destructive/10 disabled:opacity-40"
                           >
-                            {showProseEcho && (
-                              <div className="flex gap-2 text-sm text-muted-foreground">
-                                <span className="opacity-40">|</span>
-                                <span className="text-foreground/80">{lastUserText}</span>
-                              </div>
-                            )}
-                            <AssistantMessage text={activeProse} />
-                          </motion.div>
-                        ) : !activeProse && !busy ? (
-                          <motion.div
-                            key="idle-hi"
-                            className="font-display text-2xl font-medium leading-snug tracking-tight text-foreground/40"
-                            variants={turnZoneV}
-                            custom={navDir}
-                            initial="initial"
-                            animate="animate"
-                            exit="exit"
-                          >
-                            Hi — describe what you'd like to make and I'll get started.
-                          </motion.div>
-                        ) : null}
-                      </AnimatePresence>
+                            Retry
+                          </button>
+                        </div>
+                      )}
+                    </motion.div>
 
-                      <div className="flex items-center gap-2">
-                        <AgentSymbol
-                          playing={busy}
-                          className={cn(
-                            "h-5 w-5 shrink-0 text-[#969098]",
-                            !busy && "agent-symbol-pulse",
-                          )}
-                        />
-                        {/* Status swaps animate (fade + move up); while busy
-                            the shimmer's ::after paints the sweeping gradient
-                            clipped to a data-text duplicate of the glyphs. */}
-                        <FadeSwap id={statusText} className="min-w-0">
-                          <span
-                            className={cn(
-                              "text-sm",
-                              busy ? "agent-status-shimmer" : "text-foreground/40",
-                            )}
-                            data-text={busy ? statusText : undefined}
-                          >
-                            {statusText}
-                          </span>
-                        </FadeSwap>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Error banner */}
-                  {error && (
-                    <div className="flex items-center justify-between gap-4 rounded-2xl border border-destructive/40 bg-destructive/10 px-5 py-3 text-sm text-destructive">
-                      <span>{describeChatError(error).message}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          clearError();
-                          void regenerate();
-                        }}
-                        disabled={busy}
-                        className="shrink-0 rounded-full border border-destructive/40 px-3 py-1 text-xs font-medium transition hover:bg-destructive/10 disabled:opacity-40"
-                      >
-                        Retry
-                      </button>
-                    </div>
-                  )}
-                </motion.div>
-
-
-                {/* Gen UI column — 10 cols, centered. While streaming, the
+                    {/* Gen UI column — 10 cols, centered. While streaming, the
                     card renders as soon as the live turn's blocks are fully
                     parsed — never from half-streamed JSON, never a previous
                     turn's card resurrected during busy. Keyed presence: the
                     outgoing card eases out (AnimatePresence keeps it mounted
                     with frozen props during exit) instead of jump-cutting. */}
-                <AnimatePresence mode="popLayout" custom={navDir} initial={false} onExitComplete={bumpLayout}>
-                  {showSkeleton ? (
-                    <motion.div
-                      key="stage-skeleton"
-                      className={
-                        composingHint === "stage"
-                          ? "col-span-14 col-start-2 mt-6"
-                          : "col-span-10 col-start-4 mt-6"
-                      }
-                      variants={skeletonVariants}
+                    <AnimatePresence
+                      mode="popLayout"
                       custom={navDir}
-                      initial="initial"
-                      animate="animate"
-                      exit="exit"
+                      initial={false}
+                      onExitComplete={bumpLayout}
                     >
-                      <StageSkeleton hint={composingHint} />
-                    </motion.div>
-                  ) : showCardZone ? (
-                    <motion.div
-                      key={`card-${activeAssistantId ?? "none"}`}
-                      className="col-span-10 col-start-4 mt-6"
-                      variants={cardVariants}
-                      custom={navDir}
-                      initial="initial"
-                      animate="animate"
-                      exit="exit"
-                    >
-                      <GenerativeCard
-                        html={activeHtml}
-                        onAnswer={handleCardAnswer}
-                        assets={assets}
-                        projectId={projectId}
-                        seedKey={activeAssistantId ?? undefined}
-                        onIntent={dispatchIntent}
-                        onInlineAsk={askInline}
-                      />
-                    </motion.div>
-                  ) : showRenderProgress ? (
-                    <motion.div
-                      key="stage-render-progress"
-                      className="col-span-10 col-start-4 mt-6"
-                      variants={skeletonVariants}
-                      custom={navDir}
-                      initial="initial"
-                      animate="animate"
-                      exit="exit"
-                    >
-                      <StageRenderProgress
-                        label={renderProgressLabel}
-                        aspectRatio={project.meta.aspectRatio}
-                      />
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>
+                      {showSkeleton ? (
+                        <motion.div
+                          key="stage-skeleton"
+                          className={
+                            composingHint === "stage"
+                              ? "col-span-14 col-start-2 mt-6"
+                              : "col-span-10 col-start-4 mt-6"
+                          }
+                          variants={skeletonVariants}
+                          custom={navDir}
+                          initial="initial"
+                          animate="animate"
+                          exit="exit"
+                        >
+                          <StageSkeleton hint={composingHint} />
+                        </motion.div>
+                      ) : showCardZone ? (
+                        <motion.div
+                          key={`card-${activeAssistantId ?? "none"}`}
+                          className="col-span-10 col-start-4 mt-6"
+                          variants={cardVariants}
+                          custom={navDir}
+                          initial="initial"
+                          animate="animate"
+                          exit="exit"
+                        >
+                          <GenerativeCard
+                            html={activeHtml}
+                            onAnswer={handleCardAnswer}
+                            assets={assets}
+                            projectId={projectId}
+                            seedKey={activeAssistantId ?? undefined}
+                            onIntent={dispatchIntent}
+                            onInlineAsk={askInline}
+                          />
+                        </motion.div>
+                      ) : showRenderProgress ? (
+                        <motion.div
+                          key="stage-render-progress"
+                          className="col-span-10 col-start-4 mt-6"
+                          variants={skeletonVariants}
+                          custom={navDir}
+                          initial="initial"
+                          animate="animate"
+                          exit="exit"
+                        >
+                          <StageRenderProgress
+                            label={renderProgressLabel}
+                            aspectRatio={project.meta.aspectRatio}
+                          />
+                        </motion.div>
+                      ) : null}
+                    </AnimatePresence>
 
-                {/* Stage generation column — full width, capped to remaining viewport */}
-                <AnimatePresence mode="popLayout" custom={navDir} initial={false} onExitComplete={bumpLayout}>
-                  {showStageZone && (
-                    <motion.div
-                      key={`stage-${activeAssistantId ?? "none"}`}
-                      className="col-span-14 col-start-2 mt-6 flex min-h-0 flex-col"
-                      style={{ maxHeight: stageMaxHeight, height: stageMaxHeight }}
-                      variants={stageVariants}
+                    {/* Stage generation column — full width, capped to remaining viewport */}
+                    <AnimatePresence
+                      mode="popLayout"
                       custom={navDir}
-                      initial="initial"
-                      animate="animate"
-                      exit="exit"
+                      initial={false}
+                      onExitComplete={bumpLayout}
                     >
-                      <StageGenerationView
-                        gen={activeStageGen}
-                        project={project}
-                        assets={assets}
-                        onAnswer={(v, next, ack) => handleCardAnswer({ summary: v, assets: [], next, ack })}
-                        onPatch={onPatch}
-                        onAgentAssist={askAgentInline}
-                        onIntent={dispatchIntent}
-                        busyField={busyField}
-                      />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                      {showStageZone && (
+                        <motion.div
+                          key={`stage-${activeAssistantId ?? "none"}`}
+                          className="col-span-14 col-start-2 mt-6 flex min-h-0 flex-col"
+                          style={{ maxHeight: stageMaxHeight, height: stageMaxHeight }}
+                          variants={stageVariants}
+                          custom={navDir}
+                          initial="initial"
+                          animate="animate"
+                          exit="exit"
+                        >
+                          <StageGenerationView
+                            gen={activeStageGen}
+                            project={project}
+                            assets={assets}
+                            onAnswer={(v, next, ack) =>
+                              handleCardAnswer({ summary: v, assets: [], next, ack })
+                            }
+                            onPatch={onPatch}
+                            onAgentAssist={askAgentInline}
+                            onIntent={dispatchIntent}
+                            busyField={busyField}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </>
+                )}
+              </LayoutGroup>
+            </div>
+          </div>
+        )}
+
+        {/* --- Agent status pill — detached from the message area, fixed
+          top-center. Will grow into a job/task list later; today it hosts
+          the single agent task + elapsed time. --- */}
+        <div
+          ref={topBandRef}
+          className="pointer-events-none absolute inset-x-0 top-4 z-40 flex justify-center"
+        >
+          <div className="pointer-events-auto relative flex h-10 items-center gap-2 overflow-hidden rounded-[24px] px-4 shadow-sm">
+            {/* Liquid-metal shader background (paper.design preset). Runs at
+              full speed while the agent is working, and nearly stills (0.1)
+              once it's waiting on the user. */}
+            <LiquidMetal
+              className="absolute inset-0 h-full w-full"
+              colorBack="#000000"
+              colorTint="#c4c0d8"
+              shape="none"
+              repetition={1}
+              softness={1}
+              shiftRed={0.5}
+              shiftBlue={0.5}
+              distortion={1}
+              contour={0}
+              angle={0}
+              speed={activityActive ? 1 : 0.1}
+              scale={3}
+              rotation={0}
+              offsetX={0}
+              offsetY={0}
+              fit="cover"
+            />
+            {/* Darkening scrim between the shader and the content for text
+              legibility. */}
+            <div
+              className="absolute inset-0"
+              style={{ background: "rgba(0,0,0,0.25)" }}
+              aria-hidden
+            />
+            <AgentSymbol
+              playing={busy}
+              className={cn(
+                "relative h-3.5 w-3.5 shrink-0 text-white/80",
+                !busy && "agent-symbol-pulse",
+              )}
+            />
+            <FadeSwap id={statusText} className="relative min-w-0">
+              <span
+                className={cn(
+                  "font-display text-xs font-medium",
+                  busy ? "agent-status-shimmer" : "text-white/60",
+                )}
+                data-text={busy ? statusText : undefined}
+              >
+                {statusText}
+              </span>
+            </FadeSwap>
+            {activityActive && (
+              <>
+                <span className="relative text-xs text-white/40" aria-hidden>
+                  •
+                </span>
+                <span className="relative text-xs tabular-nums text-white/60">{elapsedSec}s</span>
               </>
             )}
-            </LayoutGroup>
           </div>
         </div>
-      </div>
 
-      {/* --- Top-center project pill (outside shell) --- */}
-      <div ref={topBandRef} className="pointer-events-none fixed inset-x-0 top-4 z-40 flex justify-center">
-        <button
-          type="button"
-          onClick={onOpenProjectSwitcher}
-          className="group pointer-events-auto flex h-12 items-center gap-2 rounded-2xl bg-foreground px-4 py-3 text-[color:var(--content-light-secondary)] transition hover:opacity-95"
-          style={{ fontFamily: '"Telka Extended", "Telka", system-ui, sans-serif', fontWeight: 500, fontSize: 16, lineHeight: 1 }}
-        >
-          {projectThumbUrl ? (
-            <img src={projectThumbUrl} alt="" className="h-6 w-6 shrink-0 rounded-md object-cover" />
-          ) : (
-            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-background/10">
-              <Sparkles className="h-3.5 w-3.5" />
-            </span>
-          )}
-          <span className="max-w-[24rem] truncate">
-            {projectTitle || "Untitled project"}
-          </span>
-          <ChevronDown className="h-3.5 w-3.5 opacity-70 transition group-hover:opacity-100" />
-        </button>
-      </div>
-
-      {/* --- Top-right actions (outside shell) --- */}
-      <div className="fixed right-4 top-4 z-40 flex flex-col items-end gap-2">
-        <div className="flex items-center gap-1">
-          <IconButton
-            label="Previous step"
-            icon={ChevronUp}
-            onClick={() => void dispatchIntent({ kind: "history", dir: "back" })}
-            disabled={busy || stageTurns.length < 2 || (cursor ?? liveIndex) <= 0}
-          />
-          <IconButton
-            label="Next step"
-            icon={ChevronDown}
-            onClick={() => void dispatchIntent({ kind: "history", dir: "forward" })}
-            disabled={busy || !browsing}
-          />
+        {/* --- Top-right: export + mock collaborators (invite/avatars are
+          fake UI for now) + debug pills --- */}
+        <div className="absolute right-4 top-4 z-40 flex flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              title="Invite (coming soon)"
+              className="flex h-8 items-center rounded-sm bg-[color:var(--surface-dark-6)] px-3 text-xs font-medium text-[color:var(--content-dark-secondary)] transition hover:bg-[color:var(--surface-dark-5)]"
+            >
+              Invite
+            </button>
+            <div className="flex items-center" aria-label="Collaborators (mock)">
+              {MOCK_COLLABORATORS.map((u, i) => (
+                <span
+                  key={u.name}
+                  title={u.name}
+                  className="grid h-8 w-8 place-items-center rounded-full border-2 border-background text-[11px] font-medium text-white"
+                  style={{
+                    background: u.color,
+                    marginLeft: i === 0 ? 0 : -8,
+                    zIndex: MOCK_COLLABORATORS.length - i,
+                  }}
+                >
+                  {u.name[0]}
+                </span>
+              ))}
+            </div>
+          </div>
+          {/* Debug pill — current skill; click to edit skill.md live. */}
           <button
             type="button"
-            onClick={onExport}
-            className="btn-48 ml-1 bg-[color:var(--surface-dark-6)] text-[color:var(--content-dark-secondary)] transition hover:bg-[color:var(--surface-dark-5)]"
-          >
-            Export
-          </button>
-        </div>
-        {/* Debug pill — current skill; click to edit skill.md live. */}
-        <button
-          type="button"
-          onClick={() => setSkillEditorOpen((v) => !v)}
-          title={selectedApp ? `Edit ${selectedApp.appId}/skill.md` : "No skill selected yet"}
-          className={cn(
-            "flex items-center gap-1.5 rounded-full border border-border bg-card/80 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur transition hover:bg-card hover:text-foreground",
-            skillEditorOpen && "text-foreground",
-          )}
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
-          <span className="uppercase tracking-wider opacity-60">Skill</span>
-          <span className="truncate max-w-[14rem]">
-            {selectedApp?.label ?? "None selected"}
-          </span>
-        </button>
-
-        {/* Skills routed this session, in order (newest highlighted). */}
-        {skillsUsed.length > 0 && (
-          <div className="flex max-w-[18rem] flex-wrap items-center justify-end gap-1 rounded-2xl border border-border bg-card/80 px-2.5 py-1.5 shadow-sm backdrop-blur">
-            <span className="mr-0.5 text-[10px] uppercase tracking-wider text-muted-foreground opacity-60">
-              Skills
-            </span>
-            {skillsUsed.map((s, i) => (
-              <span
-                key={`${s.appId}:${i}`}
-                title={s.appId}
-                className={cn(
-                  "rounded-full px-2 py-0.5 text-[10px] font-medium",
-                  i === skillsUsed.length - 1
-                    ? "bg-emerald-500/15 text-emerald-600"
-                    : "bg-muted text-muted-foreground",
-                )}
-              >
-                {s.label}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Generation / job / API calls the agent has fired. */}
-        {genCalls.length > 0 &&
-          (() => {
-            const latest = genCalls[genCalls.length - 1];
-            const inflight = latest.state !== "output-available";
-            return (
-              <div className="flex items-center gap-1.5 rounded-full border border-border bg-card/80 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur">
-                <span
-                  className={cn(
-                    "h-1.5 w-1.5 rounded-full",
-                    latest.error
-                      ? "bg-red-500"
-                      : inflight
-                        ? "animate-pulse bg-amber-500"
-                        : "bg-sky-500",
-                  )}
-                  aria-hidden
-                />
-                <span className="uppercase tracking-wider opacity-60">Jobs</span>
-                <span className="max-w-[12rem] truncate font-mono text-[10px]">
-                  {latest.name}
-                  {inflight ? "…" : ""}
-                </span>
-                {genCalls.length > 1 && (
-                  <span className="tabular-nums opacity-60">×{genCalls.length}</span>
-                )}
-              </div>
-            );
-          })()}
-
-        {/* Phase the last turn ran in (server ground-truth, else recomputed). */}
-        <div className="flex items-center gap-1.5 rounded-full border border-border bg-card/80 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur">
-          <span className="uppercase tracking-wider opacity-60">Phase</span>
-          <span
+            onClick={() => setSkillEditorOpen((v) => !v)}
+            title={selectedApp ? `Edit ${selectedApp.appId}/skill.md` : "No skill selected yet"}
             className={cn(
-              "rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-              PHASE_BADGE[debugPhase],
+              "flex items-center gap-1.5 rounded-full border border-border bg-card/80 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur transition hover:bg-card hover:text-foreground",
+              skillEditorOpen && "text-foreground",
             )}
           >
-            {debugPhase}
-          </span>
-        </div>
-      </div>
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+            <span className="uppercase tracking-wider opacity-60">Skill</span>
+            <span className="truncate max-w-[14rem]">{selectedApp?.label ?? "None selected"}</span>
+          </button>
 
-      {/* --- History browsing chip --- */}
-      <AnimatePresence>
-        {browsing && (
-          <motion.div
-            className="pointer-events-none fixed inset-x-0 top-20 z-40 flex justify-center"
-            initial={{ opacity: 0, y: -6, filter: "blur(4px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            exit={{ opacity: 0, y: -6, filter: "blur(4px)" }}
-            transition={{ type: "spring", stiffness: 260, damping: 28 }}
-          >
-            <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-card/90 px-4 py-2 text-xs text-muted-foreground shadow-elegant backdrop-blur">
-              <span>
-                Viewing step {(cursor ?? 0) + 1} of {stageTurns.length}
+          {/* Skills routed this session, in order (newest highlighted). */}
+          {skillsUsed.length > 0 && (
+            <div className="flex max-w-[18rem] flex-wrap items-center justify-end gap-1 rounded-2xl border border-border bg-card/80 px-2.5 py-1.5 shadow-sm backdrop-blur">
+              <span className="mr-0.5 text-[10px] uppercase tracking-wider text-muted-foreground opacity-60">
+                Skills
               </span>
-              <span className="h-3 w-px bg-border" aria-hidden />
-              <button
-                type="button"
-                onClick={() => void dispatchIntent({ kind: "history", dir: "live" })}
-                className="font-medium text-foreground transition hover:opacity-80"
-              >
-                Return to latest
-              </button>
+              {skillsUsed.map((s, i) => (
+                <span
+                  key={`${s.appId}:${i}`}
+                  title={s.appId}
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                    i === skillsUsed.length - 1
+                      ? "bg-emerald-500/15 text-emerald-600"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {s.label}
+                </span>
+              ))}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
 
-      {/* --- Bottom cluster (outside shell) --- */}
-      <div ref={bottomBandRef} className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex flex-col items-center gap-3 px-6">
-        {isEmpty && (
-          <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-2">
-            {SUGGESTIONS.map((s) => (
-              <SuggestionChip
-                key={s.label}
-                icon={s.icon}
-                label={s.label}
-                gradient={s.gradient}
-                onClick={() => sendSuggestion(s.prompt)}
-              />
-            ))}
-            <SuggestionChip icon={MoreHorizontal} label="More Ideas" muted onClick={onOpenApps} />
+          {/* Generation / job / API calls the agent has fired. */}
+          {genCalls.length > 0 &&
+            (() => {
+              const latest = genCalls[genCalls.length - 1];
+              const inflight = latest.state !== "output-available";
+              return (
+                <div className="flex items-center gap-1.5 rounded-full border border-border bg-card/80 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur">
+                  <span
+                    className={cn(
+                      "h-1.5 w-1.5 rounded-full",
+                      latest.error
+                        ? "bg-red-500"
+                        : inflight
+                          ? "animate-pulse bg-amber-500"
+                          : "bg-sky-500",
+                    )}
+                    aria-hidden
+                  />
+                  <span className="uppercase tracking-wider opacity-60">Jobs</span>
+                  <span className="max-w-[12rem] truncate font-mono text-[10px]">
+                    {latest.name}
+                    {inflight ? "…" : ""}
+                  </span>
+                  {genCalls.length > 1 && (
+                    <span className="tabular-nums opacity-60">×{genCalls.length}</span>
+                  )}
+                </div>
+              );
+            })()}
+
+          {/* Phase the last turn ran in (server ground-truth, else recomputed). */}
+          <div className="flex items-center gap-1.5 rounded-full border border-border bg-card/80 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur">
+            <span className="uppercase tracking-wider opacity-60">Phase</span>
+            <span
+              className={cn(
+                "rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                PHASE_BADGE[debugPhase],
+              )}
+            >
+              {debugPhase}
+            </span>
           </div>
-        )}
-        <div className="pointer-events-auto flex items-center gap-3">
+        </div>
+
+        {/* --- History browsing chip --- */}
+        <AnimatePresence>
+          {browsing && (
+            <motion.div
+              className="pointer-events-none absolute inset-x-0 top-20 z-40 flex justify-center"
+              initial={{ opacity: 0, y: -6, filter: "blur(4px)" }}
+              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+              exit={{ opacity: 0, y: -6, filter: "blur(4px)" }}
+              transition={{ type: "spring", stiffness: 260, damping: 28 }}
+            >
+              <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-card/90 px-4 py-2 text-xs text-muted-foreground shadow-elegant backdrop-blur">
+                <span>
+                  Viewing step {(cursor ?? 0) + 1} of {stageTurns.length}
+                </span>
+                <span className="h-3 w-px bg-border" aria-hidden />
+                <button
+                  type="button"
+                  onClick={() => void dispatchIntent({ kind: "history", dir: "live" })}
+                  className="font-medium text-foreground transition hover:opacity-80"
+                >
+                  Return to latest
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* --- Bottom-right: step arrows + history/transcript toggle. The
+          transcript button is the corner-most element. --- */}
+        <div className="absolute bottom-2 right-2 z-40 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void dispatchIntent({ kind: "history", dir: "back" })}
+            disabled={busy || stageTurns.length < 2 || (cursor ?? liveIndex) <= 0}
+            aria-label="Previous step"
+            title="Previous step"
+            className="flex h-12 w-12 items-center justify-center rounded-[18px] text-muted-foreground transition hover:text-foreground disabled:opacity-20"
+          >
+            <ChevronUp className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => void dispatchIntent({ kind: "history", dir: "forward" })}
+            disabled={busy || !browsing}
+            aria-label="Next step"
+            title="Next step"
+            className="flex h-12 w-12 items-center justify-center rounded-[18px] text-muted-foreground transition hover:text-foreground disabled:opacity-20"
+          >
+            <ChevronDown className="h-5 w-5" />
+          </button>
           <button
             type="button"
             onClick={() => setTranscriptOpen((v) => !v)}
             aria-label={transcriptOpen ? "Hide transcript" : "Show transcript"}
             title={transcriptOpen ? "Hide transcript" : "Show transcript"}
             className={cn(
-              "flex h-[56px] w-[56px] items-center justify-center rounded-[24px] border border-border bg-card text-muted-foreground transition hover:text-foreground",
+              "flex h-12 w-12 items-center justify-center rounded-[18px] bg-[color:var(--surface-light-1)] text-muted-foreground shadow-sm transition hover:text-foreground",
               transcriptOpen && "text-foreground",
             )}
           >
-            <History className="h-4 w-4" />
+            <History className="h-5 w-5" />
           </button>
+        </div>
 
-          <div className="h-6 w-px bg-border" />
-          <button
-            type="button"
-            onClick={onOpenApps}
-            aria-label="Apps"
-            title="Apps"
-            className="flex h-[56px] w-[56px] items-center justify-center rounded-[24px] border border-border bg-card text-muted-foreground transition hover:text-foreground"
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </button>
-
-
-          <div className="flex h-[56px] items-center gap-2 rounded-[24px] border border-border bg-card p-2">
+        {/* --- Bottom cluster: pinned BLK_ACTIONS + composer --- */}
+        <div
+          ref={bottomBandRef}
+          className="pointer-events-none absolute inset-x-0 bottom-2 z-40 flex flex-col items-center gap-3 px-6"
+        >
+          {isEmpty && (
+            <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-2">
+              {SUGGESTIONS.map((s) => (
+                <SuggestionChip
+                  key={s.label}
+                  icon={s.icon}
+                  label={s.label}
+                  gradient={s.gradient}
+                  onClick={() => sendSuggestion(s.prompt)}
+                />
+              ))}
+              <SuggestionChip icon={MoreHorizontal} label="More Ideas" muted onClick={onOpenApps} />
+            </div>
+          )}
+          {/* BLK_ACTIONS from the active turn — pinned 24px above the input
+            area (gap-3 + mb-3 = 24px), detached from the stage card. */}
+          <AnimatePresence mode="popLayout" initial={false}>
+            {showPinnedActions && (
+              <motion.div
+                key={`pinned-actions-${activeAssistantId ?? "none"}`}
+                className="pointer-events-auto mb-3"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 12, transition: { duration: 0.18 } }}
+                transition={SPRING}
+              >
+                <GenerativeCard
+                  html={pinnedActionsHtml}
+                  onAnswer={handleCardAnswer}
+                  projectId={projectId}
+                  seedKey={`${activeAssistantId ?? "none"}-pinned-actions`}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <div className="pointer-events-auto flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setAttachOpen(true)}
-              aria-label="Attach a reference"
-              title="Attach a reference"
-              className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              onClick={onOpenApps}
+              aria-label="Apps"
+              title="Apps"
+              className="flex h-[56px] w-[56px] items-center justify-center rounded-[24px] border border-border bg-card text-muted-foreground transition hover:text-foreground"
             >
-              <Plus className="h-4 w-4" aria-hidden />
+              <LayoutGrid className="h-4 w-4" />
             </button>
 
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  submit();
-                }
-              }}
-              rows={1}
-              placeholder="Message"
-              className="w-64 resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-            />
-            {input.trim() && !dictating ? (
+            <div className="flex h-[56px] items-center gap-2 rounded-[24px] border border-border bg-card p-2">
               <button
                 type="button"
-                onClick={submit}
-                disabled={busy}
-                aria-label="Send message"
-                className="grid h-7 w-7 place-items-center rounded-full bg-foreground text-background transition hover:opacity-90 disabled:opacity-40"
+                onClick={() => setAttachOpen(true)}
+                aria-label="Attach a reference"
+                title="Attach a reference"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
               >
-                <ArrowUp className="h-3.5 w-3.5" />
+                <Plus className="h-4 w-4" aria-hidden />
               </button>
-            ) : speechSupported ? (
-              <button
-                type="button"
-                onClick={toggleDictation}
-                aria-label={dictating ? "Stop dictation" : "Dictate a message"}
-                title={dictating ? "Stop dictation" : "Dictate a message"}
-                className={cn(
-                  "grid h-7 w-7 place-items-center rounded-full transition",
-                  dictating
-                    ? "animate-pulse-glow bg-primary text-primary-foreground"
-                    : "bg-primary/15 text-primary hover:bg-primary/25",
-                )}
-              >
-                <Mic className="h-3.5 w-3.5" />
-              </button>
-            ) : null}
-          </div>
 
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    submit();
+                  }
+                }}
+                rows={1}
+                placeholder="Message"
+                className="w-64 resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              />
+              {input.trim() && !dictating ? (
+                <button
+                  type="button"
+                  onClick={submit}
+                  disabled={busy}
+                  aria-label="Send message"
+                  className="grid h-7 w-7 place-items-center rounded-full bg-foreground text-background transition hover:opacity-90 disabled:opacity-40"
+                >
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </button>
+              ) : speechSupported ? (
+                <button
+                  type="button"
+                  onClick={toggleDictation}
+                  aria-label={dictating ? "Stop dictation" : "Dictate a message"}
+                  title={dictating ? "Stop dictation" : "Dictate a message"}
+                  className={cn(
+                    "grid h-7 w-7 place-items-center rounded-full transition",
+                    dictating
+                      ? "animate-pulse-glow bg-primary text-primary-foreground"
+                      : "bg-primary/15 text-primary hover:bg-primary/25",
+                  )}
+                >
+                  <Mic className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+            </div>
+          </div>
         </div>
-      </div>
+      </ProjectChrome>
 
       {attachOpen && (
         <AssetPickerDialog
@@ -2248,10 +2554,7 @@ export function AgentShell(props: AgentShellProps) {
 
       {/* Drop files anywhere on the stage to hand them to the agent. Gated
           while busy or the picker is open so we never double-handle a drop. */}
-      <StageDropzone
-        onDropFiles={handleStageDrop}
-        disabled={busy || attachOpen}
-      />
+      <StageDropzone onDropFiles={handleStageDrop} disabled={busy || attachOpen} />
 
       {/* Hidden toolbar wiring so agent-mode users can still change model via
           the existing popover if the app menu opens it (kept off-screen). */}
@@ -2264,23 +2567,14 @@ export function AgentShell(props: AgentShellProps) {
           <TranscriptPanel messages={messages} onClose={() => setTranscriptOpen(false)} />
         )}
         {skillEditorOpen && (
-          <SkillEditorPanel
-            selectedApp={selectedApp}
-            onClose={() => setSkillEditorOpen(false)}
-          />
+          <SkillEditorPanel selectedApp={selectedApp} onClose={() => setSkillEditorOpen(false)} />
         )}
       </AnimatePresence>
     </>
   );
 }
 
-function TranscriptPanel({
-  messages,
-  onClose,
-}: {
-  messages: UIMessage[];
-  onClose: () => void;
-}) {
+function TranscriptPanel({ messages, onClose }: { messages: UIMessage[]; onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -2431,7 +2725,8 @@ function formatToolRow(p: ToolPart): string {
   }
   if (name === "render_turn") {
     const input = p.input as { blocks?: Array<{ type?: string }> } | undefined;
-    const output = p.output as { ok?: boolean; turn?: { blocks?: Array<{ type?: string }> } } | undefined;
+    const output = p.output as
+      { ok?: boolean; turn?: { blocks?: Array<{ type?: string }> } } | undefined;
     const source = output?.turn?.blocks ?? input?.blocks ?? [];
     const types = source.map((b) => b?.type ?? "?").join(", ");
     return `render_turn · ${state}${types ? ` · blocks: [${types}]` : ""}`;
@@ -2596,9 +2891,7 @@ function formatTurnTranscript(turn: RenderTurn): string {
     switch (block.type) {
       case "options":
         parts.push(
-          block.items
-            .map((i) => `• ${i.title}${i.subtitle ? ` — ${i.subtitle}` : ""}`)
-            .join("\n"),
+          block.items.map((i) => `• ${i.title}${i.subtitle ? ` — ${i.subtitle}` : ""}`).join("\n"),
         );
         break;
       case "actions":
@@ -2631,7 +2924,7 @@ function formatTurnTranscript(turn: RenderTurn): string {
       case "moodboard": {
         const bits = block.items.map((t) =>
           t.kind === "image"
-            ? t.label ?? "image"
+            ? (t.label ?? "image")
             : t.kind === "palette"
               ? `palette ${t.colors.join(" ")}`
               : `type "${t.text.replace(/\n/g, " ")}"`,
@@ -2646,9 +2939,7 @@ function formatTurnTranscript(turn: RenderTurn): string {
           .map((i) => `• ${i.meta ? `${i.meta} — ` : ""}${i.text}`)
           .join("\n");
         const actions = (block.actions ?? []).map((a) => `[${a.label}]`).join("  ");
-        parts.push(
-          [block.title, items, actions].filter(Boolean).join("\n"),
-        );
+        parts.push([block.title, items, actions].filter(Boolean).join("\n"));
         break;
       }
       case "storyboard": {
@@ -2659,9 +2950,7 @@ function formatTurnTranscript(turn: RenderTurn): string {
           })
           .join("\n");
         const actions = (block.actions ?? []).map((a) => `[${a.label}]`).join("  ");
-        parts.push(
-          [block.title, items, actions].filter(Boolean).join("\n"),
-        );
+        parts.push([block.title, items, actions].filter(Boolean).join("\n"));
         break;
       }
       case "stage": {
@@ -2689,7 +2978,10 @@ function formatAssistantTranscript(raw: string): string {
   // Prefer explicit prose / ack blocks when present.
   const proseMatch = raw.match(/<p[^>]*data-(?:prose|ack)[^>]*>([\s\S]*?)<\/p>/i);
   const lead = proseMatch
-    ? proseMatch[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
+    ? proseMatch[1]
+        .replace(/<[^>]+>/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
     : "";
 
   // Collect option-picker choices, if any.
@@ -2706,7 +2998,10 @@ function formatAssistantTranscript(raw: string): string {
       .replace(/\s+/g, " ")
       .trim();
     const sub = subtitle
-      ? subtitle.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
+      ? subtitle
+          .replace(/<[^>]+>/g, "")
+          .replace(/\s+/g, " ")
+          .trim()
       : "";
     if (label) options.push(sub ? `${label} — ${sub}` : label);
   }
@@ -2730,33 +3025,7 @@ function formatAssistantTranscript(raw: string): string {
   return parts.join("\n\n");
 }
 
-
 // ---------- primitives ----------
-
-function IconButton({
-  icon: Icon,
-  label,
-  onClick,
-  disabled,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  onClick?: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      title={label}
-      className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-    >
-      <Icon className="h-4 w-4" />
-    </button>
-  );
-}
 
 function IconChipButton({
   icon: Icon,
@@ -2793,10 +3062,30 @@ type Suggestion = {
 };
 
 const SUGGESTIONS: Suggestion[] = [
-  { label: "Music Video", prompt: "Music video", icon: Music2, gradient: "linear-gradient(135deg,#1F1147 0%,#F27A54 100%)" },
-  { label: "30s Product Ad", prompt: "30-second product ad", icon: ShoppingBag, gradient: "linear-gradient(135deg,#BFD4E6 0%,#6D8FA8 100%)" },
-  { label: "2min Short Drama", prompt: "Short drama, 2 minutes", icon: Film, gradient: "linear-gradient(135deg,#7A5A3A 0%,#2B1E12 100%)" },
-  { label: "Fashion TikTok Hook", prompt: "TikTok hook — fashion", icon: Shirt, gradient: "linear-gradient(135deg,#C0392B 0%,#5A1A12 100%)" },
+  {
+    label: "Music Video",
+    prompt: "Music video",
+    icon: Music2,
+    gradient: "linear-gradient(135deg,#1F1147 0%,#F27A54 100%)",
+  },
+  {
+    label: "30s Product Ad",
+    prompt: "30-second product ad",
+    icon: ShoppingBag,
+    gradient: "linear-gradient(135deg,#BFD4E6 0%,#6D8FA8 100%)",
+  },
+  {
+    label: "2min Short Drama",
+    prompt: "Short drama, 2 minutes",
+    icon: Film,
+    gradient: "linear-gradient(135deg,#7A5A3A 0%,#2B1E12 100%)",
+  },
+  {
+    label: "Fashion TikTok Hook",
+    prompt: "TikTok hook — fashion",
+    icon: Shirt,
+    gradient: "linear-gradient(135deg,#C0392B 0%,#5A1A12 100%)",
+  },
 ];
 
 function SuggestionChip({

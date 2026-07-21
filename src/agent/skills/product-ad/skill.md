@@ -19,21 +19,29 @@ usesBlocks: [BLK_UPLOAD, BLK_FORM, BLK_OPTIONS, BLK_STORYBOARD, BLK_MEDIA, BLK_A
 
 ## Step 2 — Brief
 
-- **Present:** `BLK_FORM` — `{tagline, audience, lengthSec (8/15/30/1m), aspect (16:9/9:16/1:1/4:5)}`.
+- **Present:** `BLK_FORM` — `{tagline, audience, lengthSec (8/15/30/1m)}`.
 
-## Step 3 — Audio plan (FIRST, before concepts)
+## Step 3 — Aspect ratio
+
+- **Present:** `BLK_OPTIONS` — 16:9 / 9:16 / 1:1, each with `visual.kind: "ratio"`. Its own turn, never a form field (4:5 etc. stay reachable via the automatic Custom tile).
+
+## Step 4 — Audio plan (FIRST, before concepts)
 
 - **Present:** `BLK_FORM` — audio mode (music bed / voiceover / talking spokesperson / mix) + direction.
 - **Why first:** concept pacing, copy lines, and whether talent must speak on camera all depend on this.
 
-## Step 4 — Concepts
+## Step 5 — Concepts
 
 - Generate 2–3 ad concepts and present them via `BLK_LIST` or a `BLK_STORYBOARD` for review.
 
-## Step 5 — Style
+## Step 6 — Style
 
-- **Present:** `BLK_OPTIONS` — Cinematic / Clean studio / Lifestyle / Editorial. Also collect on-screen talent (optional, multi).
+- **Present:** `BLK_OPTIONS` — Cinematic / Clean studio / Lifestyle / Editorial.
 
-## Step 6 — Produce
+## Step 7 — Talent (optional)
+
+- **Present:** `BLK_OPTIONS` — on-screen talent (multi; pick from Library or create). Skip if the concept needs no one on camera.
+
+## Step 8 — Produce
 
 - **Present:** `BLK_OPTIONS` — render model (Seedance 2.0 vs Kling Standard).

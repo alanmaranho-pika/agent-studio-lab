@@ -43,8 +43,8 @@ function LibraryPage() {
   const data = q.data ?? { references: [], generations: [], queue: [] };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background text-foreground">
-      <div className="flex h-screen flex-1 flex-col overflow-hidden">
+    <div className="flex h-full overflow-hidden bg-background text-foreground">
+      <div className="flex h-full flex-1 flex-col overflow-hidden">
         <header className="px-8 pb-4 pt-6">
           <div className="mx-auto w-full max-w-6xl">
             <h1 className="font-display text-2xl font-semibold tracking-tight">

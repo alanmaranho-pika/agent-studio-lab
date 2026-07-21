@@ -1089,6 +1089,13 @@ export function enhanceCardActions(root: HTMLElement): void {
 // the item as --item-aspect (drives the box) and --item-grow (flex-grow ∝
 // aspect ratio, so a mixed-shape row settles on one shared height without any
 // cropping). Runs per image, so slow-loading images upgrade independently.
+// Wand-2 glyph (matches the media-card "edit" action icon) for the per-image
+// hover pill.
+const GALLERY_EDIT_ICON =
+  '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/>' +
+  '<path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></svg>';
+
 export function enhanceGalleries(root: HTMLElement): void {
   root.querySelectorAll<HTMLElement>(".gen-gallery").forEach((gallery) => {
     if (gallery.getAttribute("data-enhanced") === "1") return;
@@ -1107,6 +1114,21 @@ export function enhanceGalleries(root: HTMLElement): void {
         };
         if (img.complete) apply();
         else img.addEventListener("load", apply, { once: true });
+
+        // Hover-reveal "Edit" pill — targets THIS image. Added here (after
+        // enhanceCardActions has run) so the card-action trio never sweeps
+        // it up; GenerativeCard's delegate handles the click via
+        // [data-gallery-edit].
+        if (!item.querySelector(":scope > .gen-gallery-edit")) {
+          const edit = document.createElement("button");
+          edit.type = "button";
+          edit.className = "gen-gallery-edit";
+          edit.setAttribute("data-gallery-edit", "1");
+          edit.setAttribute("aria-label", "Edit with agent");
+          edit.title = "Edit with agent";
+          edit.innerHTML = `${GALLERY_EDIT_ICON}<span>Edit</span>`;
+          item.appendChild(edit);
+        }
       });
   });
 }

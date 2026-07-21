@@ -1741,6 +1741,51 @@ label.gen-field {
   text-overflow: ellipsis;
 }
 
+/* Per-image "Edit" pill — appended by enhanceGalleries, top-right of each
+   tile. Hidden until the tile is hovered (or the pill itself is focused for
+   keyboard users), then fades + slides in. Clicking it opens the same
+   "Edit with agent" popover as a media card's edit action, targeting THIS
+   image. */
+.gen-gallery-edit {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 6px 10px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: rgba(13, 13, 13, 0.55);
+  backdrop-filter: blur(8px);
+  color: var(--content-light-primary);
+  font-family: "Telka Extended", "Telka", system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease,
+    background 0.16s ease;
+}
+.gen-gallery-edit svg {
+  flex: none;
+}
+.gen-gallery-item:hover .gen-gallery-edit,
+.gen-gallery-edit:focus-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.gen-gallery-edit:hover {
+  background: rgba(13, 13, 13, 0.72);
+}
+
 /* ─────────────────────────────────────────────────────────────────
  * Inline "Ask agent" pill — rainbow conic outline on surface-dark-1.
  * Reuses --glow-angle @property + agent-glow-rotate keyframes.
