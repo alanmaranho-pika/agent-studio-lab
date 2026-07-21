@@ -12,7 +12,7 @@ usesBlocks: [BLK_OPTIONS, BLK_FORM, BLK_UPLOAD, BLK_MOODBOARD, BLK_STORYBOARD, B
 
 # Short Film
 
-Take an idea to a finished multi-shot short. Walk these steps one decision per turn; skip, reorder, or loop back based on what the user already answered; detour into a model skill when an input is missing, then resume.
+Take an idea to a finished multi-shot short. Walk these steps one decision per turn; skip, reorder, or loop back based on what the user already answered; detour into a model skill when an input is missing, then resume. Each step is a checklist, not a script: "a 30s movie about a lost dog" answers BOTH Step 1 fields — don't serve the logline/length form again, confirm inline ("30s, a lost dog finding home — locked") and open at Step 2.
 
 **Required result:** once specs, cast, audio, and the storyboard are set, this skill ALWAYS lands on a `BLK_TIMELINE` of the shots (Step 6) — never a written recap, `list`, or prose summary of the project. The timeline IS the review surface; a summary is not an acceptable substitute.
 
@@ -31,9 +31,12 @@ Take an idea to a finished multi-shot short. Walk these steps one decision per t
 - **Present:** `BLK_OPTIONS` (pick from Library) OR the character-picker (multi). Offer "Create new" → open Character Creator inline.
 - **Persist:** `commit_project_patch({cast})`.
 
-## Step 4 — Audio plan (FIRST, before storyboard)
+## Step 4 — Audio plan (FIRST, before storyboard) — TWO turns
 
-- **Present:** `BLK_FORM` with `{audioMode (music bed / VO / talking / mix / none, multi), audioNotes}`.
+Approach and notes are separate rounds — never one card (guardrail 1c):
+
+- **Turn 1 — approach (`BLK_OPTIONS`):** Music bed / Voiceover / Talking dialogue / Mix music + VO / Silent (ambience only). Multi-select. Its own turn; the approach is a choice, not a form field. Persist the picked mode(s) via `commit_project_patch`.
+- **Turn 2 — notes (`BLK_FORM`, optional):** a single `audioNotes` field (genre, narrator tone, who speaks what) — shown ONLY when the approach needs direction. Skip it (or let "Agent decides" / "Skip" advance) when the mode alone is enough.
 - **Why first:** pacing, dialogue, and whether characters need to speak on screen depend on this.
 
 ## Step 5 — Storyboard

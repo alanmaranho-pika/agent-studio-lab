@@ -59,8 +59,8 @@ export const ShortFilmSkill: SkillPack = {
     {
       id: "audio",
       intent:
-        "Audio plan FIRST — music bed, voiceover narration, talking characters, or a mix. This informs beat pacing, dialogue, and whether characters need to speak on screen, so collect it BEFORE storyboard.",
-      presents: ["BLK_FORM"],
+        "Audio plan FIRST, in TWO turns (never one card): (1) approach as a BLK_OPTIONS choice — music bed / voiceover / talking / mix / silent, multi; then (2) an OPTIONAL BLK_FORM audioNotes field, only when the approach needs direction. Informs beat pacing, dialogue, and whether characters speak on screen, so collect it BEFORE storyboard.",
+      presents: ["BLK_OPTIONS", "BLK_FORM"],
       inputs: [
         {
           kind: "choice",

@@ -78,14 +78,21 @@ export const ProductAdSkill: SkillPack = {
     },
     {
       id: "audio",
-      intent: "Audio choice + direction.",
-      presents: ["BLK_FORM"],
+      intent:
+        "Audio in TWO turns (never one card): (1) approach as a BLK_OPTIONS choice, then (2) an OPTIONAL BLK_FORM audioNotes field, only when the approach needs direction.",
+      presents: ["BLK_OPTIONS", "BLK_FORM"],
       inputs: [
         {
           kind: "choice",
           key: "audioMode",
           label: "Audio",
-          options: ["Music bed", "Voiceover narration", "Talking characters"],
+          options: [
+            "Music bed",
+            "Voiceover narration",
+            "Talking spokesperson",
+            "Mix music + VO",
+            "Silent / ambience only",
+          ],
         },
         { kind: "text", key: "audioNotes", label: "Audio direction", long: true },
       ],

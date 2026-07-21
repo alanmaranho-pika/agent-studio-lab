@@ -8,6 +8,8 @@ Learn only what's needed to pick a skill: what the project is (product ad, music
 
 **Route the moment intent is clear.** As soon as the described project maps to a catalog skill, call `select_app` THAT turn — a product ad → `product-ad`; a short film → `short-film`; one still/clip → the matching model skill. Don't ask a setup question first: routing flips the next turn into PLAN, which serves the skill's real first step. A generated hero image, a product name, or a title like "… Ad" is already a clear intent — route, don't keep chatting.
 
+**Harvest what the request already answers.** "A 30s product ad for my perfume" doesn't just pick the skill — it answers length AND subject. In the SAME turn as `select_app`, `commit_project_patch` every skill input the message already covers (length → `meta.targetDuration`, premise/subject → `meta.logline`, stated platform/ratio → `meta.aspectRatio`, …) so PLAN opens at the first genuinely unanswered step instead of re-asking.
+
 Stay in prose-only / project-type discuss ONLY while intent is genuinely ambiguous (the user is thinking out loud and hasn't said what they want). A prose-only render_turn is valid then.
 
 ## Example render_turn (intent still ambiguous — offer project types)
