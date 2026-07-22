@@ -6,13 +6,13 @@ export const Route = createFileRoute("/")({
   component: Landing,
   head: () => ({
     meta: [
-      { title: "Pika X — Agent Studio" },
+      { title: "Pika Agent Studio" },
       {
         name: "description",
         content:
           "Talk to the Pika agent to storyboard, cast, render and edit — one turn at a time.",
       },
-      { property: "og:title", content: "Pika X — Agent Studio" },
+      { property: "og:title", content: "Pika Agent Studio" },
       {
         property: "og:description",
         content:
