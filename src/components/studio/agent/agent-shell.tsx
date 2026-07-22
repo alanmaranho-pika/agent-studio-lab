@@ -616,6 +616,40 @@ const TOOL_SKELETON_HINTS: Record<string, string> = {
 // retryable so the banner can offer a one-click re-run.
 function describeChatError(error: Error): { message: string; interrupted: boolean } {
   const raw = (error.message ?? "").toLowerCase();
+  // Account-level API failures (out of credits, bad key, quota) surface as the
+  // agent going silent + renders never starting — the model turn dies before
+  // it can fire run_model_app, so nothing queues. Name the real cause and the
+  // fix; retrying won't help until it's resolved, so it's NOT "interrupted".
+  if (raw.includes("credit balance") || raw.includes("billing")) {
+    return {
+      message:
+        "The AI account is out of credits — the agent can't run, so nothing is generating. Add credits in the Anthropic Console (Plans & Billing), then retry.",
+      interrupted: false,
+    };
+  }
+  if (
+    raw.includes("quota") ||
+    raw.includes("insufficient_quota") ||
+    raw.includes("payment")
+  ) {
+    return {
+      message:
+        "The AI account hit a quota/payment limit — generation is paused until it's resolved on the provider account.",
+      interrupted: false,
+    };
+  }
+  if (
+    raw.includes("api key") ||
+    raw.includes("unauthorized") ||
+    raw.includes("authentication") ||
+    raw.includes("401")
+  ) {
+    return {
+      message:
+        "The AI provider rejected the request (auth/API key). Generation can't run until the key is fixed on the server.",
+      interrupted: false,
+    };
+  }
   const interrupted =
     raw === "network error" ||
     raw.includes("network error") ||
@@ -626,7 +660,7 @@ function describeChatError(error: Error): { message: string; interrupted: boolea
   if (interrupted) {
     return {
       message:
-        "The connection dropped mid-response — often a dev hot-reload. Nothing was saved for this turn.",
+        "The connection dropped before the turn finished — a dev hot-reload, or the server erroring mid-stream (check the server logs if it repeats). Nothing was saved for this turn.",
       interrupted: true,
     };
   }
