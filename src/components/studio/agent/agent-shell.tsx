@@ -799,6 +799,16 @@ const PHASE_BADGE: Record<AgentPhase, string> = {
   edit: "bg-emerald-500/15 text-emerald-600",
 };
 
+// One entry in the debug HUD's full activity log (see `activityLog` below).
+type ActivityEntry = {
+  id: string;
+  kind: "skill" | "tool" | "phase";
+  label: string;
+  detail?: string;
+  state?: string;
+  error?: boolean;
+};
+
 // Mock collaborator stack for the top-right invite cluster — fake UI until
 // real multiplayer lands.
 const MOCK_COLLABORATORS: ReadonlyArray<{ name: string; color: string }> = [
@@ -1069,6 +1079,54 @@ export function AgentShell(props: AgentShellProps) {
     }
     return derivePhase(project, selectedApp?.appId ?? null, extractLatestUserText(messages));
   }, [messages, project, selectedApp]);
+
+  // Full session activity log — every skill call, tool/job call, and phase
+  // transition, in order. Unlike the compact pills above (latest + count),
+  // this is the complete history: nothing is summarized away. Derived purely
+  // from `messages`, which are persisted server-side, so the log survives a
+  // reload — there is no separate storage to keep in sync.
+  const activityLog = useMemo<ActivityEntry[]>(() => {
+    const out: ActivityEntry[] = [];
+    let lastPhase: AgentPhase | null = null;
+    for (const m of messages) {
+      if (m.role !== "assistant") continue;
+      const phase = metadataOf(m).phase;
+      if (phase && phase !== lastPhase) {
+        out.push({ id: `${m.id}:phase`, kind: "phase", label: phase });
+        lastPhase = phase;
+      }
+      for (const p of toolPartsOf(m)) {
+        if (p.state !== "output-available" && p.state !== "output-error" && p.state !== "input-available") {
+          continue;
+        }
+        const o = p.output as
+          | { appId?: string; label?: string; error?: unknown }
+          | undefined;
+        if ((p.type === "tool-select_app" || p.type === "tool-run_skill") && o?.label) {
+          out.push({
+            id: `${p.toolCallId}:skill`,
+            kind: "skill",
+            label: o.label,
+            detail: o.appId,
+          });
+          continue;
+        }
+        let name = p.type.replace(/^tool-/, "");
+        if (p.type === "tool-tool_invoke") {
+          const input = p.input as { name?: string } | undefined;
+          if (input?.name) name = input.name;
+        }
+        out.push({
+          id: p.toolCallId ?? `${m.id}:${out.length}`,
+          kind: "tool",
+          label: name,
+          state: p.state,
+          error: !!o?.error,
+        });
+      }
+    }
+    return out;
+  }, [messages]);
 
   // Apply project patches + tool outputs exactly once each.
   const appliedPatchIds = useRef<Set<string>>(new Set());
@@ -1719,6 +1777,14 @@ export function AgentShell(props: AgentShellProps) {
   const [input, setInput] = useState("");
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [skillEditorOpen, setSkillEditorOpen] = useState(false);
+  const [activityLogOpen, setActivityLogOpen] = useState(false);
+  const activityLogScrollRef = useRef<HTMLDivElement | null>(null);
+  // Keep the activity-log panel scrolled to the newest entry as it grows.
+  useEffect(() => {
+    if (!activityLogOpen) return;
+    const el = activityLogScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [activityLog, activityLogOpen]);
   const [attachOpen, setAttachOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -2483,6 +2549,80 @@ export function AgentShell(props: AgentShellProps) {
               {debugPhase}
             </span>
           </div>
+
+          {/* Full activity log — every skill call, tool/job call, and phase
+            transition this session, in order. Unlike the pills above (latest
+            + count), nothing here is summarized away or dropped; it's a pure
+            derivation of `messages`, so it survives a reload untouched. */}
+          <button
+            type="button"
+            onClick={() => setActivityLogOpen((v) => !v)}
+            title="Full activity log (skills, tool/job calls, phases)"
+            className={cn(
+              "flex items-center gap-1.5 rounded-full border border-border bg-card/80 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur transition hover:bg-card hover:text-foreground",
+              activityLogOpen && "text-foreground",
+            )}
+          >
+            <span className="uppercase tracking-wider opacity-60">Log</span>
+            <span className="tabular-nums">{activityLog.length}</span>
+            <ChevronDown
+              className={cn("h-3 w-3 transition-transform", activityLogOpen && "rotate-180")}
+            />
+          </button>
+          {activityLogOpen && (
+            <div
+              ref={activityLogScrollRef}
+              className="max-h-[40vh] w-[20rem] overflow-y-auto rounded-2xl border border-border bg-card/95 p-2 shadow-sm backdrop-blur"
+            >
+              {activityLog.length === 0 ? (
+                <p className="px-1.5 py-1 text-[11px] text-muted-foreground">
+                  Nothing logged yet.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-1">
+                  {activityLog.map((e) => (
+                    <li
+                      key={e.id}
+                      className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[11px]"
+                    >
+                      {e.kind === "phase" ? (
+                        <span
+                          className={cn(
+                            "rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide",
+                            PHASE_BADGE[e.label as AgentPhase],
+                          )}
+                        >
+                          {e.label}
+                        </span>
+                      ) : (
+                        <>
+                          <span
+                            className={cn(
+                              "h-1.5 w-1.5 shrink-0 rounded-full",
+                              e.kind === "skill"
+                                ? "bg-emerald-500"
+                                : e.error
+                                  ? "bg-red-500"
+                                  : e.state === "output-available"
+                                    ? "bg-sky-500"
+                                    : "animate-pulse bg-amber-500",
+                            )}
+                            aria-hidden
+                          />
+                          <span
+                            className="truncate font-mono text-[10px] text-foreground/80"
+                            title={e.detail}
+                          >
+                            {e.label}
+                          </span>
+                        </>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
 
         {/* --- History browsing chip --- */}
