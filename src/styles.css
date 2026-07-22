@@ -998,17 +998,18 @@
 }
 /* When the grid carries the project aspect ratio, pitch cards drop the fixed
    card height and take their shape from --pitch-ar (width-derived), so the
-   option set previews the finished piece's proportions (16:9, 9:16, 1:1). */
-.gen-options[data-pitch-ar="1"] > .gen-option-pitch {
+   option set previews the finished piece's proportions (16:9, 9:16, 1:1). The
+   trailing Custom tile follows the same math so it sits flush with the set
+   rather than towering at the old fixed height. */
+.gen-options[data-pitch-ar="1"] > .gen-option-pitch,
+.gen-options[data-pitch-ar="1"] > .gen-option-custom {
   height: auto;
   min-height: 0;
   aspect-ratio: var(--pitch-ar, 3 / 4);
 }
-/* Tall (portrait) pitch cards can overflow their text — let the body scroll
-   rather than spill. Wide cards have ample room. */
-.gen-options[data-pitch-ar="1"] > .gen-option-pitch .gen-option-pitch-text {
-  overflow: hidden;
-}
+/* The pitch body is never cropped — the card grows past its aspect-ratio
+   floor to fit the full concept text (aspect-ratio acts as a minimum shape,
+   content can push it taller). */
 .gen-option-pitch-head {
   display: flex;
   flex-direction: column;
@@ -1025,7 +1026,7 @@
 .gen-option-pitch-title {
   font-family: "Telka Extended", "Telka", system-ui, sans-serif;
   font-weight: 500;
-  font-size: clamp(22px, 1.8vw, 30px);
+  font-size: clamp(33px, 2.7vw, 45px);
   line-height: 1.05;
   overflow-wrap: break-word;
 }
@@ -1035,10 +1036,6 @@
   line-height: 1.3;
   letter-spacing: 0.3px;
   margin: 0;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 8;
-  -webkit-box-orient: vertical;
 }
 
 /* Rule-of-thirds aspect-ratio illustrations */
