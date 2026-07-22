@@ -53,8 +53,8 @@ Approach and direction are separate rounds — never one card (guardrail 1c):
 
 ## Step 8 — Timeline preview (REQUIRED)
 
-- Once the concept is locked and scenes are patched, `render_turn` with a `BLK_TIMELINE` (variant `preview`) laying out every shot in order — placeholder clips before render. This is the mandatory consolidation surface; do NOT end on a `list`, `stage`, or prose recap, and never leave shots as loose `media` cards.
-- Put next steps in the timeline's `actions` (2–4): e.g. "Render the ad", "Render one shot", "Edit the cut".
+- Once the concept is locked and scenes are patched, `render_turn` with a `BLK_TIMELINE` (variant `preview`) generatng and laying out every shot anchor image in order. This is the mandatory consolidation surface; do NOT end on a `list`, `stage`, or prose recap, and never leave shots as loose `media` cards.
+- Put next steps in the timeline's `actions` (2–4): e.g. "Render the ad", "Render first shot", "Edit the cut".
 
 ## Step 9 — Produce
 
