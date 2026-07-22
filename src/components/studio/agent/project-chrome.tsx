@@ -2,6 +2,7 @@ import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "reac
 import { ArrowLeft, ChevronDown } from "lucide-react";
 
 import chromeLogo from "@/assets/logo.png";
+import { ComingSoon } from "@/components/coming-soon";
 import { cn } from "@/lib/utils";
 import { PENDING_MIME, resolveThumb, type ProjectAsset } from "@/lib/project-state";
 
@@ -282,6 +283,7 @@ export function ProjectChrome({
         {/* Library — bottom of the rail (Figma 27704-424131 / -425023).
             Empty: just the glyph. With assets: overlapping thumb stack +
             count badge. The "Library" label fades in when the rail opens. */}
+        <ComingSoon side="top">
         <div ref={libraryRef} className="absolute bottom-3 left-3 flex h-12 items-center gap-2">
           <span className="relative grid h-12 w-12 shrink-0 place-items-center">
             {assetCount > 0 ? (
@@ -327,6 +329,7 @@ export function ProjectChrome({
             Library
           </span>
         </div>
+        </ComingSoon>
       </div>
 
       {/* --- Main stage — full page. The rail floats on top of it (z-30);

@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ComingSoon } from "@/components/coming-soon";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
@@ -103,7 +104,9 @@ function EmptyState({
   icon: React.ReactNode;
   title: string;
   subtitle: React.ReactNode;
-  cta: { label: string; to: string };
+  // No `to` — these creation flows are coming soon, so the CTA is inert
+  // (it only surfaces the "Coming soon" tooltip on hover).
+  cta: { label: string };
 }) {
   return (
     <div className="grid h-full place-items-center">
@@ -128,16 +131,18 @@ function EmptyState({
             {subtitle}
           </p>
         </div>
-        <Link
-          to={cta.to}
-          className="flex h-14 shrink-0 items-center justify-center gap-1 rounded-[var(--radius-lg)] px-4 text-white transition hover:opacity-90"
-          style={{ background: "var(--surface-dark-1)" }}
-        >
-          <Plus className="h-5 w-5" />
-          <span className="px-1 text-[17px] font-medium leading-[17px]" style={{ fontFamily: TELKA }}>
-            {cta.label}
-          </span>
-        </Link>
+        <ComingSoon side="top">
+          <button
+            type="button"
+            className="flex h-14 shrink-0 items-center justify-center gap-1 rounded-[var(--radius-lg)] px-4 text-white transition hover:opacity-90"
+            style={{ background: "var(--surface-dark-1)" }}
+          >
+            <Plus className="h-5 w-5" />
+            <span className="px-1 text-[17px] font-medium leading-[17px]" style={{ fontFamily: TELKA }}>
+              {cta.label}
+            </span>
+          </button>
+        </ComingSoon>
       </div>
     </div>
   );
@@ -310,7 +315,7 @@ function AssetsTab() {
         icon={<FileText className="h-8 w-8" strokeWidth={1.5} style={{ color: "var(--content-dark-secondary)" }} />}
         title="No assets yet"
         subtitle="Every asset you create or upload will be shown here. Start creating now!"
-        cta={{ label: "New Asset", to: "/studio" }}
+        cta={{ label: "New Asset" }}
       />
     );
   }
@@ -793,7 +798,7 @@ function CharactersTab() {
         icon={<UserRound className="h-8 w-8" strokeWidth={1.5} style={{ color: "var(--content-dark-secondary)" }} />}
         title="No characters yet"
         subtitle="Create one to reuse across your projects."
-        cta={{ label: "New Character", to: "/studio" }}
+        cta={{ label: "New Character" }}
       />
     );
   }
@@ -864,7 +869,7 @@ function ElementsTab() {
         icon={<Copy className="h-8 w-8" strokeWidth={1.5} style={{ color: "var(--content-dark-secondary)" }} />}
         title="No elements yet"
         subtitle="Save reusable products, scenes, and logos so every project renders them consistently."
-        cta={{ label: "New Element", to: "/studio" }}
+        cta={{ label: "New Element" }}
       />
     );
   }

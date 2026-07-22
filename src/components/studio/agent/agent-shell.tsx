@@ -23,6 +23,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { AgentSymbol } from "@/components/studio/agent/agent-symbol";
+import { ComingSoon } from "@/components/coming-soon";
 import { EtherealBackdrop } from "@/components/studio/agent/ethereal-backdrop";
 import { ProjectChrome, type ProjectSurface } from "@/components/studio/agent/project-chrome";
 import { useVoiceMode } from "@/components/studio/agent/use-voice-mode";
@@ -2444,31 +2445,31 @@ export function AgentShell(props: AgentShellProps) {
         {/* --- Top-right: export + mock collaborators (invite/avatars are
           fake UI for now) + debug pills --- */}
         <div className="absolute right-4 top-4 z-40 flex flex-col items-end gap-2">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              title="Invite (coming soon)"
-              className="flex h-8 items-center rounded-sm bg-[color:var(--surface-dark-6)] px-3 text-xs font-medium text-[color:var(--content-dark-secondary)] transition hover:bg-[color:var(--surface-dark-5)]"
-            >
-              Invite
-            </button>
-            <div className="flex items-center" aria-label="Collaborators (mock)">
-              {MOCK_COLLABORATORS.map((u, i) => (
-                <span
-                  key={u.name}
-                  title={u.name}
-                  className="grid h-8 w-8 place-items-center rounded-full border-2 border-background text-[11px] font-medium text-white"
-                  style={{
-                    background: u.color,
-                    marginLeft: i === 0 ? 0 : -8,
-                    zIndex: MOCK_COLLABORATORS.length - i,
-                  }}
-                >
-                  {u.name[0]}
-                </span>
-              ))}
+          <ComingSoon side="bottom">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="flex h-8 items-center rounded-sm bg-[color:var(--surface-dark-6)] px-3 text-xs font-medium text-[color:var(--content-dark-secondary)] transition hover:bg-[color:var(--surface-dark-5)]"
+              >
+                Invite
+              </button>
+              <div className="flex items-center" aria-label="Collaborators (mock)">
+                {MOCK_COLLABORATORS.map((u, i) => (
+                  <span
+                    key={u.name}
+                    className="grid h-8 w-8 place-items-center rounded-full border-2 border-background text-[11px] font-medium text-white"
+                    style={{
+                      background: u.color,
+                      marginLeft: i === 0 ? 0 : -8,
+                      zIndex: MOCK_COLLABORATORS.length - i,
+                    }}
+                  >
+                    {u.name[0]}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
+          </ComingSoon>
           {/* Debug pill — current skill; click to edit skill.md live. */}
           <button
             type="button"
@@ -2810,14 +2811,15 @@ export function AgentShell(props: AgentShellProps) {
             <div className="h-4 w-px bg-border" />
 
             {/* Pen — standalone glass icon (no function yet) */}
-            <button
-              type="button"
-              aria-label="Edit"
-              title="Edit"
-              className="flex h-[56px] w-[56px] items-center justify-center rounded-[18px] bg-white/50 text-foreground/70 backdrop-blur-[16px] transition hover:text-foreground"
-            >
-              <Pencil className="h-5 w-5" aria-hidden />
-            </button>
+            <ComingSoon side="top">
+              <button
+                type="button"
+                aria-label="Edit"
+                className="flex h-[56px] w-[56px] items-center justify-center rounded-[18px] bg-white/50 text-foreground/70 backdrop-blur-[16px] transition hover:text-foreground"
+              >
+                <Pencil className="h-5 w-5" aria-hidden />
+              </button>
+            </ComingSoon>
           </div>
         </div>
       </ProjectChrome>
