@@ -10,6 +10,7 @@ import { useEffect } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
+import { SiteGate } from "@/components/site-gate";
 import { migrateLocalProjectsToCloud } from "@/lib/local-cloud-migration";
 import { getBrowserSupabase } from "@/lib/supabase-browser";
 
@@ -148,7 +149,9 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <SiteGate>
+        <Outlet />
+      </SiteGate>
       <Toaster />
     </QueryClientProvider>
   );
