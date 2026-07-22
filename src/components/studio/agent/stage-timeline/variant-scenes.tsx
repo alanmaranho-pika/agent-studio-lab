@@ -3,7 +3,8 @@
 // light panel: "Scene 1 · 3 clips", the scene's clip strip with playhead,
 // right-aligned cumulative time markers, and SFX/VO chips.
 
-import { Loader2, Play, Pause, AudioLines } from "lucide-react";
+import { Play, Pause, AudioLines } from "lucide-react";
+import { RenderingCell } from "@/components/studio/agent/rendering-cell";
 import type { ProjectAsset, ProjectState } from "@/lib/project-state";
 import type { TimelineModel } from "./use-timeline-model";
 import { useTimelinePlayback } from "./use-timeline-playback";
@@ -75,12 +76,7 @@ export function TimelineScenes({
             className="h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-white/50">
-            <Loader2 className="h-6 w-6 animate-spin" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.22em]">
-              Rendering…
-            </span>
-          </div>
+          <RenderingCell />
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/50" />
         {/* Scene chip */}

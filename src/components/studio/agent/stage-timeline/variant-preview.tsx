@@ -4,7 +4,8 @@
 // the orange playhead crossing strip + audio. CTAs come from the stage
 // actions row rendered by StageGenerationView.
 
-import { Loader2, Play, Pause, Plus } from "lucide-react";
+import { Play, Pause, Plus } from "lucide-react";
+import { RenderingCell } from "@/components/studio/agent/rendering-cell";
 import type { ProjectAsset, ProjectState } from "@/lib/project-state";
 import type { StageIntent } from "@/components/studio/agent/intents";
 import type { TimelineModel } from "./use-timeline-model";
@@ -52,12 +53,7 @@ export function TimelinePreview({
             className="h-full w-full object-contain"
           />
         ) : playableClip && playableClip.kind === "pending" ? (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-white/60">
-            <Loader2 className="h-6 w-6 animate-spin" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.22em]">
-              Rendering…
-            </span>
-          </div>
+          <RenderingCell />
         ) : (
           <div className="grid h-full w-full place-items-center font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">
             Waiting for a first clip…

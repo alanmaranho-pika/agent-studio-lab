@@ -7,6 +7,7 @@
 import { useEffect, useRef } from "react";
 import { Music, Pause, Play, SkipBack, SkipForward } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RenderingCell } from "@/components/studio/agent/rendering-cell";
 import type { TimelineAudio, TimelineClip } from "./use-timeline-model";
 import { WaveformSlice } from "./waveform";
 
@@ -244,9 +245,7 @@ export function ClipChip({
       title={`${clip.label} · ${Math.round(clip.duration * 10) / 10}s`}
     >
       {clip.kind === "pending" ? (
-        <div className="grid h-full w-full place-items-center bg-black/80 font-mono text-[9px] uppercase tracking-[0.18em] text-white/60">
-          Rendering…
-        </div>
+        <RenderingCell shader={false} size="sm" label={null} />
       ) : clip.thumb ? (
         <div
           className="h-full w-full"
