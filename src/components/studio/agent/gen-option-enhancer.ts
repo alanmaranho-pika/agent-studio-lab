@@ -117,56 +117,44 @@ function renderIcon(name: string): string {
   return renderToStaticMarkup(createElement(Comp, { size: 32, strokeWidth: 2 }));
 }
 
-// ---------- Seeded scatter ----------
-// Option cards get a soft random rotation / vertical offset — the visual
-// signature for "pick one". Seeded by the message id (+ option index) so a
-// given turn always scatters the same way across re-renders and history
-// revisits, while different turns land differently.
+// ---------- Fan layout ----------
+// Option cards fan out like a hand of cards — the visual signature for "pick
+// one". Within each row, rotation ramps linearly from a left lean on the first
+// card to a right lean on the last, and a shallow arc lifts the centre so the
+// tops form a gentle arch (the outer cards sit a little lower). Fully
+// deterministic from each card's position in its row: a row always fans the
+// same way across re-renders and history revisits, and the whole set reads as
+// one deliberate spread rather than a random scatter.
 
-function hashSeed(str: string): number {
-  let h = 1779033703 ^ str.length;
-  for (let i = 0; i < str.length; i++) {
-    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-    h = (h << 13) | (h >>> 19);
+const FAN_MAX_ROT = 4; // degrees of lean at the outermost cards
+const FAN_ARC = 14; // px the outer cards drop below the centre
+
+function applyFan(
+  opt: HTMLElement,
+  col: number,
+  rowCount: number,
+  flatIndex: number,
+): void {
+  // A lone card in its row stays upright and aligned.
+  if (rowCount <= 1) {
+    clearFan(opt);
+    opt.style.setProperty("--glow-angle", "90deg");
+    opt.style.animationDelay = `${(flatIndex * 0.05).toFixed(3)}s`;
+    return;
   }
-  h = Math.imul(h ^ (h >>> 16), 2246822507);
-  h = Math.imul(h ^ (h >>> 13), 3266489909);
-  return (h ^= h >>> 16) >>> 0;
+  const center = (rowCount - 1) / 2;
+  const norm = (col - center) / center; // -1 (first) … +1 (last)
+  const rot = norm * FAN_MAX_ROT;
+  const ty = norm * norm * FAN_ARC; // 0 at centre, +ARC at edges (edges sit lower)
+  opt.style.setProperty("--rot", `${rot.toFixed(2)}deg`);
+  // Hover eases the card partway toward upright, never past 0.
+  opt.style.setProperty("--rot-hover", `${(rot * 0.35).toFixed(2)}deg`);
+  opt.style.setProperty("--ty", `${ty.toFixed(1)}px`);
+  opt.style.setProperty("--glow-angle", `${Math.round(90 + norm * 30)}deg`);
+  opt.style.animationDelay = `${(flatIndex * 0.05).toFixed(3)}s`;
 }
 
-function mulberry32(seed: number): () => number {
-  let a = seed;
-  return () => {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function applyScatter(opt: HTMLElement, seed: string, index: number): void {
-  const rand = mulberry32(hashSeed(`${seed}:${index}`));
-  // Alternate the tilt direction across the row so adjacent cards never lean
-  // the same way, and give translateY the opposite phase so a card that tilts
-  // right also sits lower while its neighbour tilts left and sits higher. A
-  // seeded per-row bit flips which side leads (stable per turn), and the
-  // magnitudes stay random so the scatter never looks mechanical. This fixes
-  // the case where independent per-card randomness happened to give a whole
-  // row the same rotation + offset direction.
-  const leadSign = mulberry32(hashSeed(`${seed}:lead`))() < 0.5 ? -1 : 1;
-  const rotSign = leadSign * (index % 2 === 0 ? 1 : -1);
-  const tySign = -rotSign;
-  const rotMag = 1.6 + rand() * 1.6; // 1.6–3.2deg
-  const tyMag = 9 + rand() * 11; // 9–20px
-  opt.style.setProperty("--rot", `${(rotSign * rotMag).toFixed(2)}deg`);
-  opt.style.setProperty("--rot-hover", `${(rotSign * rotMag * 0.45).toFixed(2)}deg`);
-  opt.style.setProperty("--ty", `${(tySign * tyMag).toFixed(1)}px`);
-  opt.style.setProperty("--glow-angle", `${Math.round(rand() * 360)}deg`);
-  opt.style.animationDelay = `${(index * 0.05 + rand() * 0.04).toFixed(3)}s`;
-}
-
-function clearScatter(opt: HTMLElement): void {
+function clearFan(opt: HTMLElement): void {
   opt.style.setProperty("--rot", "0deg");
   opt.style.setProperty("--rot-hover", "0deg");
   opt.style.setProperty("--ty", "0px");
@@ -390,8 +378,9 @@ function enhanceOption(btn: HTMLElement): void {
 
 /**
  * Walk the card DOM and upgrade every `[data-options]` grid into a styled
- * option-picker with per-card animated glow + an "Agent Decides" pill.
- * `seedKey` (usually the message id) drives the random-but-stable scatter.
+ * option-picker with per-card animated glow + an "Agent Decides" pill. Cards
+ * fan out deterministically by position (see applyFan); `seedKey` is retained
+ * for call-site compatibility but no longer affects layout.
  */
 /**
  * Pitch-card aspect ratio: the project ratio eased HALFWAY toward square.
@@ -494,13 +483,17 @@ export function enhanceOptionGrids(
       }
     }
 
-    // Soft random scatter — only when there's an actual choice to make.
-    // Singular items stay perfectly aligned per the stage's layout rules.
+    // Fan the cards out like a hand — deterministic per row, only when there's
+    // an actual choice to make. A lone option stays aligned per the layout
+    // rules. For a wrapped grid each row fans independently (col/rowCount are
+    // computed relative to the row the card falls in).
     options.forEach((opt, i) => {
       if (options.length >= 2) {
-        applyScatter(opt, `${seedKey ?? "stage"}:${gridIndex}`, i);
+        const rowStart = Math.floor(i / colCount) * colCount;
+        const rowCount = Math.min(colCount, options.length - rowStart);
+        applyFan(opt, i - rowStart, rowCount, i);
       } else {
-        clearScatter(opt);
+        clearFan(opt);
       }
     });
 
