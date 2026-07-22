@@ -3,11 +3,17 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import {
+  ChevronLeft,
   Copy,
   Download,
   FileText,
+  Info,
   Loader2,
   Music2,
+  PanelRightClose,
+  PanelRightOpen,
+  Pencil,
+  Play,
   Plus,
   Search,
   UserRound,
@@ -247,6 +253,8 @@ function AssetsTab() {
 
   const [filter, setFilter] = useState<AssetFilter>("all");
   const [search, setSearch] = useState("");
+  // Which asset the full-screen detail viewer is showing (null = closed).
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const data = q.data ?? { references: [], generations: [], queue: [], exports: [] };
 
@@ -368,67 +376,402 @@ function AssetsTab() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {g.items.map((it) => (
-                <AssetTile key={it.id} item={it} />
+                <AssetTile key={it.id} item={it} onOpen={() => setOpenId(it.id)} />
               ))}
             </div>
           </section>
         ))}
       </div>
+
+      {openId && (
+        <AssetDetail
+          // Filmstrip + arrow nav stay within the opened asset's project group.
+          items={groups.find((g) => g.items.some((i) => i.id === openId))?.items ?? filtered}
+          openId={openId}
+          onOpenId={setOpenId}
+          onClose={() => setOpenId(null)}
+        />
+      )}
     </div>
   );
 }
 
-/** 179px square media tile (Figma asset tile). */
-function AssetTile({ item }: { item: Item }) {
+/** Seconds → "m:ss" (e.g. 10 → "0:10", 65 → "1:05"). */
+function formatDuration(sec: number): string {
+  const s = Math.round(sec);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+/** Bottom-left duration pill over a video thumb, so videos read as videos. */
+function DurationBadge({ seconds, compact }: { seconds: number; compact?: boolean }) {
+  return (
+    <div
+      className={cn(
+        "pointer-events-none absolute bottom-0 left-0 flex items-end",
+        compact ? "pb-0.5 pl-1 pr-3 pt-2" : "pb-1.5 pl-2 pr-6 pt-4",
+      )}
+      style={{
+        background: "radial-gradient(circle at 0% 100%, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 70%)",
+      }}
+    >
+      <span
+        className={cn("font-medium leading-4", compact ? "text-[10px]" : "text-[12px]")}
+        style={{
+          fontFamily: TELKA,
+          color: "var(--content-light-tertiary, rgba(252,250,247,0.7))",
+          textShadow: "0px 1px 4px rgba(0,0,0,0.25)",
+        }}
+      >
+        {formatDuration(seconds)}
+      </span>
+    </div>
+  );
+}
+
+/** Media thumbnail shared by the tile and the detail filmstrip. */
+function AssetMedia({
+  item,
+  hoverPlay,
+  compact,
+}: {
+  item: Item;
+  hoverPlay?: boolean;
+  compact?: boolean;
+}) {
   const isImage = item.mime.startsWith("image/");
   const isVideo = item.mime.startsWith("video/");
   const isAudio = item.mime.startsWith("audio/");
-  return (
-    <div
-      className="group relative size-[179px] overflow-hidden rounded-[12px]"
-      style={{ background: "var(--surface-light-1)" }}
-      title={item.label ?? item.name}
-    >
-      {isImage && (
-        <img
-          src={item.thumbUrl ?? item.url}
-          alt={item.label ?? item.name}
-          loading="lazy"
-          className="h-full w-full object-cover"
-        />
-      )}
-      {isVideo && (
+  // Duration isn't stored on assets — read it off the video's metadata.
+  const [duration, setDuration] = useState<number | null>(null);
+  if (isImage)
+    return (
+      <img
+        src={item.thumbUrl ?? item.url}
+        alt={item.label ?? item.name}
+        loading="lazy"
+        className="h-full w-full object-cover"
+      />
+    );
+  if (isVideo)
+    return (
+      <div className="relative h-full w-full">
         <video
           src={item.url}
           muted
           loop
           playsInline
           preload="metadata"
-          onMouseEnter={(e) => void (e.currentTarget as HTMLVideoElement).play().catch(() => {})}
-          onMouseLeave={(e) => (e.currentTarget as HTMLVideoElement).pause()}
+          onLoadedMetadata={(e) => {
+            const d = e.currentTarget.duration;
+            if (Number.isFinite(d) && d > 0) setDuration(d);
+          }}
+          onMouseEnter={
+            hoverPlay
+              ? (e) => void (e.currentTarget as HTMLVideoElement).play().catch(() => {})
+              : undefined
+          }
+          onMouseLeave={hoverPlay ? (e) => (e.currentTarget as HTMLVideoElement).pause() : undefined}
           className="h-full w-full object-cover"
         />
-      )}
-      {isAudio && (
-        <div className="grid h-full w-full place-items-center">
-          <Music2 className="h-6 w-6" style={{ color: "var(--content-accent-darkened)" }} />
-        </div>
-      )}
-      {!isImage && !isVideo && !isAudio && (
-        <div className="grid h-full w-full place-items-center">
-          <FileText className="h-6 w-6" style={{ color: "var(--content-dark-tertiary)" }} />
-        </div>
-      )}
+        {duration != null && <DurationBadge seconds={duration} compact={compact} />}
+      </div>
+    );
+  if (isAudio)
+    return (
+      <div className="grid h-full w-full place-items-center">
+        <Music2 className="h-6 w-6" style={{ color: "var(--content-accent-darkened)" }} />
+      </div>
+    );
+  return (
+    <div className="grid h-full w-full place-items-center">
+      <FileText className="h-6 w-6" style={{ color: "var(--content-dark-tertiary)" }} />
+    </div>
+  );
+}
+
+/** 179px square media tile (Figma asset tile). Opens the detail viewer. */
+function AssetTile({ item, onOpen }: { item: Item; onOpen: () => void }) {
+  return (
+    <div
+      className="group relative size-[179px] overflow-hidden rounded-[12px]"
+      style={{ background: "var(--surface-light-1)" }}
+      title={item.label ?? item.name}
+    >
+      <button type="button" onClick={onOpen} className="block h-full w-full" aria-label={`Open ${item.label ?? item.name}`}>
+        <AssetMedia item={item} hoverPlay />
+      </button>
       <a
         href={item.url}
         target="_blank"
         rel="noreferrer"
         download={item.name}
+        onClick={(e) => e.stopPropagation()}
         className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-white/80 text-muted-foreground opacity-0 backdrop-blur transition hover:text-foreground group-hover:opacity-100"
         aria-label="Download"
       >
         <Download className="h-3.5 w-3.5" />
       </a>
+    </div>
+  );
+}
+
+// ---------- Asset detail viewer ----------
+
+const TYPE_LABEL = (mime: string): string =>
+  mime.startsWith("image/") ? "Image" : mime.startsWith("video/") ? "Video" : mime.startsWith("audio/") ? "Audio" : "File";
+
+function gcd(a: number, b: number): number {
+  return b === 0 ? a : gcd(b, a % b);
+}
+
+function formatDateTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+/** Full-screen dark viewer: large media, sibling filmstrip, metadata sidebar. */
+function AssetDetail({
+  items,
+  openId,
+  onOpenId,
+  onClose,
+}: {
+  items: Item[];
+  openId: string;
+  onOpenId: (id: string) => void;
+  onClose: () => void;
+}) {
+  const index = Math.max(0, items.findIndex((i) => i.id === openId));
+  const item = items[index] ?? items[0];
+  const [sidebar, setSidebar] = useState(true);
+  const [ratio, setRatio] = useState<string | null>(null);
+
+  // Esc closes; ←/→ walk the filmstrip.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft" && index > 0) onOpenId(items[index - 1].id);
+      else if (e.key === "ArrowRight" && index < items.length - 1) onOpenId(items[index + 1].id);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [index, items, onClose, onOpenId]);
+
+  // Aspect ratio is read off the media once it loads (no stored dimension).
+  useEffect(() => setRatio(null), [item?.id]);
+  const onMediaSize = (w: number, h: number) => {
+    if (!w || !h) return;
+    const d = gcd(w, h);
+    setRatio(`${Math.round(w / d)}:${Math.round(h / d)}`);
+  };
+
+  if (!item) return null;
+  const isImage = item.mime.startsWith("image/");
+  const isVideo = item.mime.startsWith("video/");
+  const isAudio = item.mime.startsWith("audio/");
+
+  const rows: Array<[string, string]> = [
+    ["Project", item.projectTitle],
+    ["Time and Date", formatDateTime(item.createdAt)],
+    ["Type", TYPE_LABEL(item.mime)],
+    ["File Name", item.name],
+    ...(ratio ? ([["Aspect Ratio", ratio]] as Array<[string, string]>) : []),
+  ];
+
+  const actionBtn =
+    "grid h-12 min-w-12 place-items-center gap-2 rounded-[var(--radius-lg)] px-3 text-[15px] font-medium text-[color:var(--content-light-secondary,#fcfaf7)] transition hover:bg-white/10";
+
+  return (
+    <div className="fixed inset-0 z-50 flex" style={{ background: "var(--surface-dark-2, #0d0d0d)" }}>
+      {/* Return (top-left) */}
+      <button
+        type="button"
+        onClick={onClose}
+        className={cn(actionBtn, "absolute left-6 top-6 z-10 flex items-center")}
+        style={{ background: "rgba(255,255,255,0.05)", fontFamily: TELKA }}
+      >
+        <ChevronLeft className="h-5 w-5" />
+        <span className="px-1">Return</span>
+      </button>
+
+      {/* Top-right actions */}
+      <div className="absolute right-6 top-6 z-10 flex items-center gap-2" style={{ fontFamily: TELKA }}>
+        <Link
+          to="/studio/$projectId"
+          params={{ projectId: item.projectId }}
+          className={cn(actionBtn, "flex items-center")}
+          style={{ background: "rgba(255,255,255,0.05)" }}
+        >
+          <Pencil className="h-5 w-5" />
+          <span className="px-1">Edit</span>
+        </Link>
+        <a
+          href={item.url}
+          target="_blank"
+          rel="noreferrer"
+          download={item.name}
+          className={actionBtn}
+          style={{ background: "rgba(255,255,255,0.05)" }}
+          aria-label="Download"
+        >
+          <Download className="h-5 w-5" />
+        </a>
+        <button
+          type="button"
+          onClick={() => setSidebar((v) => !v)}
+          className={actionBtn}
+          style={{ background: "rgba(255,255,255,0.05)" }}
+          aria-label={sidebar ? "Hide info" : "Show info"}
+        >
+          <Info className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* Center stage: large media + sibling filmstrip */}
+      <div className="relative flex min-w-0 flex-1 flex-col items-center justify-center gap-6 p-16">
+        <div className="flex min-h-0 w-full max-w-[840px] flex-1 items-center justify-center">
+          {isImage && (
+            <img
+              src={item.url}
+              alt={item.label ?? item.name}
+              onLoad={(e) =>
+                onMediaSize(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)
+              }
+              className="max-h-full max-w-full rounded-[var(--radius-xl,24px)] object-contain"
+            />
+          )}
+          {isVideo && (
+            <video
+              key={item.id}
+              src={item.url}
+              controls
+              autoPlay
+              loop
+              playsInline
+              onLoadedMetadata={(e) =>
+                onMediaSize(e.currentTarget.videoWidth, e.currentTarget.videoHeight)
+              }
+              className="max-h-full max-w-full rounded-[var(--radius-xl,24px)] object-contain"
+            />
+          )}
+          {isAudio && (
+            <div className="flex w-full max-w-md flex-col items-center gap-6 rounded-[var(--radius-xl,24px)] bg-white/5 p-12">
+              <Music2 className="h-16 w-16 text-white/70" />
+              <audio src={item.url} controls className="w-full" />
+            </div>
+          )}
+          {!isImage && !isVideo && !isAudio && (
+            <div className="grid h-64 w-64 place-items-center rounded-[var(--radius-xl,24px)] bg-white/5 text-white/60">
+              <FileText className="h-16 w-16" />
+            </div>
+          )}
+        </div>
+
+        {/* Sibling filmstrip */}
+        {items.length > 1 && (
+          <div className="flex max-w-full items-center gap-2 overflow-x-auto px-2">
+            {items.map((sib) => {
+              const active = sib.id === item.id;
+              return (
+                <button
+                  key={sib.id}
+                  type="button"
+                  onClick={() => onOpenId(sib.id)}
+                  aria-label={`View ${sib.label ?? sib.name}`}
+                  className={cn(
+                    "relative size-12 shrink-0 overflow-hidden rounded-[12px] transition",
+                    active ? "opacity-100 ring-2 ring-white" : "opacity-50 hover:opacity-80",
+                  )}
+                  style={{ background: "var(--surface-light-1)" }}
+                >
+                  <AssetMedia item={sib} compact />
+                  {active && sib.mime.startsWith("video/") && (
+                    <span className="pointer-events-none absolute inset-0 grid place-items-center">
+                      <Play className="h-4 w-4 text-white drop-shadow" />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Right metadata sidebar */}
+      {sidebar && (
+        <aside
+          className="flex w-[362px] shrink-0 flex-col gap-12 overflow-y-auto border-l px-8 pb-8 pt-6"
+          style={{ borderColor: "rgba(255,255,255,0.05)" }}
+        >
+          <button
+            type="button"
+            onClick={() => setSidebar(false)}
+            className="grid h-12 w-12 place-items-center rounded-[var(--radius-lg)] text-white/70 transition hover:bg-white/10"
+            style={{ background: "rgba(255,255,255,0.05)" }}
+            aria-label="Collapse panel"
+          >
+            <PanelRightClose className="h-5 w-5" />
+          </button>
+
+          <div className="flex flex-col gap-4">
+            <h2
+              className="line-clamp-3 text-[28px] font-black uppercase leading-8 text-white"
+              style={{ fontFamily: '"Telka Extended", system-ui, sans-serif' }}
+              title={item.label ?? item.name}
+            >
+              {item.label ?? item.name}
+            </h2>
+
+            <div
+              className="flex flex-col border-t"
+              style={{ borderColor: "rgba(255,255,255,0.1)" }}
+            >
+              {rows.map(([k, v]) => (
+                <div
+                  key={k}
+                  className="flex items-center gap-10 border-t py-4 text-[12px]"
+                  style={{ borderColor: "rgba(255,255,255,0.1)" }}
+                >
+                  <span
+                    className="flex-1 font-medium leading-4"
+                    style={{ fontFamily: TELKA, color: "var(--content-light-tertiary, rgba(252,250,247,0.7))" }}
+                  >
+                    {k}
+                  </span>
+                  <span
+                    className="flex-1 leading-4"
+                    style={{ fontFamily: TELKA, color: "var(--content-light-tertiary, rgba(252,250,247,0.7))" }}
+                  >
+                    {v}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      )}
+
+      {/* Re-open sidebar affordance when collapsed */}
+      {!sidebar && (
+        <button
+          type="button"
+          onClick={() => setSidebar(true)}
+          className="absolute right-6 bottom-6 z-10 grid h-12 w-12 place-items-center rounded-[var(--radius-lg)] text-white/70 transition hover:bg-white/10"
+          style={{ background: "rgba(255,255,255,0.05)" }}
+          aria-label="Show panel"
+        >
+          <PanelRightOpen className="h-5 w-5" />
+        </button>
+      )}
     </div>
   );
 }
