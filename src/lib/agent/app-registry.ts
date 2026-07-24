@@ -86,12 +86,16 @@ function renderInput(i: StepInput): string {
  * fetched on demand via the get_app_playbook tool). Prefers the pack's
  * hand-authored skill.md; falls back to a rendered step list.
  */
-export function renderAppPlaybook(appId: string): string | null {
+export function renderAppPlaybook(
+  appId: string,
+  bodyMdOverride?: string | null,
+): string | null {
   const app = APP_BY_ID[appId];
   if (!app) return null;
   const pack = findSkillByAppId(appId);
-  if (pack?.bodyMd) {
-    return `SELECTED SKILL PLAYBOOK — ${pack.id} (${app.label}): ${app.oneLiner}\n\n${pack.bodyMd}`;
+  const bodyMd = bodyMdOverride?.trim() || pack?.bodyMd;
+  if (bodyMd) {
+    return `SELECTED SKILL PLAYBOOK — ${pack?.id ?? app.id} (${app.label}): ${app.oneLiner}\n\n${bodyMd}`;
   }
   if (app.kind === "model") {
     return `MODEL APP ${app.id} (${app.label}, ${app.mode}) — ${app.oneLiner}\nCollect params in ONE turn, then call run_model_app with appId "${app.id}".`;

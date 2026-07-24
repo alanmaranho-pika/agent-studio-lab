@@ -18,9 +18,12 @@ export function renderAppCatalogSummary(): string {
   return `APP CATALOG (summaries — call get_app_playbook({ appId }) for an app's full steps):\n${lines.join("\n")}`;
 }
 
-export function renderSelectedAppContext(appId: string | null): string {
+export function renderSelectedAppContext(
+  appId: string | null,
+  bodyMdOverride?: string | null,
+): string {
   if (!appId) return "";
-  const playbook = renderAppPlaybook(appId) ?? "";
+  const playbook = renderAppPlaybook(appId, bodyMdOverride) ?? "";
   const pack = findSkillByAppId(appId);
   if (!pack?.usesBlocks?.length) return playbook;
   const validIds = pack.usesBlocks.filter((id): id is BlockId => id in BLOCKS_BY_ID);

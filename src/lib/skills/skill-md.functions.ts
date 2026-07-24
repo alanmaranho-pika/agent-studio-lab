@@ -1,57 +1,69 @@
-// Server functions backing the in-app skill.md live editor (debug tool).
-// Reads and writes `src/agent/skills/<appId>/skill.md` on the dev server's
-// filesystem so the user can tweak the agent playbook without touching
-// their editor. Vite HMR picks up the change via the `?raw` import in
-// each skill's `skill.ts`, so the next agent turn uses the new prompt.
-//
-// Production Workers have no writable project filesystem — both handlers
-// return a friendly error there.
+// Server functions backing the in-app skill.md live editor.
+// Version-controlled Markdown files remain the bundled defaults. Live edits
+// are stored as per-user Supabase overrides, so the same editor and playbook
+// work on localhost and in a read-only serverless deployment.
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { generateText } from "ai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { findSkillByAppId } from "@/agent/skills/_registry";
 
 const APP_ID_RE = /^[a-z0-9][a-z0-9-]*$/;
 
-function assertDev(): void {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("Live skill editor is disabled in production builds.");
-  }
-}
-
-async function resolveSkillPath(appId: string): Promise<string> {
+function assertKnownApp(appId: string): void {
   if (!APP_ID_RE.test(appId)) throw new Error(`Invalid appId "${appId}"`);
-  const path = await import("node:path");
-  const root = path.resolve(process.cwd(), "src/agent/skills");
-  const full = path.resolve(root, appId, "skill.md");
-  if (!full.startsWith(root + path.sep)) {
-    throw new Error("Path traversal detected");
-  }
-  return full;
+  if (!findSkillByAppId(appId)) throw new Error(`Unknown appId "${appId}"`);
 }
 
 export const readSkillMd = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ appId: z.string() }).parse(input))
-  .handler(async ({ data }) => {
-    assertDev();
-    const fs = await import("node:fs/promises");
-    const full = await resolveSkillPath(data.appId);
-    const content = await fs.readFile(full, "utf8");
-    return { content, path: full };
+  .handler(async ({ data, context }) => {
+    assertKnownApp(data.appId);
+    const { data: row, error } = await context.supabase
+      .from("skill_playbook_overrides")
+      .select("body_md, updated_at")
+      .eq("user_id", context.userId)
+      .eq("app_id", data.appId)
+      .maybeSingle();
+    if (error) throw new Error(`Could not load the live skill: ${error.message}`);
+
+    if (row?.body_md) {
+      return {
+        content: row.body_md,
+        source: "supabase" as const,
+        updatedAt: row.updated_at,
+      };
+    }
+
+    const bundled = findSkillByAppId(data.appId)?.bodyMd;
+    if (!bundled) throw new Error(`No bundled playbook found for "${data.appId}"`);
+    return { content: bundled, source: "bundled" as const, updatedAt: null };
   });
 
 export const writeSkillMd = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
     z.object({ appId: z.string(), content: z.string().max(200_000) }).parse(input),
   )
-  .handler(async ({ data }) => {
-    assertDev();
-    const fs = await import("node:fs/promises");
-    const full = await resolveSkillPath(data.appId);
-    await fs.writeFile(full, data.content, "utf8");
-    return { ok: true as const, path: full };
+  .handler(async ({ data, context }) => {
+    assertKnownApp(data.appId);
+    const content = data.content.trim();
+    if (!content) throw new Error("A skill playbook cannot be empty.");
+
+    const { error } = await context.supabase.from("skill_playbook_overrides").upsert(
+      {
+        user_id: context.userId,
+        app_id: data.appId,
+        body_md: content,
+      },
+      { onConflict: "user_id,app_id" },
+    );
+    if (error) throw new Error(`Could not save the live skill: ${error.message}`);
+    return { ok: true as const, source: "supabase" as const };
   });
 
 // Strip an accidental ```markdown / ``` fence the model sometimes wraps the
@@ -67,6 +79,7 @@ function unwrapOuterFence(text: string): string {
 // caller decides whether to apply/save it (this handler never writes to disk,
 // so Undo stays purely client-side). Dev-only, mirroring read/write above.
 export const improveSkillMd = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
     z
       .object({
@@ -77,8 +90,7 @@ export const improveSkillMd = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    assertDev();
-    await resolveSkillPath(data.appId); // validates appId shape / traversal
+    assertKnownApp(data.appId);
 
     const anthropicKey = process.env.ANTHROPIC_API_KEY?.trim();
     const lovableKey = process.env.LOVABLE_API_KEY?.trim();
@@ -89,7 +101,7 @@ export const improveSkillMd = createServerFn({ method: "POST" })
       model = createLovableAiGatewayProvider(lovableKey)("google/gemini-3-flash-preview");
     } else {
       throw new Error(
-        "AI is not configured. Add ANTHROPIC_API_KEY (preferred) or LOVABLE_API_KEY to .env.local, then restart the local server.",
+        "AI is not configured. Add ANTHROPIC_API_KEY (preferred) or LOVABLE_API_KEY to the current environment.",
       );
     }
 

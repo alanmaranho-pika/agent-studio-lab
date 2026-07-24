@@ -20,6 +20,7 @@ import { applyPatch, INITIAL_PROJECT, type ProjectState, type AssetKind } from "
 import { createProjectPlaceholder } from "@/lib/project-placeholder.server";
 import { APP_BY_ID, renderAppPlaybook } from "@/lib/agent/app-registry";
 import { getBuiltinSkill } from "@/lib/skills/registry";
+import { getSkillPlaybookOverride } from "@/lib/skills/skill-playbook.server";
 import { buildCorePrompt, buildInlineEditCorePrompt } from "@/lib/agent/prompt/core";
 import { getPhasePrompt } from "@/lib/agent/prompt/phases";
 import { renderAppCatalogSummary, renderSelectedAppContext } from "@/lib/agent/prompt/catalog";
@@ -629,6 +630,15 @@ export const Route = createFileRoute("/api/chat")({
             projectSkillBodyMd = (skillRow?.body_md as string | null) ?? null;
           }
         }
+        const selectedAppId = projectSkillSlug
+          ? APP_BY_ID[projectSkillSlug]
+            ? projectSkillSlug
+            : ((getBuiltinSkill(projectSkillSlug) as { appRef?: string } | null)?.appRef ?? null)
+          : null;
+        const selectedAppBodyMd = selectedAppId
+          ? await getSkillPlaybookOverride(userId, selectedAppId)
+          : null;
+        if (selectedAppBodyMd) projectSkillBodyMd = selectedAppBodyMd;
         // A user skill is "chained" when its recipe describes a multi-phase
         // pipeline where a later step must consume an earlier step's output
         // as its reference image. Detect via prose fingerprints; when true,
@@ -734,7 +744,8 @@ export const Route = createFileRoute("/api/chat")({
               "Fetch the full step playbook for a catalog app (wizard steps + exact inputs, or model params). Use when detouring into an app that isn't the project's selected app.",
             inputSchema: z.object({ appId: z.string().min(2).max(120) }),
             execute: async ({ appId }) => {
-              const playbook = renderAppPlaybook(appId);
+              const override = await getSkillPlaybookOverride(userId, appId);
+              const playbook = renderAppPlaybook(appId, override);
               return playbook ? { ok: true, playbook } : { error: `Unknown appId: ${appId}` };
             },
           }),
@@ -1664,11 +1675,6 @@ export const Route = createFileRoute("/api/chat")({
         // Phase machine (C5): derive the phase from durable state + the
         // latest user message; it selects the injected phase prompt and the
         // eager tool surface for this turn.
-        const selectedAppId = projectSkillSlug
-          ? APP_BY_ID[projectSkillSlug]
-            ? projectSkillSlug
-            : ((getBuiltinSkill(projectSkillSlug) as { appRef?: string } | null)?.appRef ?? null)
-          : null;
         const phase = derivePhase(
           projectState,
           selectedAppId,
@@ -1701,7 +1707,7 @@ export const Route = createFileRoute("/api/chat")({
               buildCorePrompt(),
               getPhasePrompt(phase),
               renderAppCatalogSummary(),
-              renderSelectedAppContext(selectedAppId),
+              renderSelectedAppContext(selectedAppId, selectedAppBodyMd),
               buildSelectedSkillContext(projectSkillSlug, projectSkillLabel),
               buildProjectStateContext(projectState),
             ]

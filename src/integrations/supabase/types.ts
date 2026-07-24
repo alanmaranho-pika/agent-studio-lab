@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      skill_playbook_overrides: {
+        Row: {
+          app_id: string
+          body_md: string
+          created_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          app_id: string
+          body_md: string
+          created_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          app_id?: string
+          body_md?: string
+          created_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

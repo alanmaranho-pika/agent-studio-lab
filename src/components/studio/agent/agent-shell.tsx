@@ -3039,6 +3039,7 @@ function SkillEditorPanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [source, setSource] = useState<"bundled" | "supabase">("bundled");
   // Classic undo/redo: `past`/`future` hold content snapshots; `content` is
   // live. A snapshot is pushed on each agent revision and on blur after a
   // manual edit (focus-session granularity).
@@ -3066,6 +3067,7 @@ function SkillEditorPanel({
       const res = await readSkillMd({ data: { appId } });
       setContent(res.content);
       setOriginal(res.content);
+      setSource(res.source);
       setPast([]);
       setFuture([]);
       focusSnapshot.current = res.content;
@@ -3150,6 +3152,7 @@ function SkillEditorPanel({
     try {
       await writeSkillMd({ data: { appId, content } });
       setOriginal(content);
+      setSource("supabase");
       setSavedAt(Date.now());
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -3173,7 +3176,9 @@ function SkillEditorPanel({
           </h2>
           <p className="truncate text-[11px] text-muted-foreground">
             {appId
-              ? `src/agent/skills/${appId}/skill.md · dev-only`
+              ? source === "supabase"
+                ? `Supabase live override · ${appId}`
+                : `Bundled default · src/agent/skills/${appId}/skill.md`
               : "The agent hasn't picked a skill yet."}
           </p>
         </div>
@@ -3285,11 +3290,15 @@ function SkillEditorPanel({
           {error ? (
             <span className="text-destructive">{error}</span>
           ) : dirty ? (
-            <span>Unsaved changes — HMR reloads on save.</span>
+            <span>Unsaved changes — Save publishes the live override.</span>
           ) : savedAt ? (
             <span>Saved. Next agent turn uses the new prompt.</span>
           ) : (
-            <span>Edits only affect skill.md — skill.ts is untouched.</span>
+            <span>
+              {source === "supabase"
+                ? "Using the Supabase override. skill.ts is untouched."
+                : "Using the bundled default until you save an override."}
+            </span>
           )}
         </div>
         <button
