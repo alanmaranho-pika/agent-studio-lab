@@ -628,11 +628,7 @@ function describeChatError(error: Error): { message: string; interrupted: boolea
       interrupted: false,
     };
   }
-  if (
-    raw.includes("quota") ||
-    raw.includes("insufficient_quota") ||
-    raw.includes("payment")
-  ) {
+  if (raw.includes("quota") || raw.includes("insufficient_quota") || raw.includes("payment")) {
     return {
       message:
         "The AI account hit a quota/payment limit — generation is paused until it's resolved on the provider account.",
@@ -982,8 +978,7 @@ export function AgentShell(props: AgentShellProps) {
   // META_FIELDS_BY_APP (see its comment for why this is a hardcoded table
   // rather than something the agent decides per turn).
   const projectMetaPieces = useMemo(() => {
-    const fields =
-      (selectedApp && META_FIELDS_BY_APP[selectedApp.appId]) ?? DEFAULT_META_FIELDS;
+    const fields = (selectedApp && META_FIELDS_BY_APP[selectedApp.appId]) ?? DEFAULT_META_FIELDS;
     const pieces = [project.meta.format || "New project"];
     for (const field of fields) {
       if (field === "shots") {
@@ -1097,12 +1092,14 @@ export function AgentShell(props: AgentShellProps) {
         lastPhase = phase;
       }
       for (const p of toolPartsOf(m)) {
-        if (p.state !== "output-available" && p.state !== "output-error" && p.state !== "input-available") {
+        if (
+          p.state !== "output-available" &&
+          p.state !== "output-error" &&
+          p.state !== "input-available"
+        ) {
           continue;
         }
-        const o = p.output as
-          | { appId?: string; label?: string; error?: unknown }
-          | undefined;
+        const o = p.output as { appId?: string; label?: string; error?: unknown } | undefined;
         if ((p.type === "tool-select_app" || p.type === "tool-run_skill") && o?.label) {
           out.push({
             id: `${p.toolCallId}:skill`,
@@ -1876,10 +1873,7 @@ export function AgentShell(props: AgentShellProps) {
     if (st.timer != null) window.clearTimeout(st.timer);
     revealRef.current = { target: "", shown: 0, final: false, timer: null };
   }, []);
-  const handleVoicePartial = useCallback(
-    (text: string) => queueReveal(text, false),
-    [queueReveal],
-  );
+  const handleVoicePartial = useCallback((text: string) => queueReveal(text, false), [queueReveal]);
   const handleVoiceFinal = useCallback(
     (text: string) => {
       // If the full-utterance pass came back empty, fall back to whatever the
@@ -2576,9 +2570,7 @@ export function AgentShell(props: AgentShellProps) {
               className="max-h-[40vh] w-[20rem] overflow-y-auto rounded-2xl border border-border bg-card/95 p-2 shadow-sm backdrop-blur"
             >
               {activityLog.length === 0 ? (
-                <p className="px-1.5 py-1 text-[11px] text-muted-foreground">
-                  Nothing logged yet.
-                </p>
+                <p className="px-1.5 py-1 text-[11px] text-muted-foreground">Nothing logged yet.</p>
               ) : (
                 <ul className="flex flex-col gap-1">
                   {activityLog.map((e) => (
@@ -3022,10 +3014,8 @@ function formatToolRow(p: ToolPart): string {
 }
 
 // -----------------------------------------------------------------------------
-// Debug: live skill.md editor. Reads the file from the dev server via
-// server functions and writes back on Save. Vite HMR picks up the change
-// through each skill.ts's `?raw` import so the next agent turn uses the
-// new prompt without a page reload.
+// Debug: live skill editor. Supabase is the source of truth, so edits are
+// immediately available to both localhost and deployed server runtimes.
 function SkillEditorPanel({
   selectedApp,
   onClose,
@@ -3039,7 +3029,7 @@ function SkillEditorPanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
-  const [source, setSource] = useState<"bundled" | "supabase">("bundled");
+  const [version, setVersion] = useState<number | null>(null);
   // Classic undo/redo: `past`/`future` hold content snapshots; `content` is
   // live. A snapshot is pushed on each agent revision and on blur after a
   // manual edit (focus-session granularity).
@@ -3063,11 +3053,12 @@ function SkillEditorPanel({
     if (!appId) return;
     setLoading(true);
     setError(null);
+    setVersion(null);
     try {
       const res = await readSkillMd({ data: { appId } });
       setContent(res.content);
       setOriginal(res.content);
-      setSource(res.source);
+      setVersion(res.version);
       setPast([]);
       setFuture([]);
       focusSnapshot.current = res.content;
@@ -3083,7 +3074,7 @@ function SkillEditorPanel({
   }, [load]);
 
   const dirty = content !== original;
-  const canSave = dirty && !saving && !loading && !!appId;
+  const canSave = dirty && !saving && !loading && !!appId && version !== null;
   const canUndo = past.length > 0 && !improving;
   const canRedo = future.length > 0 && !improving;
 
@@ -3146,13 +3137,15 @@ function SkillEditorPanel({
   };
 
   const save = async () => {
-    if (!appId) return;
+    if (!appId || version === null) return;
     setSaving(true);
     setError(null);
     try {
-      await writeSkillMd({ data: { appId, content } });
+      const result = await writeSkillMd({
+        data: { appId, content, expectedVersion: version },
+      });
       setOriginal(content);
-      setSource("supabase");
+      setVersion(result.version);
       setSavedAt(Date.now());
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -3175,11 +3168,7 @@ function SkillEditorPanel({
             {selectedApp ? `Skill · ${selectedApp.label}` : "No skill selected"}
           </h2>
           <p className="truncate text-[11px] text-muted-foreground">
-            {appId
-              ? source === "supabase"
-                ? `Supabase live override · ${appId}`
-                : `Bundled default · src/agent/skills/${appId}/skill.md`
-              : "The agent hasn't picked a skill yet."}
+            {appId ? `Supabase source · ${appId}` : "The agent hasn't picked a skill yet."}
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -3290,14 +3279,12 @@ function SkillEditorPanel({
           {error ? (
             <span className="text-destructive">{error}</span>
           ) : dirty ? (
-            <span>Unsaved changes — Save publishes the live override.</span>
+            <span>Unsaved changes — Save publishes to Supabase.</span>
           ) : savedAt ? (
             <span>Saved. Next agent turn uses the new prompt.</span>
           ) : (
             <span>
-              {source === "supabase"
-                ? "Using the Supabase override. skill.ts is untouched."
-                : "Using the bundled default until you save an override."}
+              Supabase is the source of truth. The next agent turn uses the saved version.
             </span>
           )}
         </div>

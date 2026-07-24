@@ -1,22 +1,28 @@
 // @ts-nocheck — legacy feature file; feature tables (characters, library_subjects, render_jobs, etc.) are not part of the projects-first Supabase migration.
 // Server functions for the unified Skills registry.
 //
-// Callers get a merged view of BUILTIN_SKILLS (Model + App, from code) and
-// user skills (from public.skills). Everything the launcher, AssetPickerDialog,
-// public library page, and the agent's run_skill tool reads flows through
-// listSkills / getSkill here.
+// Callers get a merged view of built-in Model/App skills from
+// public.agent_skills and user-authored skills from public.skills. Everything
+// the launcher, AssetPickerDialog, public library page, and run_skill tool
+// reads flows through listSkills / getSkill here.
 
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createLocalClient as createClient } from "@/lib/local-database-shim";
 import type { Database } from "@/integrations/supabase/types";
+import { createAgentAppRegistry } from "@/lib/agent/app-registry";
+import { loadAgentSkills } from "@/lib/skills/agent-skill-registry.server";
 import {
-  BUILTIN_SKILLS,
+  createBuiltinSkills,
   filterBuiltins,
   getBuiltinSkill,
   type Skill,
   type SkillManifest,
 } from "./registry";
+
+async function loadBuiltinSkills(): Promise<Skill[]> {
+  return createBuiltinSkills(createAgentAppRegistry(await loadAgentSkills()));
+}
 
 type SkillRow = Database["public"]["Tables"]["skills"]["Row"];
 
@@ -92,9 +98,11 @@ export type ListSkillsInput = {
 export const listSkills = createServerFn({ method: "POST" })
   .inputValidator((input: ListSkillsInput | undefined) => input ?? {})
   .handler(async ({ data }) => {
-    const builtins = filterBuiltins(data);
+    const builtins = filterBuiltins(await loadBuiltinSkills(), data);
 
-    const supabase = createClient<Database>({ auth: { storage: undefined, persistSession: false, autoRefreshToken: false } });
+    const supabase = createClient<Database>({
+      auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+    });
 
     let userSkills: Skill[] = [];
     if (data.includePublic !== false) {
@@ -165,7 +173,11 @@ export const listMySkills = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
     const [mine, installs] = await Promise.all([
-      supabase.from("skills").select("*").eq("author_id", userId).order("updated_at", { ascending: false }),
+      supabase
+        .from("skills")
+        .select("*")
+        .eq("author_id", userId)
+        .order("updated_at", { ascending: false }),
       supabase.from("skill_installs").select("skill_id, pinned").eq("user_id", userId),
     ]);
     let authored = (mine.data ?? []).map(rowToSkill);
@@ -205,17 +217,18 @@ export const listMySkills = createServerFn({ method: "POST" })
     };
   });
 
-
 export type GetSkillInput = { slug: string };
 
 /** Resolve a skill by slug — built-in first, then DB. */
 export const getSkill = createServerFn({ method: "POST" })
   .inputValidator((input: GetSkillInput) => input)
   .handler(async ({ data }) => {
-    const builtin = getBuiltinSkill(data.slug);
+    const builtin = getBuiltinSkill(await loadBuiltinSkills(), data.slug);
     if (builtin) return { skill: builtin };
 
-    const supabase = createClient<Database>({ auth: { storage: undefined, persistSession: false, autoRefreshToken: false } });
+    const supabase = createClient<Database>({
+      auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+    });
     const { data: row } = await supabase
       .from("skills")
       .select("*")
@@ -273,7 +286,9 @@ export const getSkillCover = createServerFn({ method: "POST" })
         return { name, oneLiner };
       }
 
-      const supabase = createClient<Database>({ auth: { storage: undefined, persistSession: false, autoRefreshToken: false } });
+      const supabase = createClient<Database>({
+        auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+      });
       const { data: skillRow } = await supabase
         .from("skills")
         .select("cover_asset_id, name, one_liner")
@@ -300,7 +315,6 @@ export const getSkillCover = createServerFn({ method: "POST" })
     },
   );
 
-
 export type UpsertUserSkillInput = {
   slug: string;
   name: string;
@@ -321,7 +335,7 @@ export const upsertUserSkill = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
 
     // Refuse to shadow a built-in.
-    if (getBuiltinSkill(data.slug)) {
+    if (getBuiltinSkill(await loadBuiltinSkills(), data.slug)) {
       throw new Error(`Slug "${data.slug}" is reserved by a built-in skill.`);
     }
 
@@ -341,7 +355,8 @@ export const upsertUserSkill = createServerFn({ method: "POST" })
       source: "user" as const,
       author_id: userId,
       visibility: data.visibility ?? "private",
-      manifest: data.manifest as unknown as Database["public"]["Tables"]["skills"]["Row"]["manifest"],
+      manifest:
+        data.manifest as unknown as Database["public"]["Tables"]["skills"]["Row"]["manifest"],
       body_md: data.bodyMd ?? null,
       category: data.category ?? null,
       tags: data.tags ?? [],
@@ -415,7 +430,7 @@ export const deleteUserSkill = createServerFn({ method: "POST" })
 
 /** Convenience: how many built-ins we ship (for tests / health). */
 export const skillsHealth = createServerFn({ method: "GET" }).handler(async () => ({
-  builtinCount: BUILTIN_SKILLS.length,
+  builtinCount: (await loadBuiltinSkills()).length,
 }));
 
 // ---------- skill_assets ----------
@@ -439,20 +454,25 @@ export const listSkillAssets = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: rows } = await supabaseAdmin
       .from("skill_assets")
-      .select("id, skill_id, asset_id, role, label, sort_order, project_assets(url, storage_path, mime, name)")
+      .select(
+        "id, skill_id, asset_id, role, label, sort_order, project_assets(url, storage_path, mime, name)",
+      )
       .eq("skill_id", data.skillId)
       .order("sort_order", { ascending: true });
     if (!rows?.length) return { assets: [] };
     const { signAssetUrls } = await import("@/lib/projects.functions");
     const flat = rows.map((r) => {
-      const pa = (r as unknown as { project_assets: { url: string; storage_path: string | null } | null }).project_assets;
+      const pa = (
+        r as unknown as { project_assets: { url: string; storage_path: string | null } | null }
+      ).project_assets;
       return { url: pa?.url ?? "", storage_path: pa?.storage_path ?? null };
     });
     const signed = await signAssetUrls(flat);
     return {
       assets: rows.map((r, i) => {
         const pa =
-          (r as unknown as { project_assets: { mime: string | null; name: string | null } | null }).project_assets ?? null;
+          (r as unknown as { project_assets: { mime: string | null; name: string | null } | null })
+            .project_assets ?? null;
         return {
           id: r.id as string,
           skillId: r.skill_id as string,
@@ -471,7 +491,9 @@ export const listSkillAssets = createServerFn({ method: "POST" })
 /** Attach a project_asset to a skill (author only). */
 export const attachSkillAsset = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { skillId: string; assetId: string; role?: string; label?: string }) => input)
+  .inputValidator(
+    (input: { skillId: string; assetId: string; role?: string; label?: string }) => input,
+  )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     // Verify caller owns the skill.
@@ -480,7 +502,8 @@ export const attachSkillAsset = createServerFn({ method: "POST" })
       .select("id, author_id")
       .eq("id", data.skillId)
       .maybeSingle();
-    if (!skill || skill.author_id !== userId) throw new Error("Not authorized to modify this skill");
+    if (!skill || skill.author_id !== userId)
+      throw new Error("Not authorized to modify this skill");
     const { data: existing } = await supabase
       .from("skill_assets")
       .select("sort_order")
@@ -532,10 +555,12 @@ export type PublicSkillPage = {
 export const getPublicSkillBySlug = createServerFn({ method: "POST" })
   .inputValidator((input: { slug: string }) => input)
   .handler(async ({ data }): Promise<PublicSkillPage> => {
-    let base: Skill | null = getBuiltinSkill(data.slug) ?? null;
+    let base: Skill | null = getBuiltinSkill(await loadBuiltinSkills(), data.slug) ?? null;
 
     if (!base) {
-      const supabase = createClient<Database>({ auth: { storage: undefined, persistSession: false, autoRefreshToken: false } });
+      const supabase = createClient<Database>({
+        auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+      });
       const { data: row } = await supabase
         .from("skills")
         .select("*")
@@ -561,12 +586,16 @@ export const getPublicSkillBySlug = createServerFn({ method: "POST" })
         const display =
           (typeof meta.name === "string" && meta.name) ||
           (typeof meta.full_name === "string" && meta.full_name) ||
-          (email ? email.split("@")[0] : "") || null;
+          (email ? email.split("@")[0] : "") ||
+          null;
         const avatarUrl =
           (typeof meta.avatar_url === "string" && meta.avatar_url) ||
-          (typeof meta.picture === "string" && meta.picture) || null;
+          (typeof meta.picture === "string" && meta.picture) ||
+          null;
         base = { ...base, authorName: display, authorAvatarUrl: avatarUrl };
-      } catch { /* best-effort */ }
+      } catch {
+        /* best-effort */
+      }
     }
 
     // Resolve hero media (reuses the same logic as getSkillCover).
@@ -576,14 +605,23 @@ export const getPublicSkillBySlug = createServerFn({ method: "POST" })
     try {
       const { SKILL_BY_ID } = await import("@/lib/skills");
       const { APP_SHOWCASES } = await import("@/lib/v2/app-showcases");
-      const candidateKeys = [base.slug, `app-${base.slug}`, `app-${base.slug}-2026`, base.appRef].filter(Boolean) as string[];
+      const candidateKeys = [
+        base.slug,
+        `app-${base.slug}`,
+        `app-${base.slug}-2026`,
+        base.appRef,
+      ].filter(Boolean) as string[];
       const builtin = candidateKeys.map((k) => SKILL_BY_ID[k]).find(Boolean);
       const showcase = candidateKeys.map((k) => APP_SHOWCASES[k]).find(Boolean);
       const videoUrl = builtin?.heroVideoUrl ?? showcase?.heroVideoUrl;
       if (videoUrl) {
-        heroUrl = videoUrl; heroMime = "video/mp4"; heroKind = "video";
+        heroUrl = videoUrl;
+        heroMime = "video/mp4";
+        heroKind = "video";
       } else if (builtin?.heroImageUrl) {
-        heroUrl = builtin.heroImageUrl; heroMime = "image/jpeg"; heroKind = "image";
+        heroUrl = builtin.heroImageUrl;
+        heroMime = "image/jpeg";
+        heroKind = "image";
       } else if (base.coverAssetId) {
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data: assetRow } = await supabaseAdmin
@@ -593,13 +631,17 @@ export const getPublicSkillBySlug = createServerFn({ method: "POST" })
           .maybeSingle();
         if (assetRow) {
           const { signAssetUrls } = await import("@/lib/projects.functions");
-          const [signed] = await signAssetUrls([{ url: assetRow.url, storage_path: assetRow.storage_path }]);
+          const [signed] = await signAssetUrls([
+            { url: assetRow.url, storage_path: assetRow.storage_path },
+          ]);
           heroUrl = signed ?? null;
           heroMime = assetRow.mime ?? "image/jpeg";
           heroKind = (assetRow.mime ?? "").startsWith("video/") ? "video" : "image";
         }
       }
-    } catch { /* best-effort */ }
+    } catch {
+      /* best-effort */
+    }
 
     return { skill: { ...base, heroUrl, heroMime, heroKind } };
   });
@@ -634,12 +676,16 @@ export const getOwnSkillBySlug = createServerFn({ method: "POST" })
       const display =
         (typeof meta.name === "string" && meta.name) ||
         (typeof meta.full_name === "string" && meta.full_name) ||
-        (email ? email.split("@")[0] : "") || null;
+        (email ? email.split("@")[0] : "") ||
+        null;
       const avatarUrl =
         (typeof meta.avatar_url === "string" && meta.avatar_url) ||
-        (typeof meta.picture === "string" && meta.picture) || null;
+        (typeof meta.picture === "string" && meta.picture) ||
+        null;
       base = { ...base, authorName: display, authorAvatarUrl: avatarUrl };
-    } catch { /* best-effort */ }
+    } catch {
+      /* best-effort */
+    }
 
     let heroUrl: string | null = null;
     let heroMime: string | null = null;
@@ -654,12 +700,16 @@ export const getOwnSkillBySlug = createServerFn({ method: "POST" })
           .maybeSingle();
         if (assetRow) {
           const { signAssetUrls } = await import("@/lib/projects.functions");
-          const [signed] = await signAssetUrls([{ url: assetRow.url, storage_path: assetRow.storage_path }]);
+          const [signed] = await signAssetUrls([
+            { url: assetRow.url, storage_path: assetRow.storage_path },
+          ]);
           heroUrl = signed ?? null;
           heroMime = assetRow.mime ?? "image/jpeg";
           heroKind = (assetRow.mime ?? "").startsWith("video/") ? "video" : "image";
         }
-      } catch { /* best-effort */ }
+      } catch {
+        /* best-effort */
+      }
     }
 
     return { skill: { ...base, heroUrl, heroMime, heroKind } };
@@ -668,7 +718,9 @@ export const getOwnSkillBySlug = createServerFn({ method: "POST" })
 /** Toggle visibility for a skill owned by the caller. */
 export const setSkillVisibility = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { skillId: string; visibility: "private" | "unlisted" | "public" }) => input)
+  .inputValidator(
+    (input: { skillId: string; visibility: "private" | "unlisted" | "public" }) => input,
+  )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { error } = await supabase
@@ -679,8 +731,6 @@ export const setSkillVisibility = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
-
-
 
 /**
  * PUBLIC: list public community shares tagged with this skill slug — used to
@@ -702,13 +752,17 @@ export type SkillExample = {
 export const listSkillExamples = createServerFn({ method: "POST" })
   .inputValidator((input: { slug: string; limit?: number }) => input)
   .handler(async ({ data }): Promise<{ examples: SkillExample[] }> => {
-    const supabase = createClient<Database>({ auth: { storage: undefined, persistSession: false, autoRefreshToken: false } });
+    const supabase = createClient<Database>({
+      auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+    });
     // The skill column on community_shares can hold either the slug
     // ("time-tourist") or the app_ref ("app-time-tourist"), so match both.
     const alt = data.slug.startsWith("app-") ? data.slug.slice(4) : `app-${data.slug}`;
     const { data: rows, error } = await supabase
       .from("community_shares")
-      .select("id, video_url, thumb_url, mime, width, height, project_title, user_display_name, user_avatar_url, created_at, skill")
+      .select(
+        "id, video_url, thumb_url, mime, width, height, project_title, user_display_name, user_avatar_url, created_at, skill",
+      )
       .in("skill", [data.slug, alt])
       .order("created_at", { ascending: false })
       .limit(data.limit ?? 24);

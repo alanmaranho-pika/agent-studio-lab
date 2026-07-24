@@ -2,25 +2,30 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  convertToModelMessages,
-  stepCountIs,
-  streamText,
-  tool,
-  type UIMessage,
-} from "ai";
+import { convertToModelMessages, stepCountIs, streamText, tool, type UIMessage } from "ai";
 import { z } from "zod";
+import { downloadAndStoreUrl } from "@/lib/project-assets.server";
 import {
-  downloadAndStoreUrl,
-} from "@/lib/project-assets.server";
-import { falGenerateImage, falRun, falSubmit, falPickImageUrl, falPickVideoUrl, falPickAudioUrl, normalizeAspect } from "@/lib/fal.server";
+  falGenerateImage,
+  falRun,
+  falSubmit,
+  falPickImageUrl,
+  falPickVideoUrl,
+  falPickAudioUrl,
+  normalizeAspect,
+} from "@/lib/fal.server";
 import { requireUser, unauthorizedResponse } from "@/lib/auth-route.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { applyPatch, INITIAL_PROJECT, type ProjectState, type AssetKind } from "@/lib/project-state";
+import {
+  applyPatch,
+  INITIAL_PROJECT,
+  type ProjectState,
+  type AssetKind,
+} from "@/lib/project-state";
 import { createProjectPlaceholder } from "@/lib/project-placeholder.server";
-import { APP_BY_ID, renderAppPlaybook } from "@/lib/agent/app-registry";
-import { getBuiltinSkill } from "@/lib/skills/registry";
-import { getSkillPlaybookOverride } from "@/lib/skills/skill-playbook.server";
+import { createAgentAppRegistry, renderAppPlaybook } from "@/lib/agent/app-registry";
+import { createBuiltinSkills, getBuiltinSkill as findBuiltinSkill } from "@/lib/skills/registry";
+import { loadAgentSkills } from "@/lib/skills/agent-skill-registry.server";
 import { buildCorePrompt, buildInlineEditCorePrompt } from "@/lib/agent/prompt/core";
 import { getPhasePrompt } from "@/lib/agent/prompt/phases";
 import { renderAppCatalogSummary, renderSelectedAppContext } from "@/lib/agent/prompt/catalog";
@@ -102,10 +107,7 @@ function sanitizeDanglingToolCalls(messages: UIMessage[]): UIMessage[] {
   return out;
 }
 
-function buildSelectedSkillContext(
-  slug: string | null,
-  label: string | null,
-): string {
+function buildSelectedSkillContext(slug: string | null, label: string | null): string {
   if (!slug) return "";
   const name = label || slug;
   return [
@@ -120,7 +122,6 @@ function buildSelectedSkillContext(
 }
 
 function buildProjectStateContext(state: ProjectState | null | undefined): string {
-
   const current = state ?? INITIAL_PROJECT;
   const assetUrlById = new Map(current.assets.map((asset) => [asset.id, asset.url]));
   const meta = [
@@ -142,9 +143,10 @@ function buildProjectStateContext(state: ProjectState | null | undefined): strin
   const scenes = current.scenes.length
     ? current.scenes
         .map((s) => {
-          const anchors = s.anchorAssetIds && s.anchorAssetIds.length
-            ? `anchors=[${s.anchorAssetIds.join(",")}]${s.anchorApproved ? " APPROVED" : " (pending review)"}`
-            : "anchors=none";
+          const anchors =
+            s.anchorAssetIds && s.anchorAssetIds.length
+              ? `anchors=[${s.anchorAssetIds.join(",")}]${s.anchorApproved ? " APPROVED" : " (pending review)"}`
+              : "anchors=none";
           return truncateLine(
             `- ${s.id}: #${s.n} ${s.title || "Untitled scene"} | prompt=${s.prompt || "—"} | thumb=${s.thumb || "none"} | ${anchors}`,
           );
@@ -161,12 +163,13 @@ function buildProjectStateContext(state: ProjectState | null | undefined): strin
         )
         .join("\n")
     : "- none";
-  const notes = current.notes && current.notes.length
-    ? current.notes
-        .slice(-30)
-        .map((n) => truncateLine(`- [${n.tag || "decision"}] ${n.text}`, 280))
-        .join("\n")
-    : "- none";
+  const notes =
+    current.notes && current.notes.length
+      ? current.notes
+          .slice(-30)
+          .map((n) => truncateLine(`- [${n.tag || "decision"}] ${n.text}`, 280))
+          .join("\n")
+      : "- none";
 
   return [
     "═════ PROJECT MEMORY (this is your durable state — read it, never re-ask what's here) ═════",
@@ -284,10 +287,7 @@ function looksLikeCharacterAppearanceEdit(text: string): boolean {
   );
 }
 
-function singleCastReferenceUrls(
-  state: ProjectState,
-  assetUrlById: Map<string, string>,
-): string[] {
+function singleCastReferenceUrls(state: ProjectState, assetUrlById: Map<string, string>): string[] {
   if (state.cast.length !== 1) return [];
   const ref = state.cast[0]?.ref || "";
   const refUrl = assetUrlById.get(ref) || (/^https?:/.test(ref) ? ref : "");
@@ -496,7 +496,7 @@ function buildInlineEditAddendum(inline: InlineEditPayload | null): string {
     `Target field: ${field} (${label})`,
     `Current field value: ${currentValue}`,
     `User instruction: ${instruction}`,
-    "Apply the change with commit_project_patch using a patch shaped like {\"scenes\":[{\"id\":\"...\",\"fieldName\":\"new value\"}]}. Use the real field key title, prompt, or voPrompt.",
+    'Apply the change with commit_project_patch using a patch shaped like {"scenes":[{"id":"...","fieldName":"new value"}]}. Use the real field key title, prompt, or voPrompt.',
     "Your final text must be one short sentence summarizing the applied field edit. Do not include markdown headings.",
     "══════════════════════════════",
   ].join("\n");
@@ -511,23 +511,32 @@ function textOfUIMessage(message: UIMessage): string {
 
 function isInlineEditUIMessage(message: UIMessage): boolean {
   const metadata = (message as UIMessage<{ mode?: string }>).metadata;
-  return metadata?.mode === "inline-edit" || textOfUIMessage(message).startsWith(INLINE_REWORK_MARKER) || isLegacyInlinePatchUIMessage(message);
+  return (
+    metadata?.mode === "inline-edit" ||
+    textOfUIMessage(message).startsWith(INLINE_REWORK_MARKER) ||
+    isLegacyInlinePatchUIMessage(message)
+  );
 }
 
 function isLegacyInlinePatchUIMessage(message: UIMessage): boolean {
   if (message.role !== "assistant") return false;
   const text = textOfUIMessage(message);
   if (/data-card|data-options|data-gen-view/i.test(text)) return false;
-  return (message.parts as Array<{ type?: string; state?: string; output?: unknown }>).some((part) => {
-    if (part.type !== "tool-commit_project_patch" || part.state !== "output-available") return false;
-    const patch = (part.output as { patch?: unknown } | undefined)?.patch as
-      | { scenes?: Array<Record<string, unknown>> }
-      | undefined;
-    if (!patch || !Array.isArray(patch.scenes) || patch.scenes.length !== 1) return false;
-    const scenePatch = patch.scenes[0];
-    const keys = Object.keys(scenePatch).filter((key) => key !== "id");
-    return keys.length > 0 && keys.every((key) => key === "title" || key === "prompt" || key === "voPrompt");
-  });
+  return (message.parts as Array<{ type?: string; state?: string; output?: unknown }>).some(
+    (part) => {
+      if (part.type !== "tool-commit_project_patch" || part.state !== "output-available")
+        return false;
+      const patch = (part.output as { patch?: unknown } | undefined)?.patch as
+        { scenes?: Array<Record<string, unknown>> } | undefined;
+      if (!patch || !Array.isArray(patch.scenes) || patch.scenes.length !== 1) return false;
+      const scenePatch = patch.scenes[0];
+      const keys = Object.keys(scenePatch).filter((key) => key !== "id");
+      return (
+        keys.length > 0 &&
+        keys.every((key) => key === "title" || key === "prompt" || key === "voPrompt")
+      );
+    },
+  );
 }
 
 function mainStageMessages(messages: UIMessage[]): UIMessage[] {
@@ -549,9 +558,7 @@ function mainStageMessages(messages: UIMessage[]): UIMessage[] {
 }
 
 function extractPatchFromText(text: string): unknown | null {
-  const m = text.match(
-    /<script[^>]*data-project-patch[^>]*>([\s\S]*?)<\/script>/i,
-  );
+  const m = text.match(/<script[^>]*data-project-patch[^>]*>([\s\S]*?)<\/script>/i);
   if (!m) return null;
   try {
     return JSON.parse(m[1].trim());
@@ -568,11 +575,14 @@ export const Route = createFileRoute("/api/chat")({
         try {
           ({ userId } = await requireUser(request));
         } catch (err) {
-          return unauthorizedResponse(
-            err instanceof Error ? err.message : "Unauthorized",
-          );
+          return unauthorizedResponse(err instanceof Error ? err.message : "Unauthorized");
         }
-        const { messages, projectId, mode, inlineEdit: inlineEditRaw } = (await request.json()) as ChatRequestBody;
+        const {
+          messages,
+          projectId,
+          mode,
+          inlineEdit: inlineEditRaw,
+        } = (await request.json()) as ChatRequestBody;
         if (!Array.isArray(messages)) {
           return new Response("Messages are required", { status: 400 });
         }
@@ -585,8 +595,23 @@ export const Route = createFileRoute("/api/chat")({
         }
         const uiMessages = messages as UIMessage[];
         const modelMessages = inlineEdit
-          ? [...mainStageMessages(uiMessages.slice(0, -1)), uiMessages[uiMessages.length - 1]].filter(Boolean)
+          ? [
+              ...mainStageMessages(uiMessages.slice(0, -1)),
+              uiMessages[uiMessages.length - 1],
+            ].filter(Boolean)
           : mainStageMessages(uiMessages);
+
+        let agentRegistry;
+        try {
+          agentRegistry = createAgentAppRegistry(await loadAgentSkills());
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error(`[chat] ${message}`);
+          return new Response(message, { status: 503 });
+        }
+        const APP_BY_ID = agentRegistry.appById;
+        const builtinSkills = createBuiltinSkills(agentRegistry);
+        const getBuiltinSkill = (slugOrId: string) => findBuiltinSkill(builtinSkills, slugOrId);
 
         // Verify ownership.
         const { data: ownership } = await supabaseAdmin
@@ -636,7 +661,7 @@ export const Route = createFileRoute("/api/chat")({
             : ((getBuiltinSkill(projectSkillSlug) as { appRef?: string } | null)?.appRef ?? null)
           : null;
         const selectedAppBodyMd = selectedAppId
-          ? await getSkillPlaybookOverride(userId, selectedAppId)
+          ? (agentRegistry.skillByAppId.get(selectedAppId)?.bodyMd ?? null)
           : null;
         if (selectedAppBodyMd) projectSkillBodyMd = selectedAppBodyMd;
         // A user skill is "chained" when its recipe describes a multi-phase
@@ -651,28 +676,25 @@ export const Route = createFileRoute("/api/chat")({
           if (/reference\s*:\s*phase\s*\d/.test(md)) return true;
           if (/step\s*\d[^\n]{0,200}\breferenceimageurls\b/.test(md)) return true;
           if (/phase\s*\d[^\n]{0,200}\breferenceimageurls\b/.test(md)) return true;
-          if (/via\s+`?referenceimageurls`?/.test(md) && /step\s*[12]|phase\s*[12]/.test(md)) return true;
+          if (/via\s+`?referenceimageurls`?/.test(md) && /step\s*[12]|phase\s*[12]/.test(md))
+            return true;
           return false;
         })();
-
-
 
         const assetUrlById = new Map(projectState.assets.map((asset) => [asset.id, asset.url]));
 
         // Persist the latest user message before streaming.
         const lastUser = uiMessages[uiMessages.length - 1];
         if (!inlineEdit && lastUser?.role === "user" && lastUser.id) {
-          await supabaseAdmin
-            .from("project_messages")
-            .upsert(
-              {
-                id: lastUser.id,
-                project_id: projectId,
-                role: "user",
-                parts: lastUser.parts as unknown as never,
-              },
-              { onConflict: "id" },
-            );
+          await supabaseAdmin.from("project_messages").upsert(
+            {
+              id: lastUser.id,
+              project_id: projectId,
+              role: "user",
+              parts: lastUser.parts as unknown as never,
+            },
+            { onConflict: "id" },
+          );
         }
         // Real agent brain: Claude Sonnet 4.5 via direct Anthropic.
         // Why not Lovable Gateway / Gemini Flash? Flash was fast but kept losing
@@ -696,11 +718,9 @@ export const Route = createFileRoute("/api/chat")({
         const anthropicKey = sanitizeKey("ANTHROPIC_API_KEY", process.env.ANTHROPIC_API_KEY);
         const key = sanitizeKey("LOVABLE_API_KEY", process.env.LOVABLE_API_KEY);
 
-
         // Circuit breaker: when Anthropic 429s, cool down for 60s and fall
         // back to Lovable Gateway so users don't get "Failed after 3 attempts".
-        const anthropicHot =
-          anthropicKey && Date.now() > getAnthropicCooldownUntil();
+        const anthropicHot = anthropicKey && Date.now() > getAnthropicCooldownUntil();
         let model;
         let usingFallback = false;
         if (anthropicHot) {
@@ -723,7 +743,6 @@ export const Route = createFileRoute("/api/chat")({
           console.warn("[chat] Anthropic cooling down, using Gemini fallback");
         }
 
-
         // Turn guard — tracks media produced by tools this turn and
         // validates/repairs the final render_turn payload (C4 invariants).
         const guard = createTurnGuard();
@@ -744,8 +763,7 @@ export const Route = createFileRoute("/api/chat")({
               "Fetch the full step playbook for a catalog app (wizard steps + exact inputs, or model params). Use when detouring into an app that isn't the project's selected app.",
             inputSchema: z.object({ appId: z.string().min(2).max(120) }),
             execute: async ({ appId }) => {
-              const override = await getSkillPlaybookOverride(userId, appId);
-              const playbook = renderAppPlaybook(appId, override);
+              const playbook = renderAppPlaybook(agentRegistry, appId);
               return playbook ? { ok: true, playbook } : { error: `Unknown appId: ${appId}` };
             },
           }),
@@ -771,7 +789,14 @@ export const Route = createFileRoute("/api/chat")({
               referenceAssetIds: z.array(z.string().min(1).max(120)).max(8).optional(),
               referenceImageUrls: z.array(z.string().url()).max(8).optional(),
             }),
-            execute: async ({ prompt, kind, label, sceneId, referenceAssetIds, referenceImageUrls }) => {
+            execute: async ({
+              prompt,
+              kind,
+              label,
+              sceneId,
+              referenceAssetIds,
+              referenceImageUrls,
+            }) => {
               try {
                 // When the agent is generating an image FOR a specific shot,
                 // force kind=keyframe so it stays out of the References strip,
@@ -783,7 +808,11 @@ export const Route = createFileRoute("/api/chat")({
                   const name = normalizeNameForMatch(c.name || "");
                   return name && normalizeNameForMatch(prompt).includes(name);
                 });
-                if (!matchedCast && looksLikeCharacterAppearanceEdit(prompt) && projectState.cast.length === 1) {
+                if (
+                  !matchedCast &&
+                  looksLikeCharacterAppearanceEdit(prompt) &&
+                  projectState.cast.length === 1
+                ) {
                   matchedCast = projectState.cast[0];
                 }
                 const resolved = await resolveRenderReferences({
@@ -803,9 +832,9 @@ export const Route = createFileRoute("/api/chat")({
                 });
                 const effectiveKind = matchedScene
                   ? "keyframe"
-                  : (resolved.intent === "character" || matchedCast)
+                  : resolved.intent === "character" || matchedCast
                     ? "likeness"
-                    : (resolved.intent === "logo")
+                    : resolved.intent === "logo"
                       ? "logo"
                       : (kind ?? "reference");
                 if (
@@ -819,7 +848,8 @@ export const Route = createFileRoute("/api/chat")({
                       "Character appearance edits require the existing character portrait as a reference. Ask the user which cast member to edit or select the Library character again before generating.",
                   };
                 }
-                const promptWithRefs = prompt + promptSuffixForIntent(resolved.intent, resolvedReferenceUrls.length > 0);
+                const promptWithRefs =
+                  prompt + promptSuffixForIntent(resolved.intent, resolvedReferenceUrls.length > 0);
                 const sourceUrl = await falGenerateImage({
                   prompt: promptWithRefs,
                   aspect: projectState.meta.aspectRatio || "16:9",
@@ -853,9 +883,7 @@ export const Route = createFileRoute("/api/chat")({
                     // film" or "Save to Library too" first.
                     patch: matchedScene
                       ? {
-                          scenes: [
-                            { id: matchedScene.id, thumb: stored.url, status: "ready" },
-                          ],
+                          scenes: [{ id: matchedScene.id, thumb: stored.url, status: "ready" }],
                         }
                       : undefined,
                   };
@@ -955,7 +983,9 @@ export const Route = createFileRoute("/api/chat")({
               const scene = projectState.scenes.find((s) => s.id === sceneId);
               if (!scene) return { error: `Unknown sceneId: ${sceneId}` };
               if (!scene.anchorAssetIds?.length) {
-                return { error: `Scene ${sceneId} has no anchors yet. Generate one with generate_scene_anchor first.` };
+                return {
+                  error: `Scene ${sceneId} has no anchors yet. Generate one with generate_scene_anchor first.`,
+                };
               }
               return {
                 sceneId,
@@ -1033,7 +1063,8 @@ export const Route = createFileRoute("/api/chat")({
                   typeof (patch as { meta?: { title?: string } })?.meta?.title === "string"
                     ? (patch as { meta?: { title?: string } }).meta!.title!.trim()
                     : "";
-                const newTitle = incomingTitle || next.meta.title || row?.title || "Untitled project";
+                const newTitle =
+                  incomingTitle || next.meta.title || row?.title || "Untitled project";
                 await supabaseAdmin
                   .from("projects")
                   .update({
@@ -1048,7 +1079,6 @@ export const Route = createFileRoute("/api/chat")({
               }
               return { ok: true, patch };
             },
-
           }),
           note_decision: tool({
             description:
@@ -1085,7 +1115,7 @@ export const Route = createFileRoute("/api/chat")({
           }),
           save_cut: tool({
             description:
-              "EDITOR ONLY. Snapshot the current timeline (order + tracks) as a named cut so the user can branch/compare edits. Use for milestones the user asked to preserve: \"save this as v1\", \"lock the 30-sec cut\", \"branch before I try the new intro\". The saved cut becomes the active_cut_id, but the timeline itself is unchanged (a checkpoint). Return the new cut id.",
+              'EDITOR ONLY. Snapshot the current timeline (order + tracks) as a named cut so the user can branch/compare edits. Use for milestones the user asked to preserve: "save this as v1", "lock the 30-sec cut", "branch before I try the new intro". The saved cut becomes the active_cut_id, but the timeline itself is unchanged (a checkpoint). Return the new cut id.',
             inputSchema: z.object({
               name: z.string().min(1).max(120),
               parentCutId: z.string().uuid().nullable().optional(),
@@ -1125,7 +1155,7 @@ export const Route = createFileRoute("/api/chat")({
           }),
           switch_cut: tool({
             description:
-              "EDITOR ONLY. Swap the project's live timeline to a previously saved cut. Use when the user says \"go back to v1\", \"show me the 30-sec cut\", \"revert\". Cast / scenes / assets stay put — only the timeline changes. Pass the cutId returned by save_cut (call list_project_cuts via tool_search if you need to look it up).",
+              'EDITOR ONLY. Swap the project\'s live timeline to a previously saved cut. Use when the user says "go back to v1", "show me the 30-sec cut", "revert". Cast / scenes / assets stay put — only the timeline changes. Pass the cutId returned by save_cut (call list_project_cuts via tool_search if you need to look it up).',
             inputSchema: z.object({ cutId: z.string().uuid() }),
             execute: async ({ cutId }) => {
               try {
@@ -1143,7 +1173,11 @@ export const Route = createFileRoute("/api/chat")({
                   .eq("user_id", userId)
                   .maybeSingle();
                 const state = (proj?.project_state as ProjectState | null) ?? INITIAL_PROJECT;
-                const timeline = (cut.timeline as unknown as ProjectState["timeline"]) ?? { order: [], tracks: [], seeded: false };
+                const timeline = (cut.timeline as unknown as ProjectState["timeline"]) ?? {
+                  order: [],
+                  tracks: [],
+                  seeded: false,
+                };
                 const next = applyPatch(state, { timeline });
                 await supabaseAdmin
                   .from("projects")
@@ -1208,7 +1242,14 @@ export const Route = createFileRoute("/api/chat")({
               referenceImageUrls: z.array(z.string().url()).max(8).optional(),
               reason: z.string().max(280).optional(),
             }),
-            execute: async ({ slug, prompt, aspectRatio, duration, referenceImageUrls, reason }) => {
+            execute: async ({
+              slug,
+              prompt,
+              aspectRatio,
+              duration,
+              referenceImageUrls,
+              reason,
+            }) => {
               let skill = getBuiltinSkill(slug);
               if (!skill) {
                 // Try user skill from DB (author's private or public).
@@ -1220,7 +1261,11 @@ export const Route = createFileRoute("/api/chat")({
                   .limit(1)
                   .maybeSingle();
                 if (row) {
-                  const manifest = (row.manifest ?? {}) as { model?: string; inputs?: unknown[]; steps?: string[] };
+                  const manifest = (row.manifest ?? {}) as {
+                    model?: string;
+                    inputs?: unknown[];
+                    steps?: string[];
+                  };
                   skill = {
                     id: row.id,
                     slug: row.slug,
@@ -1251,13 +1296,27 @@ export const Route = createFileRoute("/api/chat")({
               if (skill.source === "app") {
                 const app = skill.appRef ? APP_BY_ID[skill.appRef] : undefined;
                 if (!app) return { error: `Skill '${slug}' has no backing app` };
-                return { ok: true, source: "app" as const, slug, appId: app.id, label: app.label, kind: app.kind, reason: reason ?? null };
+                return {
+                  ok: true,
+                  source: "app" as const,
+                  slug,
+                  appId: app.id,
+                  label: app.label,
+                  kind: app.kind,
+                  reason: reason ?? null,
+                };
               }
               if (skill.source === "model") {
                 if (!prompt) return { error: `Model skill '${slug}' requires 'prompt'` };
                 const appId = skill.appRef;
                 if (!appId) return { error: `Skill '${slug}' has no backing model app` };
-                const res = await runModelApp({ appId, prompt, aspectRatio, duration, referenceImageUrls });
+                const res = await runModelApp({
+                  appId,
+                  prompt,
+                  aspectRatio,
+                  duration,
+                  referenceImageUrls,
+                });
                 return { source: "model" as const, slug, ...res };
               }
               if (skill.source === "user") {
@@ -1290,12 +1349,24 @@ export const Route = createFileRoute("/api/chat")({
                 if (baseModel && prompt) {
                   const appId = `model-${baseModel}`;
                   if (!APP_BY_ID[appId]) {
-                    return { source: "user" as const, slug, recipe: skill.bodyMd ?? null, attachments: skillAssetUrls, note: `Base model '${baseModel}' not in registry — follow the recipe manually.` };
+                    return {
+                      source: "user" as const,
+                      slug,
+                      recipe: skill.bodyMd ?? null,
+                      attachments: skillAssetUrls,
+                      note: `Base model '${baseModel}' not in registry — follow the recipe manually.`,
+                    };
                   }
                   const composedPrompt = skill.bodyMd
                     ? `[Skill: ${skill.name}]\n${skill.bodyMd}${attachmentsBlock}\n\n---\nUser input: ${prompt}`
                     : `${prompt}${attachmentsBlock}`;
-                  const res = await runModelApp({ appId, prompt: composedPrompt, aspectRatio, duration, referenceImageUrls: combinedRefs.length ? combinedRefs : undefined });
+                  const res = await runModelApp({
+                    appId,
+                    prompt: composedPrompt,
+                    aspectRatio,
+                    duration,
+                    referenceImageUrls: combinedRefs.length ? combinedRefs : undefined,
+                  });
                   return { source: "user" as const, slug, attachments: skillAssetUrls, ...res };
                 }
                 return {
@@ -1304,17 +1375,24 @@ export const Route = createFileRoute("/api/chat")({
                   name: skill.name,
                   recipe: skill.bodyMd ?? null,
                   attachments: skillAssetUrls,
-                  guidance: "Follow this recipe step by step. Call run_skill again with the base-model slug for each generation step, and pass the attachment URLs as referenceImageUrls where appropriate.",
+                  guidance:
+                    "Follow this recipe step by step. Call run_skill again with the base-model slug for each generation step, and pass the attachment URLs as referenceImageUrls where appropriate.",
                 };
               }
-              return { error: `Skill source '${(skill as { source: string }).source}' not runnable server-side yet` };
+              return {
+                error: `Skill source '${(skill as { source: string }).source}' not runnable server-side yet`,
+              };
             },
           }),
           save_skill: tool({
             description:
               "Bottle the current project's successful approach into a reusable USER SKILL. Use after the user says something like 'save this as a skill', 'remember how we did X', or when a recipe is clearly reusable across projects. BEFORE calling this tool you MUST have run a skill-build confirmation turn that got the user to confirm: (1) the phase list, (2) the EXACT pinned model slug for each phase (no vague 'best image model' — pin it), (3) the chaining wiring for every phase after the first (what URL flows into referenceImageUrls) and that aspect ratio is propagated, (4) which inputs the user supplies on each run, and (5) a marketing cover asset (hero image or video shown on the Skills gallery card) — pass its project-asset id as coverAssetId. Only omit coverAssetId if the user explicitly declines to add one. The bodyMd MUST literally reflect the confirmed models and chaining: one 'Model:' line and one 'Reference:' line per phase (e.g. 'Reference: user selfie via referenceImageUrls' for Phase 1, 'Reference: Step 1 image via referenceImageUrls' for Phase 2), plus an explicit aspect ratio per phase — otherwise the video phase will silently drop the likeness. You may also attach REFERENCE FILES (images, videos, zips, PDFs, docs) as attachedAssetIds — the agent will re-load these every time this skill is used, so include anything the recipe depends on (reference art, product logo, style docs, .zip bundles, etc.).",
             inputSchema: z.object({
-              slug: z.string().min(2).max(64).regex(/^[a-z0-9-]+$/, "lowercase-hyphenated"),
+              slug: z
+                .string()
+                .min(2)
+                .max(64)
+                .regex(/^[a-z0-9-]+$/, "lowercase-hyphenated"),
               name: z.string().min(2).max(80),
               oneLiner: z.string().min(4).max(200),
               bodyMd: z.string().min(20).max(6000),
@@ -1337,12 +1415,25 @@ export const Route = createFileRoute("/api/chat")({
                   "Project asset ids for reference files bundled with this skill (references, brand assets, zips, PDFs, docs). Re-inlined every time the skill is used.",
                 ),
             }),
-            execute: async ({ slug, name, oneLiner, bodyMd, baseModel, category, tags, visibility, coverAssetId, attachedAssetIds }) => {
+            execute: async ({
+              slug,
+              name,
+              oneLiner,
+              bodyMd,
+              baseModel,
+              category,
+              tags,
+              visibility,
+              coverAssetId,
+              attachedAssetIds,
+            }) => {
               if (getBuiltinSkill(slug)) {
                 return { error: `Slug '${slug}' is reserved by a built-in skill. Pick another.` };
               }
               const manifest = {
-                inputs: [{ key: "prompt", kind: "text", label: "Prompt", long: true, required: true }],
+                inputs: [
+                  { key: "prompt", kind: "text", label: "Prompt", long: true, required: true },
+                ],
                 ...(baseModel ? { model: baseModel } : {}),
               };
               // Validate cover + attachment assets belong to this project.
@@ -1419,12 +1510,12 @@ export const Route = createFileRoute("/api/chat")({
                     sort_order: i,
                   })),
                 );
-                (result as { attachmentsSaved?: number }).attachmentsSaved = validAttachmentIds.length;
+                (result as { attachmentsSaved?: number }).attachmentsSaved =
+                  validAttachmentIds.length;
               }
               return result;
             },
           }),
-
         };
 
         async function runModelApp(args: {
@@ -1469,7 +1560,11 @@ export const Route = createFileRoute("/api/chat")({
               const name = normalizeNameForMatch(c.name || "");
               return name && normalizeNameForMatch(prompt).includes(name);
             });
-            if (!matchedCast && looksLikeCharacterAppearanceEdit(prompt) && projectState.cast.length === 1) {
+            if (
+              !matchedCast &&
+              looksLikeCharacterAppearanceEdit(prompt) &&
+              projectState.cast.length === 1
+            ) {
               matchedCast = projectState.cast[0];
             }
             const resolved = await resolveRenderReferences({
@@ -1528,7 +1623,11 @@ export const Route = createFileRoute("/api/chat")({
               };
             }
             const promptWithRefs =
-              prompt + promptSuffixForIntent(resolved.intent, refs.length > 0 && (appMode === "image" || appMode === "video"));
+              prompt +
+              promptSuffixForIntent(
+                resolved.intent,
+                refs.length > 0 && (appMode === "image" || appMode === "video"),
+              );
             let body: Record<string, unknown> = { prompt: promptWithRefs };
             if (appMode === "image") {
               body.aspect_ratio = aspect;
@@ -1548,7 +1647,10 @@ export const Route = createFileRoute("/api/chat")({
             const finalModel = adjusted.model;
             body = adjusted.body;
             if (finalModel !== appModel) {
-              console.log("[refs] upgraded model for references", { from: appModel, to: finalModel });
+              console.log("[refs] upgraded model for references", {
+                from: appModel,
+                to: finalModel,
+              });
             }
             if (finalModel.includes("pika") && typeof body.duration !== "undefined") {
               const n = Number(body.duration);
@@ -1568,8 +1670,7 @@ export const Route = createFileRoute("/api/chat")({
             let placeholderId: string | null = null;
             try {
               const target = appMode === "video" || appMode === "image" ? "video" : "audio";
-              const durSec =
-                appMode === "video" ? Number(body.duration ?? duration ?? 5) : 5;
+              const durSec = appMode === "video" ? Number(body.duration ?? duration ?? 5) : 5;
               const label = prompt.slice(0, 80);
               const created = await createProjectPlaceholder({
                 projectId: projectId as string,
@@ -1616,8 +1717,6 @@ export const Route = createFileRoute("/api/chat")({
             return { error: err instanceof Error ? err.message : String(err) };
           }
         }
-
-
 
         // Media tracking for the turn guard: watch every tool result for
         // media URLs / queued jobs so render_turn can auto-append what the
@@ -1706,8 +1805,8 @@ export const Route = createFileRoute("/api/chat")({
           : [
               buildCorePrompt(),
               getPhasePrompt(phase),
-              renderAppCatalogSummary(),
-              renderSelectedAppContext(selectedAppId, selectedAppBodyMd),
+              renderAppCatalogSummary(agentRegistry),
+              renderSelectedAppContext(agentRegistry, selectedAppId),
               buildSelectedSkillContext(projectSkillSlug, projectSkillLabel),
               buildProjectStateContext(projectState),
             ]
@@ -1722,9 +1821,7 @@ export const Route = createFileRoute("/api/chat")({
         }) => {
           const last = steps[steps.length - 1];
           return !!last?.toolResults?.some(
-            (r) =>
-              r.toolName === "render_turn" &&
-              !!(r.output as { ok?: boolean } | undefined)?.ok,
+            (r) => r.toolName === "render_turn" && !!(r.output as { ok?: boolean } | undefined)?.ok,
           );
         };
 
@@ -1772,13 +1869,11 @@ export const Route = createFileRoute("/api/chat")({
             const lastAssistant = all[all.length - 1];
             if (!inlineEdit && lastAssistant?.role === "assistant") {
               try {
-                const { error: insErr } = await supabaseAdmin
-                  .from("project_messages")
-                  .insert({
-                    project_id: projectId,
-                    role: "assistant",
-                    parts: lastAssistant.parts as unknown as never,
-                  });
+                const { error: insErr } = await supabaseAdmin.from("project_messages").insert({
+                  project_id: projectId,
+                  role: "assistant",
+                  parts: lastAssistant.parts as unknown as never,
+                });
                 if (insErr) {
                   console.error("[chat] persist assistant insert err:", insErr);
                 }
@@ -1799,12 +1894,9 @@ export const Route = createFileRoute("/api/chat")({
                       (cur.project_state as ProjectState) ?? INITIAL_PROJECT,
                       (patch as never) ?? null,
                     );
-                    const patchTitle = (patch as { meta?: { title?: string } })
-                      ?.meta?.title;
+                    const patchTitle = (patch as { meta?: { title?: string } })?.meta?.title;
                     const newTitle =
-                      patchTitle && patchTitle.trim()
-                        ? patchTitle.trim()
-                        : cur.title;
+                      patchTitle && patchTitle.trim() ? patchTitle.trim() : cur.title;
                     await supabaseAdmin
                       .from("projects")
                       .update({

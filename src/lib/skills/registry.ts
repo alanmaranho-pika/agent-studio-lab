@@ -1,10 +1,8 @@
 // Unified Skills registry (Agent v5 — Phase 4 groundwork).
 //
 // Everything the agent can execute is a Skill:
-//   - "model"  : one-shot model call (Seedance, Nano Banana, …). Auto-seeded
-//                from APP_REGISTRY entries where kind === "model".
-//   - "app"    : multi-step wizard recipe (Short Film, Product Ad, …).
-//                Auto-seeded from APP_REGISTRY entries where kind === "wizard".
+//   - "model"  : one-shot model call loaded from public.agent_skills.
+//   - "app"    : multi-step wizard recipe loaded from public.agent_skills.
 //   - "user"   : Markdown-authored recipe stored in public.skills.
 //
 // This file is the SINGLE source of truth for the client and server-side
@@ -12,16 +10,43 @@
 // The Director agent has exactly one execution tool: run_skill({ slug, inputs })
 // which resolves through this registry.
 
-import { APP_REGISTRY, type AppEntry, type StepInput } from "@/lib/agent/app-registry";
+import type { AgentAppRegistry, AppEntry, StepInput } from "@/lib/agent/app-registry";
 
 export type SkillInput =
-  | { key: string; kind: "text"; label: string; required?: boolean; placeholder?: string; long?: boolean }
+  | {
+      key: string;
+      kind: "text";
+      label: string;
+      required?: boolean;
+      placeholder?: string;
+      long?: boolean;
+    }
   | { key: string; kind: "url"; label: string; required?: boolean; placeholder?: string }
   | { key: string; kind: "upload"; label: string; required?: boolean; accepts: string }
   | { key: string; kind: "image"; label: string; required?: boolean }
-  | { key: string; kind: "asset"; label: string; required?: boolean; mediaKinds: Array<"image" | "video" | "audio"> }
-  | { key: string; kind: "enum"; label: string; required?: boolean; options: string[]; multi?: boolean }
-  | { key: string; kind: "subject"; label: string; required?: boolean; subjectKinds?: Array<"character" | "product" | "scene" | "logo" | "brand_asset">; multi?: boolean }
+  | {
+      key: string;
+      kind: "asset";
+      label: string;
+      required?: boolean;
+      mediaKinds: Array<"image" | "video" | "audio">;
+    }
+  | {
+      key: string;
+      kind: "enum";
+      label: string;
+      required?: boolean;
+      options: string[];
+      multi?: boolean;
+    }
+  | {
+      key: string;
+      kind: "subject";
+      label: string;
+      required?: boolean;
+      subjectKinds?: Array<"character" | "product" | "scene" | "logo" | "brand_asset">;
+      multi?: boolean;
+    }
   | { key: string; kind: "voice"; label: string; required?: boolean };
 
 export type SkillOutputs = {
@@ -43,7 +68,7 @@ export type SkillManifest = {
 };
 
 export type Skill = {
-  id: string;                 // stable slug for model/app; UUID for user skills
+  id: string; // stable slug for model/app; UUID for user skills
   slug: string;
   version: number;
   source: "model" | "app" | "user";
@@ -53,7 +78,7 @@ export type Skill = {
   bodyMd?: string;
   category?: string;
   tags?: string[];
-  /** For built-ins that also live in APP_REGISTRY, the underlying app id. */
+  /** For Supabase-backed built-ins, the underlying agent app id. */
   appRef?: string;
   coverAssetId?: string | null;
   /** Resolved signed URL for coverAssetId (user skills). Populated by list/get fns. */
@@ -77,11 +102,23 @@ function convertStepInput(i: StepInput): SkillInput {
     case "url":
       return { key: i.key, kind: "url", label: i.label, placeholder: i.placeholder };
     case "upload":
-      return { key: i.key, kind: "upload", label: i.label, accepts: i.accepts, required: i.required };
+      return {
+        key: i.key,
+        kind: "upload",
+        label: i.label,
+        accepts: i.accepts,
+        required: i.required,
+      };
     case "choice":
       return { key: i.key, kind: "enum", label: i.label, options: i.options, multi: i.multi };
     case "character":
-      return { key: i.key, kind: "subject", label: i.label, subjectKinds: ["character"], multi: i.multi };
+      return {
+        key: i.key,
+        kind: "subject",
+        label: i.label,
+        subjectKinds: ["character"],
+        multi: i.multi,
+      };
     case "environment":
       return { key: i.key, kind: "subject", label: i.label, subjectKinds: ["scene"] };
     case "voice":
@@ -91,7 +128,7 @@ function convertStepInput(i: StepInput): SkillInput {
   }
 }
 
-// -------- built-in seeding --------
+// -------- built-in conversion --------
 
 function categorizeApp(app: AppEntry): string {
   if (app.kind === "wizard") return "Wizards";
@@ -129,7 +166,12 @@ function appEntryToSkill(app: AppEntry): Skill {
         // agent to fill in model-specific knobs.
         inputs: [
           { key: "prompt", kind: "text", label: "Prompt", long: true, required: true },
-          { key: "referenceImages", kind: "asset", label: "Reference images (optional)", mediaKinds: ["image"] },
+          {
+            key: "referenceImages",
+            kind: "asset",
+            label: "Reference images (optional)",
+            mediaKinds: ["image"],
+          },
         ],
       },
     };
@@ -164,15 +206,17 @@ function renderAppRecipe(app: AppEntry): string {
   return lines.join("\n");
 }
 
-/** Built-in skills (Model + App), seeded from APP_REGISTRY. Stable across the session. */
-export const BUILTIN_SKILLS: Skill[] = APP_REGISTRY.map(appEntryToSkill);
+export function createBuiltinSkills(registry: AgentAppRegistry): Skill[] {
+  return registry.apps.map((app) => {
+    const skill = appEntryToSkill(app);
+    const agentSkill = registry.skillByAppId.get(app.id);
+    return agentSkill?.bodyMd ? { ...skill, bodyMd: agentSkill.bodyMd } : skill;
+  });
+}
 
-const BUILTIN_BY_SLUG = new Map(BUILTIN_SKILLS.map((s) => [s.slug, s] as const));
-const BUILTIN_BY_ID = new Map(BUILTIN_SKILLS.map((s) => [s.id, s] as const));
-
-/** Look up a built-in skill (Model or App). Returns undefined for user skills — those live in the DB. */
-export function getBuiltinSkill(slugOrId: string): Skill | undefined {
-  return BUILTIN_BY_SLUG.get(slugOrId) ?? BUILTIN_BY_ID.get(slugOrId);
+/** Look up a built-in skill. User-authored skills live in public.skills. */
+export function getBuiltinSkill(builtins: Skill[], slugOrId: string): Skill | undefined {
+  return builtins.find((skill) => skill.slug === slugOrId || skill.id === slugOrId);
 }
 
 export type SkillFilter = {
@@ -181,14 +225,10 @@ export type SkillFilter = {
   query?: string;
 };
 
-export function filterBuiltins(f: SkillFilter = {}): Skill[] {
-  const sources = f.source
-    ? Array.isArray(f.source)
-      ? f.source
-      : [f.source]
-    : null;
+export function filterBuiltins(builtins: Skill[], f: SkillFilter = {}): Skill[] {
+  const sources = f.source ? (Array.isArray(f.source) ? f.source : [f.source]) : null;
   const q = f.query?.trim().toLowerCase();
-  return BUILTIN_SKILLS.filter((s) => {
+  return builtins.filter((s) => {
     if (sources && !sources.includes(s.source)) return false;
     if (f.category && s.category !== f.category) return false;
     if (q && !`${s.name} ${s.oneLiner}`.toLowerCase().includes(q)) return false;

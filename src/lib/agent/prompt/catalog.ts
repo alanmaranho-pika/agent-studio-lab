@@ -7,24 +7,25 @@
 // get_block_reference tool — this file exposes the renderers so both the
 // system prompt and the tool handler share the same output shape.
 
-import { APP_REGISTRY, renderAppPlaybook } from "../app-registry";
-import { findSkillByAppId } from "@/agent/skills/_registry";
-import { renderBlockCatalog, renderBlockReference, BLOCKS_BY_ID, type BlockId } from "@/agent/blocks/_registry";
+import { renderAppPlaybook, type AgentAppRegistry } from "../app-registry";
+import {
+  renderBlockCatalog,
+  renderBlockReference,
+  BLOCKS_BY_ID,
+  type BlockId,
+} from "@/agent/blocks/_registry";
 
-export function renderAppCatalogSummary(): string {
-  const lines = APP_REGISTRY.map(
+export function renderAppCatalogSummary(registry: AgentAppRegistry): string {
+  const lines = registry.apps.map(
     (a) => `- ${a.id} (${a.kind}${a.mode ? `/${a.mode}` : ""}): ${a.oneLiner}`,
   );
   return `APP CATALOG (summaries — call get_app_playbook({ appId }) for an app's full steps):\n${lines.join("\n")}`;
 }
 
-export function renderSelectedAppContext(
-  appId: string | null,
-  bodyMdOverride?: string | null,
-): string {
+export function renderSelectedAppContext(registry: AgentAppRegistry, appId: string | null): string {
   if (!appId) return "";
-  const playbook = renderAppPlaybook(appId, bodyMdOverride) ?? "";
-  const pack = findSkillByAppId(appId);
+  const playbook = renderAppPlaybook(registry, appId) ?? "";
+  const pack = registry.skillByAppId.get(appId);
   if (!pack?.usesBlocks?.length) return playbook;
   const validIds = pack.usesBlocks.filter((id): id is BlockId => id in BLOCKS_BY_ID);
   if (!validIds.length) return playbook;

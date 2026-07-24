@@ -14,27 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
-      skill_playbook_overrides: {
+      agent_skills: {
         Row: {
           app_id: string
           body_md: string
           created_at: string
+          id: string
+          intent: string
+          is_active: boolean
+          kind: string
+          label: string
+          matches: string[]
+          mode: string | null
+          model: string | null
+          one_liner: string
+          outputs: string[]
+          sort_order: number
+          steps: Json
           updated_at: string
-          user_id: string
+          uses_blocks: string[]
+          version: number
         }
         Insert: {
           app_id: string
           body_md: string
           created_at?: string
+          id: string
+          intent: string
+          is_active?: boolean
+          kind: string
+          label: string
+          matches?: string[]
+          mode?: string | null
+          model?: string | null
+          one_liner: string
+          outputs?: string[]
+          sort_order?: number
+          steps?: Json
           updated_at?: string
-          user_id: string
+          uses_blocks?: string[]
+          version?: number
         }
         Update: {
           app_id?: string
           body_md?: string
           created_at?: string
+          id?: string
+          intent?: string
+          is_active?: boolean
+          kind?: string
+          label?: string
+          matches?: string[]
+          mode?: string | null
+          model?: string | null
+          one_liner?: string
+          outputs?: string[]
+          sort_order?: number
+          steps?: Json
           updated_at?: string
-          user_id?: string
+          uses_blocks?: string[]
+          version?: number
         }
         Relationships: []
       }
