@@ -58,7 +58,15 @@ import type { StageIntent } from "@/components/studio/agent/intents";
 import { renderTurnToHtml } from "@/lib/agent/render-turn-html";
 import { RenderTurnSchema, type RenderTurn } from "@/lib/agent/ui-schema";
 import { useViewportBand } from "@/hooks/use-viewport-band";
-import { readSkillMd, writeSkillMd, improveSkillMd } from "@/lib/skills/skill-md.functions";
+import {
+  improveSkillMd,
+  listSkillMdVersions,
+  readSkillMd,
+  readSkillMdVersion,
+  restoreSkillMdVersion,
+  writeSkillMd,
+  type SkillMdVersion,
+} from "@/lib/skills/skill-md.functions";
 import { AssetPickerDialog, type PickerResult } from "@/components/studio/asset-picker-dialog";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import {
@@ -3030,6 +3038,11 @@ function SkillEditorPanel({
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [version, setVersion] = useState<number | null>(null);
+  const [versions, setVersions] = useState<SkillMdVersion[]>([]);
+  const [viewingVersion, setViewingVersion] = useState<number | null>(null);
+  const [viewingMeta, setViewingMeta] = useState<SkillMdVersion | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   // Classic undo/redo: `past`/`future` hold content snapshots; `content` is
   // live. A snapshot is pushed on each agent revision and on blur after a
   // manual edit (focus-session granularity).
@@ -3055,10 +3068,16 @@ function SkillEditorPanel({
     setError(null);
     setVersion(null);
     try {
-      const res = await readSkillMd({ data: { appId } });
+      const [res, history] = await Promise.all([
+        readSkillMd({ data: { appId } }),
+        listSkillMdVersions({ data: { appId } }),
+      ]);
       setContent(res.content);
       setOriginal(res.content);
       setVersion(res.version);
+      setVersions(history.versions);
+      setViewingVersion(null);
+      setViewingMeta(null);
       setPast([]);
       setFuture([]);
       focusSnapshot.current = res.content;
@@ -3073,19 +3092,17 @@ function SkillEditorPanel({
     void load();
   }, [load]);
 
-  const dirty = content !== original;
-  const canSave = dirty && !saving && !loading && !!appId && version !== null;
-  const canUndo = past.length > 0 && !improving;
-  const canRedo = future.length > 0 && !improving;
+  const refreshVersions = useCallback(async () => {
+    if (!appId) return;
+    const history = await listSkillMdVersions({ data: { appId } });
+    setVersions(history.versions);
+  }, [appId]);
 
-  // Replace content and record the prior value as an undo step.
-  const commit = (next: string) => {
-    if (next === content) return;
-    setPast((p) => [...p, content]);
-    setFuture([]);
-    setContent(next);
-    focusSnapshot.current = next;
-  };
+  const dirty = viewingVersion === null && content !== original;
+  const canSave =
+    dirty && !saving && !loading && !improving && !!appId && version !== null;
+  const canUndo = viewingVersion === null && past.length > 0 && !improving;
+  const canRedo = viewingVersion === null && future.length > 0 && !improving;
 
   const undo = () => {
     setPast((p) => {
@@ -3120,15 +3137,53 @@ function SkillEditorPanel({
   };
 
   const improve = async () => {
-    if (!appId || !instruction.trim() || improving) return;
+    if (
+      !appId ||
+      !instruction.trim() ||
+      improving ||
+      viewingVersion !== null ||
+      version === null
+    )
+      return;
     setImproving(true);
     setError(null);
     try {
+      let expectedVersion = version;
+      let agentInputContent = content;
+
+      // Preserve manual edits as their own user-attributed version before the
+      // coding agent builds on top of them.
+      if (dirty) {
+        const saved = await writeSkillMd({
+          data: { appId, content, expectedVersion },
+        });
+        expectedVersion = saved.version;
+        agentInputContent = saved.content;
+        setContent(saved.content);
+        setOriginal(saved.content);
+        setVersion(saved.version);
+        setSavedAt(Date.now());
+        focusSnapshot.current = saved.content;
+        await refreshVersions();
+      }
+
       const res = await improveSkillMd({
-        data: { appId, content, instruction: instruction.trim() },
+        data: {
+          appId,
+          content: agentInputContent,
+          instruction: instruction.trim(),
+          expectedVersion,
+        },
       });
-      commit(res.content);
+      setPast((p) => [...p, agentInputContent]);
+      setFuture([]);
+      setContent(res.content);
+      setOriginal(res.content);
+      setVersion(res.version);
+      setSavedAt(Date.now());
+      focusSnapshot.current = res.content;
       setInstruction("");
+      await refreshVersions();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -3144,14 +3199,96 @@ function SkillEditorPanel({
       const result = await writeSkillMd({
         data: { appId, content, expectedVersion: version },
       });
-      setOriginal(content);
+      setContent(result.content);
+      setOriginal(result.content);
       setVersion(result.version);
       setSavedAt(Date.now());
+      focusSnapshot.current = result.content;
+      await refreshVersions();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
+  };
+
+  const selectVersion = async (targetVersion: number) => {
+    if (!appId || version === null || targetVersion === viewingVersion) return;
+    if (dirty) {
+      setError("Save or reload your changes before opening version history.");
+      return;
+    }
+    if (targetVersion === version) {
+      await load();
+      return;
+    }
+
+    setHistoryLoading(true);
+    setError(null);
+    try {
+      const snapshot = await readSkillMdVersion({
+        data: { appId, version: targetVersion },
+      });
+      setContent(snapshot.content);
+      setViewingVersion(snapshot.version);
+      setViewingMeta({
+        version: snapshot.version,
+        actorType: snapshot.actorType,
+        actorName: snapshot.actorName,
+        action: snapshot.action,
+        restoredFromVersion: snapshot.restoredFromVersion,
+        createdAt: snapshot.createdAt,
+      });
+      focusSnapshot.current = snapshot.content;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const restoreViewedVersion = async () => {
+    if (!appId || version === null || viewingVersion === null || restoring) return;
+    setRestoring(true);
+    setError(null);
+    try {
+      const previousCurrent = original;
+      const result = await restoreSkillMdVersion({
+        data: {
+          appId,
+          targetVersion: viewingVersion,
+          expectedVersion: version,
+        },
+      });
+      setPast((p) => [...p, previousCurrent]);
+      setFuture([]);
+      setContent(result.content);
+      setOriginal(result.content);
+      setVersion(result.version);
+      setViewingVersion(null);
+      setViewingMeta(null);
+      setSavedAt(Date.now());
+      focusSnapshot.current = result.content;
+      await refreshVersions();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  const formatVersionLabel = (item: SkillMdVersion) => {
+    const when = new Date(item.createdAt).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+    const restored =
+      item.action === "restore" && item.restoredFromVersion
+        ? ` · restored v${item.restoredFromVersion}`
+        : "";
+    return `${item.version === version ? "Current · " : ""}v${item.version} · ${item.actorName}${restored} · ${when}`;
   };
 
   return (
@@ -3170,6 +3307,25 @@ function SkillEditorPanel({
           <p className="truncate text-[11px] text-muted-foreground">
             {appId ? `Supabase source · ${appId}` : "The agent hasn't picked a skill yet."}
           </p>
+          {appId && version !== null && versions.length > 0 && (
+            <label className="mt-2 flex max-w-[390px] items-center gap-1.5">
+              <History className="h-3 w-3 shrink-0 text-muted-foreground" />
+              <span className="sr-only">Version history</span>
+              <select
+                value={viewingVersion ?? version}
+                onChange={(event) => void selectVersion(Number(event.target.value))}
+                disabled={loading || historyLoading || saving || improving || restoring}
+                aria-label="Version history"
+                className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 text-[11px] text-foreground outline-none focus:border-primary disabled:opacity-50"
+              >
+                {versions.map((item) => (
+                  <option key={item.version} value={item.version}>
+                    {formatVersionLabel(item)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -3220,18 +3376,25 @@ function SkillEditorPanel({
         ) : (
           <textarea
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={(e) => {
+              setContent(e.target.value);
+              setError(null);
+            }}
             onFocus={() => {
               focusSnapshot.current = content;
             }}
             onBlur={commitManualEdit}
             spellCheck={false}
-            disabled={improving}
-            className="h-full w-full resize-none rounded-lg border border-border bg-background p-3 font-mono text-[12px] leading-relaxed text-foreground outline-none focus:border-primary disabled:opacity-60"
+            readOnly={viewingVersion !== null}
+            disabled={improving || historyLoading || restoring}
+            className={cn(
+              "h-full w-full resize-none rounded-lg border border-border bg-background p-3 font-mono text-[12px] leading-relaxed text-foreground outline-none focus:border-primary disabled:opacity-60",
+              viewingVersion !== null && "cursor-default bg-muted/30",
+            )}
           />
         )}
       </div>
-      {appId && !loading && (
+      {appId && !loading && viewingVersion === null && (
         <div className="border-t border-border px-5 py-3">
           <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
             <Sparkles className="h-3 w-3" />
@@ -3270,7 +3433,7 @@ function SkillEditorPanel({
             </button>
           </div>
           <p className="mt-1 text-[10px] text-muted-foreground">
-            Rewrites the draft above — review, then Save. ⌘/Ctrl+Enter to send.
+            Each agent revision is saved as a new version. ⌘/Ctrl+Enter to send.
           </p>
         </div>
       )}
@@ -3278,6 +3441,11 @@ function SkillEditorPanel({
         <div className="min-w-0 text-[11px] text-muted-foreground">
           {error ? (
             <span className="text-destructive">{error}</span>
+          ) : viewingMeta ? (
+            <span>
+              Viewing v{viewingMeta.version} by {viewingMeta.actorName}. Restore it to make
+              this content current.
+            </span>
           ) : dirty ? (
             <span>Unsaved changes — Save publishes to Supabase.</span>
           ) : savedAt ? (
@@ -3288,14 +3456,25 @@ function SkillEditorPanel({
             </span>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => void save()}
-          disabled={!canSave}
-          className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {saving ? "Saving…" : "Save"}
-        </button>
+        {viewingVersion !== null ? (
+          <button
+            type="button"
+            onClick={() => void restoreViewedVersion()}
+            disabled={restoring || historyLoading}
+            className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {restoring ? "Restoring…" : `Set v${viewingVersion} as current`}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={!canSave}
+            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        )}
       </div>
     </motion.div>
   );

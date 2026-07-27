@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { FolderOpen, Library, Blocks } from "lucide-react";
+import { FolderOpen, Library, Blocks, Sparkles } from "lucide-react";
 import type { ComponentType } from "react";
 
 import { AccountPopover } from "@/components/account-popover";
@@ -13,6 +13,7 @@ const NAV_ITEMS: ReadonlyArray<{
 }> = [
   { to: "/projects", label: "Projects", icon: FolderOpen },
   { to: "/library", label: "Library", icon: Library },
+  { to: "/skills", label: "Skills", icon: Sparkles },
   { to: "/blocks", label: "Blocks", icon: Blocks },
 ];
 

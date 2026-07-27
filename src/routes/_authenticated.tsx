@@ -44,7 +44,7 @@ function AuthedLayout() {
   return (
     <div className="flex h-screen w-full flex-col bg-background">
       {/* Horizontal top nav for the top-level pages (Projects / Library /
-          Blocks). Replaces the old left rail. */}
+          Skills / Blocks). Replaces the old left rail. */}
       <TopNav />
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <Outlet />

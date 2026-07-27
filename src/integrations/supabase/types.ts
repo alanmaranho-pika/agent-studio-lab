@@ -77,6 +77,53 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_skill_versions: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string
+          actor_type: string
+          body_md: string
+          created_at: string
+          id: number
+          restored_from_version: number | null
+          skill_id: string
+          version: number
+        }
+        Insert: {
+          action?: string
+          actor_id?: string | null
+          actor_name: string
+          actor_type: string
+          body_md: string
+          created_at?: string
+          id?: never
+          restored_from_version?: number | null
+          skill_id: string
+          version: number
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string
+          actor_type?: string
+          body_md?: string
+          created_at?: string
+          id?: never
+          restored_from_version?: number | null
+          skill_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_skill_versions_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "agent_skills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -322,7 +369,60 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_agent_skill: {
+        Args: {
+          p_actor_id: string
+          p_actor_name: string
+          p_app_id: string
+          p_body_md: string
+          p_id: string
+          p_intent: string
+          p_kind: string
+          p_label: string
+          p_matches: string[]
+          p_mode: string | null
+          p_model: string | null
+          p_one_liner: string
+          p_outputs: string[]
+          p_steps: Json
+          p_uses_blocks: string[]
+        }
+        Returns: {
+          new_app_id: string
+          new_created_at: string
+          new_id: string
+          new_version: number
+        }[]
+      }
+      restore_agent_skill_body: {
+        Args: {
+          p_actor_id: string
+          p_actor_name: string
+          p_app_id: string
+          p_expected_version: number
+          p_target_version: number
+        }
+        Returns: {
+          new_body_md: string
+          new_updated_at: string
+          new_version: number
+        }[]
+      }
+      update_agent_skill_body: {
+        Args: {
+          p_actor_id: string
+          p_actor_name: string
+          p_actor_type: string
+          p_app_id: string
+          p_body_md: string
+          p_expected_version: number
+        }
+        Returns: {
+          new_body_md: string
+          new_updated_at: string
+          new_version: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

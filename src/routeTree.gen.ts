@@ -14,6 +14,7 @@ import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as AuthenticatedSkillsRouteImport } from './routes/_authenticated/skills'
 import { Route as AuthenticatedProjectsRouteImport } from './routes/_authenticated/projects'
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
 import { Route as AuthenticatedBlocksRouteImport } from './routes/_authenticated/blocks'
@@ -48,6 +49,11 @@ const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedSkillsRoute = AuthenticatedSkillsRouteImport.update({
+  id: '/skills',
+  path: '/skills',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedProjectsRoute = AuthenticatedProjectsRouteImport.update({
   id: '/projects',
@@ -111,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/blocks': typeof AuthenticatedBlocksRoute
   '/library': typeof AuthenticatedLibraryRoute
   '/projects': typeof AuthenticatedProjectsRoute
+  '/skills': typeof AuthenticatedSkillsRoute
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/studio/$projectId': typeof AuthenticatedStudioProjectIdRoute
@@ -127,6 +134,7 @@ export interface FileRoutesByTo {
   '/blocks': typeof AuthenticatedBlocksRoute
   '/library': typeof AuthenticatedLibraryRoute
   '/projects': typeof AuthenticatedProjectsRoute
+  '/skills': typeof AuthenticatedSkillsRoute
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/studio/$projectId': typeof AuthenticatedStudioProjectIdRoute
@@ -145,6 +153,7 @@ export interface FileRoutesById {
   '/_authenticated/blocks': typeof AuthenticatedBlocksRoute
   '/_authenticated/library': typeof AuthenticatedLibraryRoute
   '/_authenticated/projects': typeof AuthenticatedProjectsRoute
+  '/_authenticated/skills': typeof AuthenticatedSkillsRoute
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/_authenticated/studio/$projectId': typeof AuthenticatedStudioProjectIdRoute
@@ -163,6 +172,7 @@ export interface FileRouteTypes {
     | '/blocks'
     | '/library'
     | '/projects'
+    | '/skills'
     | '/api/chat'
     | '/api/transcribe'
     | '/studio/$projectId'
@@ -179,6 +189,7 @@ export interface FileRouteTypes {
     | '/blocks'
     | '/library'
     | '/projects'
+    | '/skills'
     | '/api/chat'
     | '/api/transcribe'
     | '/studio/$projectId'
@@ -196,6 +207,7 @@ export interface FileRouteTypes {
     | '/_authenticated/blocks'
     | '/_authenticated/library'
     | '/_authenticated/projects'
+    | '/_authenticated/skills'
     | '/api/chat'
     | '/api/transcribe'
     | '/_authenticated/studio/$projectId'
@@ -254,6 +266,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/chat'
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/skills': {
+      id: '/_authenticated/skills'
+      path: '/skills'
+      fullPath: '/skills'
+      preLoaderRoute: typeof AuthenticatedSkillsRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/projects': {
       id: '/_authenticated/projects'
@@ -333,6 +352,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedBlocksRoute: typeof AuthenticatedBlocksRoute
   AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRoute
   AuthenticatedProjectsRoute: typeof AuthenticatedProjectsRoute
+  AuthenticatedSkillsRoute: typeof AuthenticatedSkillsRoute
   AuthenticatedStudioProjectIdRoute: typeof AuthenticatedStudioProjectIdRoute
   AuthenticatedStudioIndexRoute: typeof AuthenticatedStudioIndexRoute
 }
@@ -342,6 +362,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedBlocksRoute: AuthenticatedBlocksRoute,
   AuthenticatedLibraryRoute: AuthenticatedLibraryRoute,
   AuthenticatedProjectsRoute: AuthenticatedProjectsRoute,
+  AuthenticatedSkillsRoute: AuthenticatedSkillsRoute,
   AuthenticatedStudioProjectIdRoute: AuthenticatedStudioProjectIdRoute,
   AuthenticatedStudioIndexRoute: AuthenticatedStudioIndexRoute,
 }
