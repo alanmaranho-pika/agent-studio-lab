@@ -22,7 +22,7 @@ supabase/.temp/
 # Logs and editor files
 *.log
 .DS_Store
+.codex/
 .idea/
 .vscode/
 *.swp
-
