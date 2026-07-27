@@ -337,7 +337,7 @@ export function useCredits(): CreditsState {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
-// Wire to Supabase auth so the store rebinds per user.
+// Wire to the browser auth session so the store rebinds per user.
 if (typeof window !== "undefined") {
   const client = getBrowserSupabase();
   if (client) {

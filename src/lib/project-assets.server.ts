@@ -16,7 +16,11 @@ export function extractProjectAssetStoragePath(rawUrl: string | null | undefined
     const match = url.pathname.match(
       /\/storage\/v1\/(?:object\/(?:sign|public|authenticated)|render\/image\/sign)\/project-assets\/(.+)$/,
     );
-    return match?.[1] ? decodeURIComponent(match[1]) : null;
+    if (match?.[1]) return decodeURIComponent(match[1]);
+    if (url.hostname.endsWith(".blob.vercel-storage.com")) {
+      return decodeURIComponent(url.pathname.replace(/^\/+/, ""));
+    }
+    return null;
   } catch {
     return null;
   }

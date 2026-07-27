@@ -12,7 +12,6 @@
 
 import { useEffect, useRef } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { getBrowserSupabase } from "@/lib/supabase-browser";
 import { listProjectJobs, pollProjectJob } from "@/lib/projects.functions";
 
 export type ProjectJobRow = {
@@ -131,28 +130,9 @@ export function useProjectJobs(
     void tick();
     const id = window.setInterval(tick, POLL_INTERVAL_MS);
 
-    const client = getBrowserSupabase();
-    const channel = client
-      ?.channel(`project-jobs-${projectId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "project_jobs",
-          filter: `project_id=eq.${projectId}`,
-        },
-        (payload) => {
-          const row = payload.new as ProjectJobRow | undefined;
-          if (row) void advance([row]);
-        },
-      )
-      .subscribe();
-
     return () => {
       cancelled = true;
       window.clearInterval(id);
-      if (client && channel) void client.removeChannel(channel);
     };
   }, [projectId, list, poll]);
 }

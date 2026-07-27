@@ -1,23 +1,18 @@
 export type AuthedUser = { userId: string; token: string };
 
-// Validate the Supabase bearer token on the request and return the user id.
+// Validate the Neon Auth bearer token and map it to the existing workspace.
 export async function requireUser(request: Request): Promise<AuthedUser> {
   const header = request.headers.get("authorization") ?? request.headers.get("Authorization");
   const token = header?.startsWith("Bearer ") ? header.slice(7).trim() : null;
   if (!token) throw unauthorized("Missing bearer token");
 
-  const { createClient } = await import("@supabase/supabase-js");
-  const { MY_SUPABASE_URL, MY_SUPABASE_PUBLISHABLE_KEY } = await import(
-    "@/integrations/supabase/my-config"
-  );
-  const supabase = createClient(
-    MY_SUPABASE_URL,
-    MY_SUPABASE_PUBLISHABLE_KEY,
-    { auth: { persistSession: false, autoRefreshToken: false } },
-  );
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data.user) throw unauthorized(error?.message ?? "Invalid token");
-  return { userId: data.user.id, token };
+  const { validateNeonAuthToken } = await import("@/lib/neon/auth.server");
+  try {
+    const identity = await validateNeonAuthToken(token);
+    return { userId: identity.userId, token };
+  } catch (error) {
+    throw unauthorized(error instanceof Error ? error.message : "Invalid token");
+  }
 }
 
 function unauthorized(reason: string): Error & { statusCode: number } {

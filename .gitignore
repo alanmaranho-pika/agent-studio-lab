@@ -26,3 +26,4 @@ supabase/.temp/
 .idea/
 .vscode/
 *.swp
+.vercel

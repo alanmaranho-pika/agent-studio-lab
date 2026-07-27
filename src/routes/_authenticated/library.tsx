@@ -20,7 +20,6 @@ import {
   UserRound,
   UserRoundPlus,
 } from "lucide-react";
-import { getBrowserSupabase } from "@/lib/supabase-browser";
 import { listLibrary } from "@/lib/library.functions";
 import { listCharacters, type LibraryCharacter } from "@/lib/characters.functions";
 import {
@@ -239,22 +238,6 @@ function AssetsTab() {
     refetchOnWindowFocus: true,
     refetchInterval: 15_000,
   });
-
-  // Refetch whenever any render_job row changes for this user.
-  useEffect(() => {
-    const client = getBrowserSupabase();
-    if (!client) return;
-    const channel = client
-      .channel("library-jobs")
-      .on("postgres_changes", { event: "*", schema: "public", table: "render_jobs" }, () => {
-        void q.refetch();
-      })
-      .subscribe();
-    return () => {
-      void client.removeChannel(channel);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const [filter, setFilter] = useState<AssetFilter>("all");
   const [search, setSearch] = useState("");

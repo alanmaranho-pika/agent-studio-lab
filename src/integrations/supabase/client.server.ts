@@ -4,6 +4,7 @@
 // For user-authenticated queries (with RLS), use the auth middleware instead.
 import { createClient } from "@supabase/supabase-js";
 import { createNeonDataClient } from "@/lib/neon/supabase-adapter.server";
+import { createVercelBlobStorage } from "@/lib/vercel-blob/storage-adapter.server";
 import type { Database } from "./types";
 import { MY_SUPABASE_URL } from "./my-config";
 
@@ -57,10 +58,19 @@ function createSupabaseAdminClient() {
     },
   });
 
+  const storage = createVercelBlobStorage();
+  const supabaseWithVercelStorage = new Proxy(supabase, {
+    get(target, property) {
+      if (property === "storage") return storage;
+      const value = Reflect.get(target, property, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  }) as typeof supabase;
+
   // Database reads/writes for the migrated application tables go to Neon.
-  // Supabase remains the provider for Auth, Storage, and legacy tables until
-  // those surfaces are migrated independently.
-  return createNeonDataClient(supabase);
+  // Legacy tables still fall through to Supabase during the database
+  // transition, while every storage operation is served by Vercel Blob.
+  return createNeonDataClient(supabaseWithVercelStorage);
 }
 
 let _supabaseAdmin: ReturnType<typeof createSupabaseAdminClient> | undefined;

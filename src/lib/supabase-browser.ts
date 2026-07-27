@@ -1,14 +1,17 @@
-import { supabase } from "@/integrations/supabase/client";
+import {
+  getConfiguredBrowserAuth,
+  type BrowserAuthClient,
+} from "@/integrations/supabase/client";
 
-type BrowserSupabase = typeof supabase;
+type BrowserSupabase = { auth: BrowserAuthClient };
 
 export function hasBrowserSupabaseConfig(): boolean {
-  // Personal Supabase project config is hardcoded — always available.
-  return true;
+  return getConfiguredBrowserAuth() !== null;
 }
 
 export function getBrowserSupabase(): BrowserSupabase | null {
-  return hasBrowserSupabaseConfig() ? supabase : null;
+  const auth = getConfiguredBrowserAuth();
+  return auth ? { auth } : null;
 }
 
 export async function getBrowserAccessToken(): Promise<string | null> {

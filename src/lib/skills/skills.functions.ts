@@ -118,31 +118,23 @@ export const listSkills = createServerFn({ method: "POST" })
       const { data: rows } = await q;
       userSkills = (rows ?? []).map(rowToSkill);
 
-      // Attribution: look up author emails via the admin client and use the
-      // email prefix as a display handle ("@name"). Best-effort; failures
-      // just leave authorName null.
+      // Attribution comes from the migrated workspace profiles.
       const authorIds = Array.from(
         new Set(userSkills.map((s) => s.authorId).filter((x): x is string => !!x)),
       );
       if (authorIds.length) {
         try {
-          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const { getUserDisplayProfile } = await import("@/lib/user-profile.server");
           const infoById = new Map<string, { name: string; avatarUrl: string | null }>();
           await Promise.all(
             authorIds.map(async (id) => {
-              const { data: u } = await supabaseAdmin.auth.admin.getUserById(id);
-              const email = u?.user?.email ?? "";
-              const meta = (u?.user?.user_metadata ?? {}) as Record<string, unknown>;
-              const display =
-                (typeof meta.name === "string" && meta.name) ||
-                (typeof meta.full_name === "string" && meta.full_name) ||
-                (email ? email.split("@")[0] : "") ||
-                "";
-              const avatarUrl =
-                (typeof meta.avatar_url === "string" && meta.avatar_url) ||
-                (typeof meta.picture === "string" && meta.picture) ||
-                null;
-              if (display) infoById.set(id, { name: display, avatarUrl });
+              const profile = await getUserDisplayProfile(id);
+              if (profile.name) {
+                infoById.set(id, {
+                  name: profile.name,
+                  avatarUrl: profile.avatarUrl,
+                });
+              }
             }),
           );
           userSkills = userSkills.map((s) =>
@@ -186,24 +178,13 @@ export const listMySkills = createServerFn({ method: "POST" })
     // so "My Skills" cards render "By <name>" the same way public skills do.
     if (authored.length) {
       try {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { data: u } = await supabaseAdmin.auth.admin.getUserById(userId);
-        const email = u?.user?.email ?? "";
-        const meta = (u?.user?.user_metadata ?? {}) as Record<string, unknown>;
-        const display =
-          (typeof meta.name === "string" && meta.name) ||
-          (typeof meta.full_name === "string" && meta.full_name) ||
-          (email ? email.split("@")[0] : "") ||
-          "";
-        const avatarUrl =
-          (typeof meta.avatar_url === "string" && meta.avatar_url) ||
-          (typeof meta.picture === "string" && meta.picture) ||
-          null;
-        if (display) {
+        const { getUserDisplayProfile } = await import("@/lib/user-profile.server");
+        const profile = await getUserDisplayProfile(userId);
+        if (profile.name) {
           authored = authored.map((s) => ({
             ...s,
-            authorName: display,
-            authorAvatarUrl: avatarUrl,
+            authorName: profile.name,
+            authorAvatarUrl: profile.avatarUrl,
           }));
         }
       } catch {
@@ -579,20 +560,13 @@ export const getPublicSkillBySlug = createServerFn({ method: "POST" })
     // Attach author display for user skills.
     if (base.source === "user" && base.authorId) {
       try {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { data: u } = await supabaseAdmin.auth.admin.getUserById(base.authorId);
-        const email = u?.user?.email ?? "";
-        const meta = (u?.user?.user_metadata ?? {}) as Record<string, unknown>;
-        const display =
-          (typeof meta.name === "string" && meta.name) ||
-          (typeof meta.full_name === "string" && meta.full_name) ||
-          (email ? email.split("@")[0] : "") ||
-          null;
-        const avatarUrl =
-          (typeof meta.avatar_url === "string" && meta.avatar_url) ||
-          (typeof meta.picture === "string" && meta.picture) ||
-          null;
-        base = { ...base, authorName: display, authorAvatarUrl: avatarUrl };
+        const { getUserDisplayProfile } = await import("@/lib/user-profile.server");
+        const profile = await getUserDisplayProfile(base.authorId);
+        base = {
+          ...base,
+          authorName: profile.name,
+          authorAvatarUrl: profile.avatarUrl,
+        };
       } catch {
         /* best-effort */
       }
@@ -669,20 +643,13 @@ export const getOwnSkillBySlug = createServerFn({ method: "POST" })
 
     // Attribution: attach caller's own display name/avatar for the "By …" row.
     try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const { data: u } = await supabaseAdmin.auth.admin.getUserById(userId);
-      const email = u?.user?.email ?? "";
-      const meta = (u?.user?.user_metadata ?? {}) as Record<string, unknown>;
-      const display =
-        (typeof meta.name === "string" && meta.name) ||
-        (typeof meta.full_name === "string" && meta.full_name) ||
-        (email ? email.split("@")[0] : "") ||
-        null;
-      const avatarUrl =
-        (typeof meta.avatar_url === "string" && meta.avatar_url) ||
-        (typeof meta.picture === "string" && meta.picture) ||
-        null;
-      base = { ...base, authorName: display, authorAvatarUrl: avatarUrl };
+      const { getUserDisplayProfile } = await import("@/lib/user-profile.server");
+      const profile = await getUserDisplayProfile(userId);
+      base = {
+        ...base,
+        authorName: profile.name,
+        authorAvatarUrl: profile.avatarUrl,
+      };
     } catch {
       /* best-effort */
     }

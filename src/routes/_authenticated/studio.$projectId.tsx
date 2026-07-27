@@ -23,7 +23,6 @@ import {
 // any missing shot images via the generate_image tool).
 // "Render final video" runs the deterministic fal.ai pipeline — no LLM.
 import { renderFinalVideo, listProjectRenders } from "@/lib/render.functions";
-import { getBrowserSupabase } from "@/lib/supabase-browser";
 import {
   Play,
   ListVideo,
@@ -104,7 +103,7 @@ function Studio() {
   const projectQuery = useQuery({
     queryKey: ["project", projectId],
     queryFn: () => fetchProject({ data: { id: projectId } }),
-    // Freshness is driven by the postgres_changes subscription below, which
+    // Freshness is driven by the polling loop below, which
     // invalidates this query whenever the row changes server-side. Avoid
     // the extra round-trip that `staleTime: 0` + `refetchOnMount: "always"`
     // used to add on every studio open.
@@ -298,8 +297,6 @@ function Studio() {
   // Hosted realtime updates are disabled in local-project mode. Local edits
   // update state optimistically and persist through the IndexedDB repository.
   useEffect(() => {
-    // const channel = supabase.channel(...).on(...).subscribe();
-    // return () => void supabase.removeChannel(channel);
   }, [projectId]);
 
   const handlePatch = (patch: ProjectPatch) => {
@@ -666,24 +663,11 @@ function StructurePanel({
 
 
 
-  // While a render job is active: subscribe to its row and tick the
-  // background pipeline every few seconds (belt-and-suspenders with the
-  // pg_cron-driven server-side tick).
+  // While a render job is active, tick the background pipeline and poll its
+  // row every few seconds.
   useEffect(() => {
     if (!renderJobId) return;
     let cancelled = false;
-
-    const ping = () => {
-      void fetch("/api/public/render-tick", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{}",
-      }).catch(() => {});
-    };
-    ping();
-    const interval = window.setInterval(ping, 6_000);
-
-    const client = getBrowserSupabase();
     const handleRenderRow = (row: { status?: string; error?: string | null }) => {
       if (cancelled) return;
       if (row.status === "done") {
@@ -732,24 +716,26 @@ function StructurePanel({
       }
     };
 
-    const channel = client
-      ?.channel(`render-job-${renderJobId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "render_jobs",
-          filter: `id=eq.${renderJobId}`,
-        },
-        (payload) => handleRenderRow(payload.new as { status?: string; error?: string | null }),
-      )
-      .subscribe();
+    const tick = async () => {
+      await fetch("/api/public/render-tick", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      }).catch(() => {});
+      try {
+        const result = await fetchRenders({ data: { projectId } });
+        const row = result.jobs.find((job) => job.id === renderJobId);
+        if (row) handleRenderRow(row);
+      } catch {
+        // The next interval retries.
+      }
+    };
+    void tick();
+    const interval = window.setInterval(() => void tick(), 6_000);
 
     return () => {
       cancelled = true;
       window.clearInterval(interval);
-      if (client && channel) void client.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [renderJobId]);
