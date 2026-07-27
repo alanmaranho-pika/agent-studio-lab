@@ -2052,6 +2052,7 @@ export function AgentShell(props: AgentShellProps) {
   // sized to fit the remaining viewport without ever overflowing under the
   // fixed composer band at the bottom.
   const proseColRef = useRef<HTMLDivElement | null>(null);
+  const cardZoneRef = useRef<HTMLDivElement | null>(null);
   const [proseColHeight, setProseColHeight] = useState<number>(0);
   useEffect(() => {
     const el = proseColRef.current;
@@ -2062,6 +2063,14 @@ export function AgentShell(props: AgentShellProps) {
     ro.observe(el);
     return () => ro.disconnect();
   }, [activeAssistantId, isEmpty]);
+
+  // A card can contain more than a viewport of media and follow-up detail.
+  // Its own scroll area always starts at the first generated block when the
+  // agent advances to a new turn, rather than inheriting a prior card's
+  // scroll position.
+  useEffect(() => {
+    if (showCardZone) cardZoneRef.current?.scrollTo({ top: 0 });
+  }, [activeAssistantId, showCardZone]);
 
   // Reserved bands — measured from the actual fixed chrome (top pill,
   // bottom composer cluster) so the stage never overlaps them even when
@@ -2306,7 +2315,9 @@ export function AgentShell(props: AgentShellProps) {
                       ) : showCardZone ? (
                         <motion.div
                           key={`card-${activeAssistantId ?? "none"}`}
-                          className="col-span-10 col-start-4 mt-6"
+                          ref={cardZoneRef}
+                          className="col-span-10 col-start-4 mt-6 min-h-0 overflow-y-auto overscroll-contain pr-2 [scrollbar-gutter:stable]"
+                          style={{ maxHeight: stageMaxHeight }}
                           variants={cardVariants}
                           custom={navDir}
                           initial="initial"
