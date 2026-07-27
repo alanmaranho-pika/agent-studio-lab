@@ -25,6 +25,7 @@ import { Route as ApiAssetIdRouteImport } from './routes/api/asset.$id'
 import { Route as AuthenticatedStudioProjectIdRouteImport } from './routes/_authenticated/studio.$projectId'
 import { Route as ApiPublicHooksSweepStalledJobsRouteImport } from './routes/api/public/hooks/sweep-stalled-jobs'
 import { Route as ApiPublicHooksPikaPollerRouteImport } from './routes/api/public/hooks/pika-poller'
+import { Route as ApiPublicHooksMigrateNeonRouteImport } from './routes/api/public/hooks/migrate-neon'
 
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
@@ -109,6 +110,12 @@ const ApiPublicHooksPikaPollerRoute =
     path: '/api/public/hooks/pika-poller',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksMigrateNeonRoute =
+  ApiPublicHooksMigrateNeonRouteImport.update({
+    id: '/api/public/hooks/migrate-neon',
+    path: '/api/public/hooks/migrate-neon',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -124,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/api/asset/$id': typeof ApiAssetIdRoute
   '/api/public/render-tick': typeof ApiPublicRenderTickRoute
   '/studio/': typeof AuthenticatedStudioIndexRoute
+  '/api/public/hooks/migrate-neon': typeof ApiPublicHooksMigrateNeonRoute
   '/api/public/hooks/pika-poller': typeof ApiPublicHooksPikaPollerRoute
   '/api/public/hooks/sweep-stalled-jobs': typeof ApiPublicHooksSweepStalledJobsRoute
 }
@@ -141,6 +149,7 @@ export interface FileRoutesByTo {
   '/api/asset/$id': typeof ApiAssetIdRoute
   '/api/public/render-tick': typeof ApiPublicRenderTickRoute
   '/studio': typeof AuthenticatedStudioIndexRoute
+  '/api/public/hooks/migrate-neon': typeof ApiPublicHooksMigrateNeonRoute
   '/api/public/hooks/pika-poller': typeof ApiPublicHooksPikaPollerRoute
   '/api/public/hooks/sweep-stalled-jobs': typeof ApiPublicHooksSweepStalledJobsRoute
 }
@@ -160,6 +169,7 @@ export interface FileRoutesById {
   '/api/asset/$id': typeof ApiAssetIdRoute
   '/api/public/render-tick': typeof ApiPublicRenderTickRoute
   '/_authenticated/studio/': typeof AuthenticatedStudioIndexRoute
+  '/api/public/hooks/migrate-neon': typeof ApiPublicHooksMigrateNeonRoute
   '/api/public/hooks/pika-poller': typeof ApiPublicHooksPikaPollerRoute
   '/api/public/hooks/sweep-stalled-jobs': typeof ApiPublicHooksSweepStalledJobsRoute
 }
@@ -179,6 +189,7 @@ export interface FileRouteTypes {
     | '/api/asset/$id'
     | '/api/public/render-tick'
     | '/studio/'
+    | '/api/public/hooks/migrate-neon'
     | '/api/public/hooks/pika-poller'
     | '/api/public/hooks/sweep-stalled-jobs'
   fileRoutesByTo: FileRoutesByTo
@@ -196,6 +207,7 @@ export interface FileRouteTypes {
     | '/api/asset/$id'
     | '/api/public/render-tick'
     | '/studio'
+    | '/api/public/hooks/migrate-neon'
     | '/api/public/hooks/pika-poller'
     | '/api/public/hooks/sweep-stalled-jobs'
   id:
@@ -214,6 +226,7 @@ export interface FileRouteTypes {
     | '/api/asset/$id'
     | '/api/public/render-tick'
     | '/_authenticated/studio/'
+    | '/api/public/hooks/migrate-neon'
     | '/api/public/hooks/pika-poller'
     | '/api/public/hooks/sweep-stalled-jobs'
   fileRoutesById: FileRoutesById
@@ -226,6 +239,7 @@ export interface RootRouteChildren {
   ApiTranscribeRoute: typeof ApiTranscribeRoute
   ApiAssetIdRoute: typeof ApiAssetIdRoute
   ApiPublicRenderTickRoute: typeof ApiPublicRenderTickRoute
+  ApiPublicHooksMigrateNeonRoute: typeof ApiPublicHooksMigrateNeonRoute
   ApiPublicHooksPikaPollerRoute: typeof ApiPublicHooksPikaPollerRoute
   ApiPublicHooksSweepStalledJobsRoute: typeof ApiPublicHooksSweepStalledJobsRoute
 }
@@ -344,6 +358,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksPikaPollerRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/migrate-neon': {
+      id: '/api/public/hooks/migrate-neon'
+      path: '/api/public/hooks/migrate-neon'
+      fullPath: '/api/public/hooks/migrate-neon'
+      preLoaderRoute: typeof ApiPublicHooksMigrateNeonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -379,6 +400,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiTranscribeRoute: ApiTranscribeRoute,
   ApiAssetIdRoute: ApiAssetIdRoute,
   ApiPublicRenderTickRoute: ApiPublicRenderTickRoute,
+  ApiPublicHooksMigrateNeonRoute: ApiPublicHooksMigrateNeonRoute,
   ApiPublicHooksPikaPollerRoute: ApiPublicHooksPikaPollerRoute,
   ApiPublicHooksSweepStalledJobsRoute: ApiPublicHooksSweepStalledJobsRoute,
 }
