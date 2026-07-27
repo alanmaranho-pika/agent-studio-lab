@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { Folder, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { BrandMark } from "@/components/pika-mark";
 import { ProjectThumbnail } from "@/components/project-thumbnail";
 import {
@@ -237,7 +238,10 @@ function ProjectsPage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["projects-list"] });
     },
-    onError: () => {
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : "Could not create the project",
+      );
       // If create failed, get the user back to the projects list.
       void navigate({ to: "/projects" });
     },

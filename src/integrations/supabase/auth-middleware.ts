@@ -24,6 +24,10 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
     try {
       identity = await validateNeonAuthToken(token);
     } catch (error) {
+      console.error(
+        "[auth] bearer token verification failed:",
+        error instanceof Error ? error.message : "Invalid token",
+      );
       throw new Error(
         `Unauthorized: ${error instanceof Error ? error.message : "Invalid token"}`,
       );

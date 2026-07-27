@@ -81,6 +81,7 @@
     "hls.js": "^1.6.16",
     "input-otp": "^1.4.2",
     "isomorphic-dompurify": "^3.14.0",
+    "jose": "^6.2.4",
     "lottie-web": "^5.13.0",
     "lucide-react": "^1.16.0",
     "matter-js": "^0.20.0",
