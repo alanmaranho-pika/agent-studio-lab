@@ -1,4 +1,4 @@
-import { getNeonSql, hasNeonDatabase } from "./client.server";
+import { getNeonSql, hasNeonDatabase } from "./client.server.ts";
 
 type ColumnType =
   | "bigint"

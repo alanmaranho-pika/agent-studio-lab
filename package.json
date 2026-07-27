@@ -9,7 +9,7 @@
   },
   "packageManager": "npm@11.10.0",
   "scripts": {
-    "prebuild": "node scripts/migrate-neon-preview.mjs",
+    "prebuild": "node scripts/migrate-neon-preview.mjs && node --experimental-strip-types --experimental-transform-types scripts/verify-neon-adapter.mjs",
     "dev": "vite dev",
     "build": "NODE_OPTIONS=--max-old-space-size=8192 vite build",
     "build:dev": "NODE_OPTIONS=--max-old-space-size=8192 vite build --mode development",
