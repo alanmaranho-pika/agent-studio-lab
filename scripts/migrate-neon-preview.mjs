@@ -29,17 +29,21 @@ const neonUrl =
   process.env.DATABASE_URL ??
   process.env.POSTGRES_URL ??
   process.env.STORAGE_URL;
-const supabaseKey = process.env.MY_SUPABASE_SERVICE_ROLE_KEY;
+const supabaseKey =
+  process.env.MY_SUPABASE_SERVICE_ROLE_KEY ??
+  process.env.SUPABASE_SERVICE_ROLE_KEY ??
+  process.env.SUPABASE_SECRET_KEY ??
+  process.env.SUPABASE_SERVICE_KEY;
 if (!neonUrl || !supabaseKey) {
-  const databaseVariableNames = Object.keys(process.env)
-    .filter((name) => /^(NEON|POSTGRES|DATABASE_URL$|STORAGE)/.test(name))
+  const relevantVariableNames = Object.keys(process.env)
+    .filter((name) => /^(NEON|POSTGRES|DATABASE_URL$|STORAGE|.*SUPABASE.*)/.test(name))
     .sort();
   console.log(
-    `[neon-migration] available database variables: ${databaseVariableNames.join(", ") || "none"}`,
+    `[neon-migration] available migration variables: ${relevantVariableNames.join(", ") || "none"}`,
   );
   throw new Error(
     `[neon-migration] missing ${
-      !neonUrl ? "a supported Neon connection variable" : "MY_SUPABASE_SERVICE_ROLE_KEY"
+      !neonUrl ? "a supported Neon connection variable" : "a Supabase service-role key"
     }`,
   );
 }
