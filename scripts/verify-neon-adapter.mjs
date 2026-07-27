@@ -1,10 +1,17 @@
 import { randomUUID } from "node:crypto";
 
+const productionRequested = process.argv.includes("--production");
 const isNeonPreview =
   process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "vercel";
+const isNeonProduction =
+  process.env.VERCEL_ENV === "production" && process.env.VERCEL_GIT_COMMIT_REF === "main";
+const shouldVerify = productionRequested ? isNeonProduction : isNeonPreview;
+const verificationEnvironment = productionRequested ? "production" : "preview";
 
-if (!isNeonPreview) {
-  console.log("[neon-adapter] skipped outside the vercel preview branch");
+if (!shouldVerify) {
+  console.log(
+    `[neon-adapter] ${verificationEnvironment} check skipped outside its guarded environment`,
+  );
   process.exit(0);
 }
 
@@ -180,4 +187,4 @@ try {
   }
 }
 
-console.log("[neon-adapter] read/write/ownership smoke test verified");
+console.log(`[neon-adapter] ${verificationEnvironment} read/write/ownership smoke test verified`);

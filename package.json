@@ -12,6 +12,7 @@
     "prebuild": "node scripts/migrate-neon-preview.mjs && node --experimental-strip-types --experimental-transform-types scripts/verify-neon-adapter.mjs",
     "dev": "vite dev",
     "build": "NODE_OPTIONS=--max-old-space-size=8192 vite build",
+    "postbuild": "node scripts/migrate-neon-preview.mjs --production && node --experimental-strip-types --experimental-transform-types scripts/verify-neon-adapter.mjs --production",
     "build:dev": "NODE_OPTIONS=--max-old-space-size=8192 vite build --mode development",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",

@@ -16,11 +16,18 @@ const TABLES = [
   "agent_skill_versions",
 ];
 
+const productionRequested = process.argv.includes("--production");
 const isMigrationPreview =
   process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "vercel";
+const isMigrationProduction =
+  process.env.VERCEL_ENV === "production" && process.env.VERCEL_GIT_COMMIT_REF === "main";
+const shouldMigrate = productionRequested ? isMigrationProduction : isMigrationPreview;
+const migrationEnvironment = productionRequested ? "production" : "preview";
 
-if (!isMigrationPreview) {
-  console.log("[neon-migration] skipped outside the vercel preview branch");
+if (!shouldMigrate) {
+  console.log(
+    `[neon-migration] ${migrationEnvironment} copy skipped outside its guarded environment`,
+  );
   process.exit(0);
 }
 
@@ -84,6 +91,18 @@ for (const statement of splitSqlStatements(schemaSql)) {
   await sql.query(statement);
 }
 
+const productionCopyMigration = "002_supabase_data_copy";
+if (productionRequested) {
+  const existingCopy = await sql.query(
+    "select 1 from public.app_migrations where name = $1 limit 1",
+    [productionCopyMigration],
+  );
+  if (existingCopy.length > 0) {
+    console.log("[neon-migration] production copy already applied");
+    process.exit(0);
+  }
+}
+
 const sourceData = {};
 for (const table of TABLES) {
   const { data, error } = await source.from(table).select("*");
@@ -143,4 +162,13 @@ for (const table of TABLES) {
   console.log(`[neon-migration] ${table}: ${targetCount}`);
 }
 
-console.log("[neon-migration] preview copy verified");
+if (productionRequested) {
+  await sql.query(
+    `insert into public.app_migrations (name)
+     values ($1)
+     on conflict (name) do update set applied_at = now()`,
+    [productionCopyMigration],
+  );
+}
+
+console.log(`[neon-migration] ${migrationEnvironment} copy verified`);
