@@ -22,11 +22,25 @@ if (!isMigrationPreview) {
   process.exit(0);
 }
 
-const neonUrl = process.env.NEON_URL;
+const neonUrl =
+  process.env.NEON_URL ??
+  process.env.NEON_DATABASE_URL ??
+  process.env.NEON_POSTGRES_URL ??
+  process.env.DATABASE_URL ??
+  process.env.POSTGRES_URL ??
+  process.env.STORAGE_URL;
 const supabaseKey = process.env.MY_SUPABASE_SERVICE_ROLE_KEY;
 if (!neonUrl || !supabaseKey) {
+  const databaseVariableNames = Object.keys(process.env)
+    .filter((name) => /^(NEON|POSTGRES|DATABASE_URL$|STORAGE)/.test(name))
+    .sort();
+  console.log(
+    `[neon-migration] available database variables: ${databaseVariableNames.join(", ") || "none"}`,
+  );
   throw new Error(
-    `[neon-migration] missing ${!neonUrl ? "NEON_URL" : "MY_SUPABASE_SERVICE_ROLE_KEY"}`,
+    `[neon-migration] missing ${
+      !neonUrl ? "a supported Neon connection variable" : "MY_SUPABASE_SERVICE_ROLE_KEY"
+    }`,
   );
 }
 
