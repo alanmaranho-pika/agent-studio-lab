@@ -538,8 +538,6 @@ export const startShortFilmBeat = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => StartBeatInput.parse(data))
   .handler(async ({ data }) => {
-    const key = process.env.FAL_KEY;
-    if (!key) throw new Error("Missing FAL_KEY");
     const refs = data.referenceImageUrls ?? [];
     const modelId =
       refs.length > 0
@@ -549,37 +547,17 @@ export const startShortFilmBeat = createServerFn({ method: "POST" })
       prompt: data.prompt,
       aspect_ratio: data.aspect ?? "16:9",
       resolution: data.resolution ?? "1080p",
-      duration: String(data.durationSec),
+      duration: data.durationSec,
       generate_audio: data.generateAudio ?? true,
     };
     if (refs.length > 0) body.image_urls = refs;
 
-    const submitRes = await fetch(`https://queue.fal.run/${modelId}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Key ${key}`,
-      },
-      body: JSON.stringify(body),
-    });
-    if (!submitRes.ok) {
-      const txt = await submitRes.text().catch(() => "");
-      throw new Error(
-        `fal seedance-2.0 submit ${submitRes.status}: ${txt.slice(0, 500)}`,
-      );
-    }
-    const j = (await submitRes.json()) as {
-      request_id?: string;
-      status_url?: string;
-      response_url?: string;
-    };
-    if (!j.status_url || !j.response_url) {
-      throw new Error("fal seedance-2.0 submit returned no status_url/response_url");
-    }
+    const { falSubmit } = await import("@/lib/fal.server");
+    const submitted = await falSubmit(modelId, body, "seedance-2.0");
     return {
-      statusUrl: j.status_url,
-      responseUrl: j.response_url,
-      requestId: j.request_id ?? null,
+      statusUrl: submitted.statusUrl,
+      responseUrl: submitted.responseUrl,
+      requestId: submitted.requestId,
     };
   });
 
@@ -595,40 +573,11 @@ export const pollShortFilmBeat = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => PollBeatInput.parse(data))
   .handler(async ({ data, context }) => {
-    const key = process.env.FAL_KEY;
-    if (!key) throw new Error("Missing FAL_KEY");
-    const auth = { Authorization: `Key ${key}` };
-
-    const sRes = await fetch(data.statusUrl, { headers: auth });
-    if (!sRes.ok) {
-      // Transient — let the client keep polling.
-      return { status: "pending" as const };
-    }
-    const sJson = (await sRes.json().catch(() => ({}))) as { status?: string };
-    const status = (sJson.status || "").toUpperCase();
-    if (status === "FAILED" || status === "CANCELLED" || status === "ERROR") {
-      let detail = "";
-      try {
-        const rRes = await fetch(data.responseUrl, { headers: auth });
-        detail = (await rRes.text()).slice(0, 500);
-      } catch {}
-      return {
-        status: "failed" as const,
-        error: `Seedance job ${status.toLowerCase()}${detail ? `: ${detail}` : ""}`,
-      };
-    }
-    if (status !== "COMPLETED") return { status: "pending" as const };
-
-    const { falPickVideoUrl } = await import("@/lib/fal.server");
-    const rRes = await fetch(data.responseUrl, { headers: auth });
-    if (!rRes.ok) {
-      const txt = await rRes.text().catch(() => "");
-      return {
-        status: "failed" as const,
-        error: `fal seedance-2.0 response ${rRes.status}: ${txt.slice(0, 500)}`,
-      };
-    }
-    const out = await rRes.json().catch(() => null);
+    const { falPickVideoUrl, falPollOnce } = await import("@/lib/fal.server");
+    const tick = await falPollOnce(data.statusUrl, data.responseUrl);
+    if (tick.status === "in_progress") return { status: "pending" as const };
+    if (tick.status === "failed") return { status: "failed" as const, error: tick.error };
+    const out = tick.response;
     const videoUrl = falPickVideoUrl(out);
     if (!videoUrl) {
       return {
@@ -924,6 +873,5 @@ export const recoverStalledBeats = createServerFn({ method: "POST" })
       })),
     };
   });
-
 
 

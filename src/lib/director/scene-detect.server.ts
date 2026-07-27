@@ -1,5 +1,5 @@
 /**
- * Cloud scene-cut detection via fal.ai's `fal-ai/pyscenedetect` model.
+ * Cloud scene-cut detection via the legacy fal.ai `pyscenedetect` utility.
  *
  * Takes a video URL, returns a list of cut boundaries in seconds. Used by
  * the produce_scene landing path (`pika-jobs.server.ts`) to auto-split a
@@ -9,7 +9,7 @@
  * Failure is soft: any error returns an empty list so the caller can fall
  * back to the single-clip path.
  */
-import { falRun } from "@/lib/fal.server";
+import { legacyFalRun } from "@/lib/fal.server";
 
 export type SceneCut = { startSec: number; endSec: number };
 
@@ -69,7 +69,7 @@ function normalize(resp: PySceneDetectResponse): SceneCut[] {
 export async function detectSceneCuts(videoUrl: string): Promise<SceneCut[]> {
   if (!videoUrl || !/^https?:/.test(videoUrl)) return [];
   try {
-    const resp = await falRun<PySceneDetectResponse>(
+    const resp = await legacyFalRun<PySceneDetectResponse>(
       "fal-ai/pyscenedetect",
       { video_url: videoUrl },
       { label: "pyscenedetect", timeoutMs: 3 * 60_000 },

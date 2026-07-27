@@ -1,6 +1,5 @@
 // @ts-nocheck — legacy feature file; feature tables (characters, library_subjects, render_jobs, etc.) are not part of the projects-first Supabase migration.
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
+import { createPikaAiProvider, requirePikaApiKey } from "@/lib/ai-gateway.server";
 import { createFileRoute } from "@tanstack/react-router";
 import { convertToModelMessages, stepCountIs, streamText, tool, type UIMessage } from "ai";
 import { z } from "zod";
@@ -45,14 +44,6 @@ import {
   materializeRefsForFal,
 } from "@/lib/agent/render-references.server";
 
-// Anthropic rate-limit circuit breaker (module-scoped).
-let __anthropicCooldownUntil = 0;
-function getAnthropicCooldownUntil() {
-  return __anthropicCooldownUntil;
-}
-function setAnthropicCooldown(ms: number) {
-  __anthropicCooldownUntil = Date.now() + ms;
-}
 function isRateLimitError(err: unknown): boolean {
   if (!err) return false;
   const anyErr = err as { statusCode?: number; status?: number; message?: string; name?: string };
@@ -696,51 +687,19 @@ export const Route = createFileRoute("/api/chat")({
             { onConflict: "id" },
           );
         }
-        // Real agent brain: Claude Sonnet 4.5 via direct Anthropic.
-        // Why not Lovable Gateway / Gemini Flash? Flash was fast but kept losing
-        // project context across turns — re-asking aspect ratio, forgetting
-        // picked model, ignoring the state block. Claude Sonnet 4.5 actually
-        // reads the PROJECT MEMORY block and respects the decisions log.
-        const sanitizeKey = (name: string, raw: string | undefined): string | undefined => {
-          if (!raw) return undefined;
-          const v = raw.trim();
-          for (let i = 0; i < v.length; i++) {
-            const c = v.charCodeAt(i);
-            if (c > 255 || c < 0x20) {
-              console.error(
-                `[chat] ${name} contains invalid character (code ${c}) at index ${i}. Ignoring this secret — please re-set it without copy-paste artifacts (smart quotes, Cyrillic look-alikes, or line breaks).`,
-              );
-              return undefined;
-            }
-          }
-          return v;
-        };
-        const anthropicKey = sanitizeKey("ANTHROPIC_API_KEY", process.env.ANTHROPIC_API_KEY);
-        const key = sanitizeKey("LOVABLE_API_KEY", process.env.LOVABLE_API_KEY);
-
-        // Circuit breaker: when Anthropic 429s, cool down for 60s and fall
-        // back to Lovable Gateway so users don't get "Failed after 3 attempts".
-        const anthropicHot = anthropicKey && Date.now() > getAnthropicCooldownUntil();
+        // Pika's OpenAI-compatible gateway is the single agent provider.
+        // Claude Sonnet 5 preserves the strong project-memory and tool-use
+        // behavior the studio relies on while keeping auth behind Pika.
         let model;
-        let usingFallback = false;
-        if (anthropicHot) {
-          const anthropic = createAnthropic({ apiKey: anthropicKey! });
-          model = anthropic("claude-sonnet-4-5-20250929");
-        } else if (key) {
-          const gateway = createLovableAiGatewayProvider(key);
-          model = gateway("google/gemini-3-flash-preview");
-          usingFallback = !!anthropicKey;
-        } else if (anthropicKey) {
-          const anthropic = createAnthropic({ apiKey: anthropicKey });
-          model = anthropic("claude-sonnet-4-5-20250929");
-        } else {
+        try {
+          model = createPikaAiProvider(requirePikaApiKey())(
+            "anthropic/claude-sonnet-5",
+          );
+        } catch {
           return new Response(
-            "AI is not configured. Add ANTHROPIC_API_KEY (preferred) or LOVABLE_API_KEY to .env.local, then restart the local server.",
+            "AI is not configured. Add PIKA_API_KEY to .env.local, then restart the local server.",
             { status: 500 },
           );
-        }
-        if (usingFallback) {
-          console.warn("[chat] Anthropic cooling down, using Gemini fallback");
         }
 
         // Turn guard — tracks media produced by tools this turn and
@@ -1836,8 +1795,7 @@ export const Route = createFileRoute("/api/chat")({
           onError: async ({ error }) => {
             console.error("[chat] streamText error:", error);
             if (isRateLimitError(error)) {
-              setAnthropicCooldown(60_000);
-              console.warn("[chat] rate-limited — cooling Anthropic 60s, next turn uses fallback");
+              console.warn("[chat] Pika agent gateway is rate-limited");
             }
           },
         });

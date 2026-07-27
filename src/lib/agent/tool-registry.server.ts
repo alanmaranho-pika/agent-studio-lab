@@ -189,7 +189,7 @@ const shortFilm: AgentTool[] = [
       durationSec: z.number().int().min(4).max(15).describe("The beat's duration in seconds (same as start_beat)."),
       label: z.string().max(200).optional().describe("Label for the stored clip asset."),
     }),
-    example: { statusUrl: "https://queue.fal.run/.../status", responseUrl: "https://queue.fal.run/.../response", durationSec: 8, label: "Beat 1" },
+    example: { statusUrl: "https://api.dev.pika.art/v1/media/jobs/...", responseUrl: "https://api.dev.pika.art/v1/media/jobs/.../content", durationSec: 8, label: "Beat 1" },
     execute: (input, ctx) => call(pollShortFilmBeat, withProjectDefault(input, ctx) as never),
   },
   {
@@ -654,25 +654,25 @@ const direct: AgentTool[] = [
   {
     name: "generate.direct_start",
     group: "generate",
-    description: "Start a direct fal generation job (single shot). Returns statusUrl/responseUrl for generate.direct_poll.",
+    description: "Start a direct Pika generation job (single shot). Returns statusUrl/responseUrl for generate.direct_poll.",
     inputSchema: z.object({
       projectId: optionalProjectId,
       prompt: z.string().min(1).max(8000),
       mode: z.enum(["image", "video", "audio", "speech"]).describe("What the model produces."),
-      model: z.string().min(3).max(255).describe("fal model id, e.g. 'fal-ai/bytedance/seedance-2.0/text-to-video'."),
+      model: z.string().min(3).max(255).describe("Pika model id, e.g. 'bytedance/seedance-2.0/text-to-video'."),
       userMessageId: z.string().min(1).max(64).describe("Unique id for the chat user message this generation belongs to."),
       assistantMessageId: z.string().min(1).max(64).describe("Unique id for the chat assistant message the result attaches to."),
       referenceImageUrls: z.array(z.string().url()).max(8).optional().describe("Reference image URLs (likeness/keyframes)."),
       referenceVideoUrl: z.string().url().optional().describe("Reference video URL (video-to-video models)."),
       params: generateParams,
     }),
-    example: { prompt: "Keeper lights the lantern, storm outside", mode: "video", model: "fal-ai/bytedance/seedance-2.0/text-to-video", userMessageId: "msg_u1", assistantMessageId: "msg_a1" },
+    example: { prompt: "Keeper lights the lantern, storm outside", mode: "video", model: "bytedance/seedance-2.0/text-to-video", userMessageId: "msg_u1", assistantMessageId: "msg_a1" },
     execute: (input, ctx) => call(directGenerateStart, withProjectDefault(input, ctx) as never),
   },
   {
     name: "generate.direct_poll",
     group: "generate",
-    description: "Poll a direct fal generation job.",
+    description: "Poll a direct Pika generation job.",
     inputSchema: z.object({
       projectId: optionalProjectId,
       mode: z.enum(["image", "video", "audio", "speech"]).describe("Same mode passed to direct_start."),
@@ -684,7 +684,7 @@ const direct: AgentTool[] = [
       placeholderId: z.string().uuid().optional().describe("Placeholder asset id returned by direct_start, if any."),
       params: generateParams,
     }),
-    example: { mode: "video", model: "fal-ai/bytedance/seedance-2.0/text-to-video", prompt: "Keeper lights the lantern, storm outside", assistantMessageId: "msg_a1", statusUrl: "https://queue.fal.run/.../status", responseUrl: "https://queue.fal.run/.../response" },
+    example: { mode: "video", model: "bytedance/seedance-2.0/text-to-video", prompt: "Keeper lights the lantern, storm outside", assistantMessageId: "msg_a1", statusUrl: "https://api.dev.pika.art/v1/media/jobs/...", responseUrl: "https://api.dev.pika.art/v1/media/jobs/.../content" },
     execute: (input, ctx) => call(directGeneratePoll, withProjectDefault(input, ctx) as never),
   },
 ];

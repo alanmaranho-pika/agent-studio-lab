@@ -4,8 +4,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { generateText } from "ai";
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
+import { createPikaAiProvider, requirePikaApiKey } from "@/lib/ai-gateway.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
@@ -274,21 +273,17 @@ export const improveSkillMd = createServerFn({ method: "POST" })
     if (error) throw new Error(`Could not validate the skill: ${error.message}`);
     if (!skill) throw new Error(`Unknown appId "${data.appId}"`);
 
-    const anthropicKey = process.env.ANTHROPIC_API_KEY?.trim();
-    const lovableKey = process.env.LOVABLE_API_KEY?.trim();
     let model;
-    let actorName: string;
-    if (anthropicKey) {
-      model = createAnthropic({ apiKey: anthropicKey })("claude-sonnet-4-5-20250929");
-      actorName = "Skill editor agent · Claude Sonnet 4.5";
-    } else if (lovableKey) {
-      model = createLovableAiGatewayProvider(lovableKey)("google/gemini-3-flash-preview");
-      actorName = "Skill editor agent · Gemini 3 Flash";
-    } else {
+    try {
+      model = createPikaAiProvider(requirePikaApiKey())(
+        "anthropic/claude-sonnet-5",
+      );
+    } catch {
       throw new Error(
-        "AI is not configured. Add ANTHROPIC_API_KEY (preferred) or LOVABLE_API_KEY to the current environment.",
+        "AI is not configured. Add PIKA_API_KEY to the current environment.",
       );
     }
+    const actorName = "Skill editor agent · Pika Claude Sonnet 5";
 
     const system =
       "You edit agent skill playbooks written in Markdown with YAML frontmatter. " +

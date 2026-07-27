@@ -184,7 +184,7 @@ export const startRender = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const userId = context.userId;
-    if (!process.env.FAL_KEY) throw new Error("Missing FAL_KEY");
+    if (!process.env.PIKA_API_KEY) throw new Error("Missing PIKA_API_KEY");
     const proj = await ownProject(data.projectId, userId);
     const state = (proj.project_state ?? INITIAL_PROJECT) as ProjectState;
     if (state.scenes.length === 0) {
@@ -323,7 +323,7 @@ export const retryRenderScene = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const userId = context.userId;
-    if (!process.env.FAL_KEY) throw new Error("Missing FAL_KEY");
+    if (!process.env.PIKA_API_KEY) throw new Error("Missing PIKA_API_KEY");
     const { data: out } = await supabaseAdmin
       .from("render_scene_outputs")
       .select("id, scene_id, prompt, render_job_id")
@@ -471,7 +471,7 @@ export const renderFinalVideo = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const userId = context.userId;
-    if (!process.env.FAL_KEY) throw new Error("Missing FAL_KEY");
+    if (!process.env.PIKA_API_KEY) throw new Error("Missing PIKA_API_KEY");
     const proj = await ownProject(data.projectId, userId);
     const state = (proj.project_state ?? INITIAL_PROJECT) as ProjectState;
     if (state.scenes.length === 0) {

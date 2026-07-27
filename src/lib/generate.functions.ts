@@ -13,7 +13,8 @@ import {
   falPickImageUrl,
   falPickVideoUrl,
   normalizeAspect,
-  normalizeFalModelPath,
+  falPollOnce,
+  falSubmit,
 } from "@/lib/fal.server";
 import { downloadAndStoreUrl } from "@/lib/project-assets.server";
 import type { AssetKind, ProjectState } from "@/lib/project-state";
@@ -91,18 +92,12 @@ function assetKindFor(mode: z.infer<typeof ModeSchema>): AssetKind {
   return "music";
 }
 
-function falAuthHeader(): Record<string, string> {
-  const key = process.env.FAL_KEY;
-  if (!key) throw new Error("Missing FAL_KEY");
-  return { Authorization: `Key ${key}` };
-}
-
 function isTransientFetchError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return /failed to fetch|fetch failed|network|econnreset|etimedout/i.test(message);
 }
 
-// Submit a fal job WITHOUT polling. Returns the queue urls so the client
+// Submit a Pika job WITHOUT polling. Returns the status/content urls so the client
 // can poll via `directGeneratePoll`. We do this so single-shot generations
 // (especially video) don't hold a Worker request open past its wall-clock
 // limit and surface as "Load failed" in the browser.
@@ -134,7 +129,8 @@ export const directGenerateStart = createServerFn({ method: "POST" })
       { onConflict: "id" },
     );
 
-    // Build the fal input by mode.
+    // Build the provider-neutral input by mode. The Pika adapter performs the
+    // final model and field-name normalization at submit time.
     let body: Record<string, unknown>;
     const refImageUrls = (data.referenceImageUrls ?? []).filter((u) => /^https?:/.test(u));
     const model = data.model;
@@ -260,21 +256,22 @@ export const directGenerateStart = createServerFn({ method: "POST" })
       const voice = body.voice;
       const speed = body.speed;
       delete body.voice;
-      delete body.speed;
-      const voiceSetting: Record<string, unknown> = {};
-      if (typeof voice === "string") voiceSetting.voice_id = voice;
-      if (typeof speed === "number") voiceSetting.speed = speed;
-      if (Object.keys(voiceSetting).length > 0) body.voice_setting = voiceSetting;
+      if (typeof voice === "string" && voice) body.voice_id = voice;
+      if (speed !== undefined) body.speed = speed;
     }
     if (isElevenTts) {
       const stability = body.stability;
       if (typeof stability === "number") {
         delete body.stability;
-        body.voice_settings = { stability };
+        body.voice_settings = { ...(body.voice_settings as Record<string, unknown> | undefined), stability };
+      }
+      if (typeof body.voice === "string") {
+        body.voice_id = body.voice;
+        delete body.voice;
       }
     }
 
-    // Veo 3 i2v: drop "auto" sentinel — fal expects the field omitted.
+    // Veo 3 i2v: drop "auto" sentinel — Pika expects the field omitted.
     if (isVeo3 && body.aspect_ratio === "auto") delete body.aspect_ratio;
 
     // Pika expects `duration` as an integer (5 or 10), not a string.
@@ -283,9 +280,7 @@ export const directGenerateStart = createServerFn({ method: "POST" })
       if (Number.isFinite(n)) body.duration = n;
     }
 
-    // Seedance 2.0 (all variants) requires duration to be a string enum:
-    // 'auto' or '4'..'15'. Clamp any numeric/string input into range and
-    // stringify — otherwise fal rejects with a 422 literal_error.
+    // Seedance 2.0 requires an integer duration between 4 and 15 seconds.
     if (model.startsWith("bytedance/seedance-2.0") && body.duration !== undefined) {
       const raw = body.duration;
       if (raw === "auto") {
@@ -350,27 +345,11 @@ export const directGenerateStart = createServerFn({ method: "POST" })
     }
 
     try {
-      const submitRes = await fetch(`https://queue.fal.run/${normalizeFalModelPath(effectiveModel)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...falAuthHeader() },
-        body: JSON.stringify(body),
-      });
-      if (!submitRes.ok) {
-        const txt = await submitRes.text().catch(() => "");
-        throw new Error(`fal ${effectiveModel} submit ${submitRes.status}: ${txt.slice(0, 400)}`);
-      }
-      const j = (await submitRes.json()) as {
-        request_id?: string;
-        status_url?: string;
-        response_url?: string;
-      };
-      if (!j.status_url || !j.response_url) {
-        throw new Error(`fal ${data.model} submit returned no status_url/response_url`);
-      }
+      const submitted = await falSubmit(effectiveModel, body, data.model);
       return {
         ok: true as const,
-        statusUrl: j.status_url,
-        responseUrl: j.response_url,
+        statusUrl: submitted.statusUrl,
+        responseUrl: submitted.responseUrl,
         placeholderId,
       };
     } catch (err) {
@@ -430,22 +409,12 @@ export const directGeneratePoll = createServerFn({ method: "POST" })
 
     let sourceUrl: string | null = null;
     try {
-      const sRes = await fetch(data.statusUrl, { headers: falAuthHeader() });
-      if (!sRes.ok) return { ok: true as const, status: "pending" as const };
-      const sJson = (await sRes.json().catch(() => ({}))) as { status?: string };
-      const status = (sJson.status || "").toUpperCase();
-      if (status === "FAILED" || status === "CANCELLED" || status === "ERROR") {
-        throw new Error(`fal ${data.model} job ${status.toLowerCase()}`);
-      }
-      if (status !== "COMPLETED") {
+      const tick = await falPollOnce(data.statusUrl, data.responseUrl);
+      if (tick.status === "in_progress") {
         return { ok: true as const, status: "pending" as const };
       }
-      const rRes = await fetch(data.responseUrl, { headers: falAuthHeader() });
-      if (!rRes.ok) {
-        const txt = await rRes.text().catch(() => "");
-        throw new Error(`fal ${data.model} response ${rRes.status}: ${txt.slice(0, 400)}`);
-      }
-      const out = await rRes.json();
+      if (tick.status === "failed") throw new Error(tick.error);
+      const out = tick.response;
       if (data.mode === "image") sourceUrl = falPickImageUrl(out);
       else if (data.mode === "video") sourceUrl = falPickVideoUrl(out);
       else sourceUrl = falPickAudioUrl(out);
