@@ -308,21 +308,50 @@ function splitCommaList(value: string): string[] {
     .filter(Boolean);
 }
 
+function jsonPathProjection(table: NeonTable, column: string): string | null {
+  const source = /^([A-Za-z_][A-Za-z0-9_]*)(.*)$/.exec(column);
+  if (!source || columnType(table, source[1]) !== "jsonb") return null;
+
+  let cursor = 0;
+  const path: string[] = [];
+  const operators: string[] = [];
+  const rest = source[2];
+  const token = /(?:->>|->)[A-Za-z_][A-Za-z0-9_]*/g;
+  for (const match of rest.matchAll(token)) {
+    if (match.index !== cursor) return null;
+    const operator = match[0].startsWith("->>") ? "->>" : "->";
+    const key = match[0].slice(operator.length);
+    operators.push(operator);
+    path.push(key);
+    cursor += match[0].length;
+  }
+  if (path.length === 0 || cursor !== rest.length) return null;
+
+  return `${quoteIdentifier(source[1])}${path
+    .map((key, index) => `${operators[index]}'${key}'`)
+    .join("")}`;
+}
+
 function selectExpression(table: NeonTable, selection: string): string {
   if (selection.trim() === "*") return "*";
 
   return splitCommaList(selection)
     .map((part) => {
-      if (part.includes("(") || part.includes(")") || part.includes("->")) {
+      if (part.includes("(") || part.includes(")")) {
         throw new Error(`Unsupported nested selection "${part}" on Neon table "${table}"`);
       }
       const separator = part.indexOf(":");
       const alias = separator >= 0 ? part.slice(0, separator).trim() : null;
       const column = separator >= 0 ? part.slice(separator + 1).trim() : part;
-      columnType(table, column);
+      const projection = column.includes("->") ? jsonPathProjection(table, column) : null;
+      if (column.includes("->") && !projection) {
+        throw new Error(`Unsupported JSON path selection "${part}" on Neon table "${table}"`);
+      }
+      const expression = projection ?? quoteIdentifier(column);
+      if (!projection) columnType(table, column);
       return alias
-        ? `${quoteIdentifier(column)} AS ${quoteIdentifier(alias)}`
-        : quoteIdentifier(column);
+        ? `${expression} AS ${quoteIdentifier(alias)}`
+        : expression;
     })
     .join(", ");
 }
