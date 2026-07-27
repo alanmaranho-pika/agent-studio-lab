@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import { neon } from "@neondatabase/serverless";
 import { createClient } from "@supabase/supabase-js";
 
+import { splitSqlStatements } from "./sql-statements.mjs";
+
 const TABLES = [
   "profiles",
   "projects",
@@ -78,7 +80,9 @@ const source = createClient("https://igsepvhlwuasodrkadug.supabase.co", supabase
 const sql = neon(neonUrl);
 const schemaSql = await readFile(new URL("../src/lib/neon/schema.sql", import.meta.url), "utf8");
 
-await sql.query(schemaSql);
+for (const statement of splitSqlStatements(schemaSql)) {
+  await sql.query(statement);
+}
 
 const sourceData = {};
 for (const table of TABLES) {
