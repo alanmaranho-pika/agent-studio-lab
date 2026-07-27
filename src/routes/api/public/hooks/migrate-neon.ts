@@ -134,6 +134,35 @@ export const Route = createFileRoute("/api/public/hooks/migrate-neon")({
   server: {
     handlers: {
       GET: async ({ request }) => {
+        const url = new URL(request.url);
+        const connectorCopy = url.searchParams.get("confirm") === "copy-supabase-to-neon-preview";
+
+        if (connectorCopy) {
+          if (!isPreviewEnvironment() || process.env.VERCEL_GIT_COMMIT_REF !== "vercel") {
+            return Response.json(
+              { ok: false, error: "Connector copy is locked to the vercel preview" },
+              { status: 409 },
+            );
+          }
+          if (!hasNeonDatabase()) {
+            return Response.json({ ok: false, error: "NEON_URL is unavailable" }, { status: 503 });
+          }
+
+          try {
+            const result = await migrate();
+            return Response.json({ ok: true, ...result });
+          } catch (error) {
+            console.error("[migrate-neon]", error instanceof Error ? error.message : error);
+            return Response.json(
+              {
+                ok: false,
+                error: error instanceof Error ? error.message : "Migration failed",
+              },
+              { status: 500 },
+            );
+          }
+        }
+
         if (!isAuthorized(request)) {
           return new Response("Unauthorized", { status: 401 });
         }
