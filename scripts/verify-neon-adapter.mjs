@@ -22,6 +22,7 @@ const fallback = {
 const admin = createNeonDataClient(fallback);
 const projectId = randomUUID();
 const assetId = randomUUID();
+const messageId = randomUUID();
 
 function assertSuccess(result, label) {
   if (result.error) {
@@ -83,14 +84,54 @@ try {
   const updatedProject = assertSuccess(
     await admin
       .from("projects")
-      .update({ title: "Neon adapter verified" })
+      .update({
+        project_state: { meta: { title: "Neon adapter verified" } },
+        title: "Neon adapter verified",
+      })
       .eq("id", projectId)
-      .select("id, title")
+      .select("id, title, project_state")
       .single(),
     "project update",
   );
-  if (updatedProject?.title !== "Neon adapter verified") {
+  if (
+    updatedProject?.title !== "Neon adapter verified" ||
+    updatedProject?.project_state?.meta?.title !== "Neon adapter verified"
+  ) {
     throw new Error("[neon-adapter] project update was not persisted");
+  }
+
+  assertSuccess(
+    await admin.from("project_messages").upsert(
+      {
+        id: messageId,
+        parts: { text: "first" },
+        project_id: projectId,
+        role: "user",
+        user_id: userId,
+      },
+      { onConflict: "id" },
+    ),
+    "message upsert insert",
+  );
+  assertSuccess(
+    await admin.from("project_messages").upsert(
+      {
+        id: messageId,
+        parts: { text: "updated" },
+        project_id: projectId,
+        role: "user",
+        user_id: userId,
+      },
+      { onConflict: "id" },
+    ),
+    "message upsert update",
+  );
+  const upsertedMessage = assertSuccess(
+    await admin.from("project_messages").select("id, parts").eq("id", messageId).single(),
+    "message upsert read",
+  );
+  if (upsertedMessage?.parts?.text !== "updated") {
+    throw new Error("[neon-adapter] JSON message upsert was not persisted");
   }
 
   const countedProjects = await admin
@@ -112,6 +153,21 @@ try {
     "skill read",
   );
   if (!skills?.[0]?.id) throw new Error("[neon-adapter] migrated skills are not readable");
+
+  const rpcRows = assertSuccess(
+    await admin.rpc("update_agent_skill_body", {
+      p_actor_id: userId,
+      p_actor_name: "Neon migration smoke test",
+      p_actor_type: "coding_agent",
+      p_app_id: skills[0].app_id,
+      p_body_md: "This should never be written.",
+      p_expected_version: -1,
+    }),
+    "skill RPC",
+  );
+  if (!Array.isArray(rpcRows) || rpcRows.length !== 0) {
+    throw new Error("[neon-adapter] non-matching skill RPC should return no rows");
+  }
 } finally {
   const assetDelete = await admin.from("project_assets").delete().eq("id", assetId);
   const projectDelete = await admin.from("projects").delete().eq("id", projectId);
