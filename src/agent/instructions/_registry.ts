@@ -18,6 +18,7 @@
 import identityMd from "./identity.md?raw";
 import routingMd from "./routing.md?raw";
 import guardrailsMd from "./guardrails.md?raw";
+import generationQualityMd from "./generation-quality.md?raw";
 import blocksOverviewMd from "./blocks-overview.md?raw";
 import inlineEditMd from "./inline-edit.md?raw";
 import discussMd from "./phases/discuss.md?raw";
@@ -29,6 +30,7 @@ export type InstructionId =
   | "INS_IDENTITY"
   | "INS_ROUTING"
   | "INS_GUARDRAILS"
+  | "INS_GENERATION_QUALITY"
   | "INS_BLOCKS_INDEX"
   | "INS_INLINE_EDIT"
   | "INS_PHASE_DISCUSS"
@@ -40,6 +42,7 @@ export const INSTRUCTIONS: Record<InstructionId, string> = {
   INS_IDENTITY: identityMd,
   INS_ROUTING: routingMd,
   INS_GUARDRAILS: guardrailsMd,
+  INS_GENERATION_QUALITY: generationQualityMd,
   INS_BLOCKS_INDEX: blocksOverviewMd,
   INS_INLINE_EDIT: inlineEditMd,
   INS_PHASE_DISCUSS: discussMd,

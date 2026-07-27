@@ -13,7 +13,7 @@ const NAV_ITEMS: ReadonlyArray<{
 }> = [
   { to: "/projects", label: "Projects", icon: FolderOpen },
   { to: "/library", label: "Library", icon: Library },
-  { to: "/skills", label: "Skills", icon: Sparkles },
+  { to: "/skills", label: "Skills & APIs", icon: Sparkles },
   { to: "/blocks", label: "Blocks", icon: Blocks },
 ];
 

@@ -741,7 +741,7 @@ export const uploadProjectAsset = createServerFn({ method: "POST" })
     const asset: ProjectAsset = {
       id: stored.id,
       kind: data.kind,
-      mime: data.mime,
+      mime: stored.mime,
       name: data.name,
       url: stored.url,
       label: data.label,

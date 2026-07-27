@@ -3,6 +3,7 @@
 // client can render directly.
 
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { detectImageMimeFromBytes, normalizeMimeType } from "@/lib/media-mime";
 import type { AssetKind } from "@/lib/project-state";
 
 const BUCKET = "project-assets";
@@ -35,7 +36,16 @@ export async function signProjectAssetUrl(
 function extFromMime(mime: string): string {
   if (mime === "image/png") return "png";
   if (mime === "image/jpeg") return "jpg";
+  if (mime === "image/gif") return "gif";
   if (mime === "image/webp") return "webp";
+  if (mime === "image/avif") return "avif";
+  if (mime === "image/heic") return "heic";
+  if (mime === "image/heif") return "heif";
+  if (mime === "image/bmp") return "bmp";
+  if (mime === "image/tiff") return "tiff";
+  if (mime === "image/svg+xml") return "svg";
+  if (mime === "image/x-icon") return "ico";
+  if (mime === "image/jxl") return "jxl";
   if (mime === "video/mp4") return "mp4";
   if (mime === "video/webm") return "webm";
   if (mime === "video/quicktime") return "mov";
@@ -63,19 +73,17 @@ export async function storeAsset(input: StoreAssetInput): Promise<{
   id: string;
   url: string;
   storagePath: string;
+  mime: string;
 }> {
-  const ext = extFromMime(input.mime);
-  const fileName = `${Date.now().toString(36)}-${Math.random()
-    .toString(36)
-    .slice(2, 8)}.${ext}`;
+  const mime = detectImageMimeFromBytes(input.bytes) ?? normalizeMimeType(input.mime);
+  const ext = extFromMime(mime);
+  const fileName = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const path = `${input.userId}/${input.projectId}/${fileName}`;
 
-  const { error: upErr } = await supabaseAdmin.storage
-    .from(BUCKET)
-    .upload(path, input.bytes, {
-      contentType: input.mime,
-      upsert: false,
-    });
+  const { error: upErr } = await supabaseAdmin.storage.from(BUCKET).upload(path, input.bytes, {
+    contentType: mime,
+    upsert: false,
+  });
   if (upErr) throw new Error(`storage upload failed: ${upErr.message}`);
 
   const { data: signed } = await supabaseAdmin.storage
@@ -88,7 +96,7 @@ export async function storeAsset(input: StoreAssetInput): Promise<{
     .insert({
       project_id: input.projectId,
       kind: input.kind,
-      mime: input.mime,
+      mime,
       name: input.name ?? fileName,
       storage_path: path,
       url,
@@ -111,7 +119,10 @@ export async function storeAsset(input: StoreAssetInput): Promise<{
         .limit(1)
         .maybeSingle();
       if (existing?.id) {
-        await supabaseAdmin.storage.from(BUCKET).remove([path]).catch(() => {});
+        await supabaseAdmin.storage
+          .from(BUCKET)
+          .remove([path])
+          .catch(() => {});
         const existingPath = existing.storage_path as string | null;
         let existingUrl = "";
         if (existingPath) {
@@ -120,30 +131,33 @@ export async function storeAsset(input: StoreAssetInput): Promise<{
             .createSignedUrl(existingPath, SIGNED_URL_TTL);
           existingUrl = existingSigned?.signedUrl ?? "";
         }
-        return { id: existing.id as string, url: existingUrl, storagePath: existingPath ?? "" };
+        return {
+          id: existing.id as string,
+          url: existingUrl,
+          storagePath: existingPath ?? "",
+          mime,
+        };
       }
     }
     throw new Error(insErr?.message ?? "asset insert failed");
   }
 
-  return { id: row.id as string, url, storagePath: path };
+  return { id: row.id as string, url, storagePath: path, mime };
 }
 
-export async function downloadAndStoreUrl(
-  args: {
-    projectId: string;
-    userId: string;
-    sourceUrl: string;
-    kind: AssetKind;
-    label?: string;
-    attachedTo?: string;
-    fallbackMime?: string;
-    duration?: number;
-    width?: number;
-    height?: number;
-    headers?: Record<string, string>;
-  },
-): Promise<{ id: string; url: string; mime: string }> {
+export async function downloadAndStoreUrl(args: {
+  projectId: string;
+  userId: string;
+  sourceUrl: string;
+  kind: AssetKind;
+  label?: string;
+  attachedTo?: string;
+  fallbackMime?: string;
+  duration?: number;
+  width?: number;
+  height?: number;
+  headers?: Record<string, string>;
+}): Promise<{ id: string; url: string; mime: string }> {
   if (args.attachedTo) {
     const { data: existing } = await supabaseAdmin
       .from("project_assets")
@@ -187,26 +201,33 @@ export async function downloadAndStoreUrl(
   const headerMime = res.headers.get("content-type")?.split(";")[0]?.trim();
   const urlExt = args.sourceUrl.split("?")[0].split(".").pop()?.toLowerCase();
   const extMime =
-    urlExt === "mp4" ? "video/mp4"
-    : urlExt === "webm" ? "video/webm"
-    : urlExt === "mov" ? "video/quicktime"
-    : urlExt === "mp3" ? "audio/mpeg"
-    : urlExt === "wav" ? "audio/wav"
-    : urlExt === "png" ? "image/png"
-    : urlExt === "jpg" || urlExt === "jpeg" ? "image/jpeg"
-    : urlExt === "webp" ? "image/webp"
-    : undefined;
-  const mime =
+    urlExt === "mp4"
+      ? "video/mp4"
+      : urlExt === "webm"
+        ? "video/webm"
+        : urlExt === "mov"
+          ? "video/quicktime"
+          : urlExt === "mp3"
+            ? "audio/mpeg"
+            : urlExt === "wav"
+              ? "audio/wav"
+              : urlExt === "png"
+                ? "image/png"
+                : urlExt === "jpg" || urlExt === "jpeg"
+                  ? "image/jpeg"
+                  : urlExt === "webp"
+                    ? "image/webp"
+                    : undefined;
+  const inferredMime =
     (headerMime && headerMime !== "application/octet-stream"
       ? headerMime
-      : extMime || args.fallbackMime || headerMime) ||
-    "application/octet-stream";
+      : extMime || args.fallbackMime || headerMime) || "application/octet-stream";
   const buf = new Uint8Array(await res.arrayBuffer());
   const stored = await storeAsset({
     projectId: args.projectId,
     userId: args.userId,
     kind: args.kind,
-    mime,
+    mime: inferredMime,
     bytes: buf,
     label: args.label,
     attachedTo: args.attachedTo,
@@ -215,7 +236,7 @@ export async function downloadAndStoreUrl(
     width: args.width,
     height: args.height,
   });
-  return { id: stored.id, url: stored.url, mime };
+  return { id: stored.id, url: stored.url, mime: stored.mime };
 }
 
 // Walk an arbitrary value for URLs that look like video assets. Accepts any

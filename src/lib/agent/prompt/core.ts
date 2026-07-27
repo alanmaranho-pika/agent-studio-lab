@@ -15,6 +15,9 @@ export function buildCorePrompt(): string {
     "═════ GUARDRAILS ═════",
     stripHeader(getInstruction("INS_GUARDRAILS")),
     "",
+    "═════ GENERATION QUALITY ═════",
+    stripHeader(getInstruction("INS_GENERATION_QUALITY")),
+    "",
     "═════ BLOCK CATALOG ═════",
     stripHeader(getInstruction("INS_BLOCKS_INDEX")),
   ].join("\n");
@@ -26,9 +29,7 @@ export function buildCorePrompt(): string {
 //   field — patch one scene field, reply with a one-sentence summary
 //   piece — rework a text piece on a card; the reply IS the new copy
 //   media — regenerate/queue the media, reply with a one-sentence summary
-export function buildInlineEditCorePrompt(
-  kind: "field" | "piece" | "media" = "field",
-): string {
+export function buildInlineEditCorePrompt(kind: "field" | "piece" | "media" = "field"): string {
   if (kind === "piece") {
     return `You are the director-agent of a creative video studio, reworking one piece of on-card copy. Read the PROJECT MEMORY block; follow the INLINE EDIT MODE instructions exactly. Your entire reply must be the reworked copy itself — no preamble, no quotes, no markdown, no HTML.`;
   }

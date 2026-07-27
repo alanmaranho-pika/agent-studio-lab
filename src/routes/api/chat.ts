@@ -1,7 +1,14 @@
 // @ts-nocheck — legacy feature file; feature tables (characters, library_subjects, render_jobs, etc.) are not part of the projects-first Supabase migration.
 import { createPikaAiProvider, requirePikaApiKey } from "@/lib/ai-gateway.server";
 import { createFileRoute } from "@tanstack/react-router";
-import { convertToModelMessages, stepCountIs, streamText, tool, type UIMessage } from "ai";
+import {
+  convertToModelMessages,
+  stepCountIs,
+  streamText,
+  tool,
+  type ModelMessage,
+  type UIMessage,
+} from "ai";
 import { z } from "zod";
 import { downloadAndStoreUrl } from "@/lib/project-assets.server";
 import {
@@ -96,6 +103,34 @@ function sanitizeDanglingToolCalls(messages: UIMessage[]): UIMessage[] {
     out.push({ ...m, parts: parts as UIMessage["parts"] } as UIMessage);
   }
   return out;
+}
+
+/**
+ * UI attachments are FileUIParts, but image FileParts do not get the AI
+ * SDK's byte-signature MIME detection. Promote them to ImageParts before
+ * generation so a PNG renamed to .jpg (or any other mismatched declaration)
+ * is identified from its actual bytes after download.
+ */
+function promoteImageFilesToImageParts(messages: ModelMessage[]): ModelMessage[] {
+  return messages.map((message) => {
+    if (message.role !== "user" || !Array.isArray(message.content)) return message;
+    return {
+      ...message,
+      content: message.content.map((part) => {
+        if (part.type !== "file" || !part.mediaType.startsWith("image/")) {
+          return part;
+        }
+        return {
+          type: "image" as const,
+          image: part.data,
+          // Deliberately omit mediaType. The AI SDK downloads the image and
+          // detects PNG, JPEG, GIF, WebP, BMP, TIFF, AVIF, or HEIC by bytes;
+          // the response header is only a fallback for formats such as SVG.
+          providerOptions: part.providerOptions,
+        };
+      }),
+    };
+  });
 }
 
 function buildSelectedSkillContext(slug: string | null, label: string | null): string {
@@ -1179,26 +1214,42 @@ export const Route = createFileRoute("/api/chat")({
           }),
           run_model_app: tool({
             description:
-              "Kick off a single-shot MODEL app render (Seedance, Veo, Nano Banana, ElevenLabs TTS, etc.). Pass the appId (e.g. 'model-seedance-2-mini') and the prompt. Optional: aspectRatio ('16:9' | '9:16' | '1:1'), duration in seconds (video only), referenceImageUrls. THIS IS NON-BLOCKING — it submits the job, returns { jobId, status: 'queued' } in ~1s, and the client streams completion in via Realtime. Do NOT wait on the result inside this turn; acknowledge briefly (\"Kicked off — I'll surface it when ready\") and either move on or stop. The finished asset will appear in PROJECT MEMORY on the next turn. If editing an existing cast/library character, name them in the prompt; the server auto-injects their portrait reference.",
+              "Kick off a single-shot MODEL app render (Seedance, Veo, Nano Banana, ElevenLabs TTS, Kling Avatar, etc.). Pass the appId and prompt. Optional: aspectRatio, duration, referenceImageUrls, and referenceAudioUrl for audio-driven video models. THIS IS NON-BLOCKING — it submits the job, returns { jobId, status: 'queued' } in ~1s, and the client streams completion in via Realtime. Do NOT wait on the result inside this turn. If editing an existing cast/library character, name them in the prompt; the server auto-injects their portrait reference.",
             inputSchema: z.object({
               appId: z.string().min(2).max(120),
               prompt: z.string().min(2).max(4000),
               aspectRatio: z.enum(["16:9", "9:16", "1:1"]).optional(),
               duration: z.number().int().min(2).max(20).optional(),
               referenceImageUrls: z.array(z.string().url()).max(8).optional(),
+              referenceAudioUrl: z.string().url().optional(),
             }),
-            execute: async ({ appId, prompt, aspectRatio, duration, referenceImageUrls }) =>
-              runModelApp({ appId, prompt, aspectRatio, duration, referenceImageUrls }),
+            execute: async ({
+              appId,
+              prompt,
+              aspectRatio,
+              duration,
+              referenceImageUrls,
+              referenceAudioUrl,
+            }) =>
+              runModelApp({
+                appId,
+                prompt,
+                aspectRatio,
+                duration,
+                referenceImageUrls,
+                referenceAudioUrl,
+              }),
           }),
           run_skill: tool({
             description:
-              "Unified execution primitive (Agent v5). Run any Skill from the registry by slug — model skills (e.g. 'seedance-2-pro', 'nano-banana-edit') and app skills (e.g. 'short-film', 'character-creator') share this one tool. For MODEL skills: pass { slug, prompt, aspectRatio?, duration?, referenceImageUrls? } and this behaves like run_model_app (non-blocking, returns { jobId, status: 'queued' }). For APP skills: pass { slug } and this behaves like select_app, announcing the routing decision — then serve the app's first wizard step. Prefer this over run_model_app / select_app going forward; those remain for back-compat.",
+              "Unified execution primitive (Agent v5). Run any Skill from the registry by slug — model skills and app skills share this one tool. For MODEL skills, pass prompt and optional aspectRatio, duration, referenceImageUrls, or referenceAudioUrl. For APP skills, pass { slug } to select the app and serve its first wizard step.",
             inputSchema: z.object({
               slug: z.string().min(2).max(120),
               prompt: z.string().min(2).max(4000).optional(),
               aspectRatio: z.enum(["16:9", "9:16", "1:1"]).optional(),
               duration: z.number().int().min(2).max(20).optional(),
               referenceImageUrls: z.array(z.string().url()).max(8).optional(),
+              referenceAudioUrl: z.string().url().optional(),
               reason: z.string().max(280).optional(),
             }),
             execute: async ({
@@ -1207,6 +1258,7 @@ export const Route = createFileRoute("/api/chat")({
               aspectRatio,
               duration,
               referenceImageUrls,
+              referenceAudioUrl,
               reason,
             }) => {
               let skill = getBuiltinSkill(slug);
@@ -1275,6 +1327,7 @@ export const Route = createFileRoute("/api/chat")({
                   aspectRatio,
                   duration,
                   referenceImageUrls,
+                  referenceAudioUrl,
                 });
                 return { source: "model" as const, slug, ...res };
               }
@@ -1325,6 +1378,7 @@ export const Route = createFileRoute("/api/chat")({
                     aspectRatio,
                     duration,
                     referenceImageUrls: combinedRefs.length ? combinedRefs : undefined,
+                    referenceAudioUrl,
                   });
                   return { source: "user" as const, slug, attachments: skillAssetUrls, ...res };
                 }
@@ -1483,8 +1537,10 @@ export const Route = createFileRoute("/api/chat")({
           aspectRatio?: "16:9" | "9:16" | "1:1";
           duration?: number;
           referenceImageUrls?: string[];
+          referenceAudioUrl?: string;
         }): Promise<Record<string, unknown>> {
-          const { appId, prompt, aspectRatio, duration, referenceImageUrls } = args;
+          const { appId, prompt, aspectRatio, duration, referenceImageUrls, referenceAudioUrl } =
+            args;
           const app = APP_BY_ID[appId];
           if (!app || app.kind !== "model" || !app.model || !app.mode) {
             return { error: `Unknown model app: ${appId}` };
@@ -1587,8 +1643,45 @@ export const Route = createFileRoute("/api/chat")({
                 resolved.intent,
                 refs.length > 0 && (appMode === "image" || appMode === "video"),
               );
+            if ((appMode === "image" || appMode === "video") && refs.length > 0) {
+              refs = await materializeRefsForFal(refs, projectId as string, userId);
+            }
+            let audioRef = referenceAudioUrl;
+            if (audioRef) {
+              const materializedAudio = await materializeRefsForFal(
+                [audioRef],
+                projectId as string,
+                userId,
+              );
+              audioRef = materializedAudio[0] ?? audioRef;
+            }
             let body: Record<string, unknown> = { prompt: promptWithRefs };
-            if (appMode === "image") {
+            const isKlingAvatar = appModel === "kling/kling-ai-avatar-v2/avatar";
+            const isLtxAudioToVideo = appModel === "lightricks/ltx-2.3-pro/audio-to-video";
+            if (isKlingAvatar) {
+              if (!refs[0]) {
+                return { error: "Kling Avatar requires one portrait image reference." };
+              }
+              if (!audioRef) {
+                return { error: "Kling Avatar requires a finished speech or uploaded audio URL." };
+              }
+              body = {
+                image_url: refs[0],
+                sound_file: audioRef,
+                prompt: promptWithRefs.slice(0, 2500),
+                mode: "pro",
+              };
+            } else if (isLtxAudioToVideo) {
+              if (!audioRef) {
+                return { error: "LTX audio-to-video requires an uploaded or generated track URL." };
+              }
+              body = {
+                prompt: promptWithRefs,
+                audio_uri: audioRef,
+                aspect_ratio: aspect,
+                ...(refs[0] ? { image_uri: refs[0] } : {}),
+              };
+            } else if (appMode === "image") {
               body.aspect_ratio = aspect;
               body.num_images = 1;
             } else if (appMode === "video") {
@@ -1599,10 +1692,10 @@ export const Route = createFileRoute("/api/chat")({
             } else {
               body = { prompt };
             }
-            if ((appMode === "image" || appMode === "video") && refs.length > 0) {
-              refs = await materializeRefsForFal(refs, projectId as string, userId);
-            }
-            const adjusted = applyReferencesToModelBody(appModel, appMode, refs, body);
+            const adjusted =
+              isKlingAvatar || isLtxAudioToVideo
+                ? { model: appModel, body }
+                : applyReferencesToModelBody(appModel, appMode, refs, body);
             const finalModel = adjusted.model;
             body = adjusted.body;
             if (finalModel !== appModel) {
@@ -1784,13 +1877,16 @@ export const Route = createFileRoute("/api/chat")({
           );
         };
 
+        const convertedMessages = await convertToModelMessages(
+          sanitizeDanglingToolCalls(modelMessages),
+        );
         const result = streamText({
           model,
           system,
           tools: scopedTools as never,
           stopWhen: [stepCountIs(50), stopOnRenderTurn] as never,
           maxRetries: 4,
-          messages: await convertToModelMessages(sanitizeDanglingToolCalls(modelMessages)),
+          messages: promoteImageFilesToImageParts(convertedMessages),
           abortSignal: request.signal,
           onError: async ({ error }) => {
             console.error("[chat] streamText error:", error);

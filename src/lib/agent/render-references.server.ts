@@ -15,6 +15,7 @@ import {
   extractProjectAssetStoragePath,
   signProjectAssetUrl,
 } from "@/lib/project-assets.server";
+import { normalizePikaModelPath } from "@/lib/pika-media.server";
 
 /**
  * fal's download step will 422 on ephemeral / auth-gated URLs
@@ -378,52 +379,72 @@ export function applyReferencesToModelBody(
   if (!refs.length) return { model, body };
 
   if (mode === "image") {
-    // Nano-banana, seedream, gpt-image, etc. all take an image_urls[] on
-    // their edit endpoints. gpt-image-2's base id is the text-to-image
-    // endpoint which silently ignores image_urls — upgrade to /edit so the
-    // reference photo is actually conditioned on.
-    const upgradedModel =
-      model === "openai/gpt-image-2" || model === "fal-ai/openai/gpt-image-2"
-        ? "openai/gpt-image-2/edit"
-        : model;
+    // Pika image edit endpoints take image_urls[]. Upgrade text-to-image
+    // endpoints so the supplied reference is actually conditioned on.
+    let upgradedModel = normalizePikaModelPath(model);
+    upgradedModel = upgradedModel
+      .replace(/\/text-to-image$/, "/image-to-image")
+      .replace(/\/edit$/, "/image-to-image");
     return { model: upgradedModel, body: { ...body, image_urls: refs } };
   }
 
 
   if (mode === "video") {
-    // Seedance text-to-video → upgrade to reference-to-video (multi-ref)
-    if (model === "bytedance/seedance-2.0/text-to-video") {
+    const normalizedSeedance = model
+      .replace(/^fal-ai\//, "")
+      .replace("bytedance/seedance-2.0/mini/", "bytedance/seedance-2.0-mini/")
+      .replace("bytedance/seedance-2.0/fast/", "bytedance/seedance-2.0-fast/");
+    if (/^bytedance\/seedance-2\.0(?:-mini|-fast)?\/(?:text-to-video|reference-to-video)$/.test(normalizedSeedance)) {
+      const prompt = String(body.prompt ?? "");
+      const labels = refs
+        .slice(0, 9)
+        .map((_, index) =>
+          index === 0
+            ? `@Image${index + 1} is the primary identity/product/anchor reference`
+            : `@Image${index + 1} is a supporting angle or detail reference`,
+        )
+        .join("; ");
       return {
-        model: "bytedance/seedance-2.0/reference-to-video",
-        body: { ...body, reference_images: refs.slice(0, 4) },
+        model: normalizedSeedance.replace(/\/text-to-video$/, "/reference-to-video"),
+        body: {
+          ...body,
+          prompt: /@Image1\b/.test(prompt) ? prompt : `${prompt}\n\nReference mapping: ${labels}.`,
+          image_urls: refs.slice(0, 9),
+        },
       };
     }
-    if (model === "bytedance/seedance-2.0/mini/text-to-video") {
+    // Pika 2.5 text-to-video → image-to-video.
+    if (model === "pika/pika-2.5/text-to-video" || model === "pika/pika-2.5/image-to-video") {
       return {
-        model: "bytedance/seedance-2.0/mini/reference-to-video",
-        body: { ...body, reference_images: refs.slice(0, 4) },
+        model: "pika/pika-2.5/image-to-video",
+        body: { ...body, image: refs[0] },
       };
     }
-    if (model === "bytedance/seedance-2.0/reference-to-video" ||
-        model === "bytedance/seedance-2.0/mini/reference-to-video") {
-      return { model, body: { ...body, reference_images: refs.slice(0, 4) } };
-    }
-    // Veo3 t2v → upgrade to image-to-video (single ref only, but at least
-    // we use it instead of dropping the reference on the floor).
-    if (model === "fal-ai/veo3") {
+    // Veo text-to-video → image-to-video (single reference).
+    if (
+      model === "fal-ai/veo3" ||
+      model === "google/veo-3.1/text-to-video" ||
+      model === "google/veo-3.1-fast/text-to-video"
+    ) {
       return {
-        model: "fal-ai/veo3/image-to-video",
+        model: "google/veo-3.1-lite/image-to-video",
         body: { ...body, image_url: refs[0] },
       };
     }
-    if (model === "fal-ai/veo3/image-to-video") {
-      return { model, body: { ...body, image_url: refs[0] } };
+    if (model === "fal-ai/veo3/image-to-video" || model === "google/veo-3.1-lite/image-to-video") {
+      return { model: "google/veo-3.1-lite/image-to-video", body: { ...body, image_url: refs[0] } };
     }
-    // Kling t2v → i2v.
+    // Kling text-to-video → image-to-video.
+    if (/^kling\/kling-v3\/(?:standard|pro)\/(?:text-to-video|image-to-video)$/.test(model)) {
+      return {
+        model: model.replace(/\/text-to-video$/, "/image-to-video"),
+        body: { ...body, image: refs[0] },
+      };
+    }
     if (model === "fal-ai/kling-video/v2.5-turbo/pro/text-to-video") {
       return {
-        model: "fal-ai/kling-video/v2.5-turbo/pro/image-to-video",
-        body: { ...body, image_url: refs[0] },
+        model: "kling/kling-v3/pro/image-to-video",
+        body: { ...body, image: refs[0] },
       };
     }
     // Unknown video model — best effort: single image_url.

@@ -44,6 +44,8 @@ const MODEL_ALIASES: Array<[RegExp, string]> = [
   [/^(?:fal-ai\/)?nano-banana(?:-2)?(?:\/edit)?$/, "google/gemini-3.1-flash-image"],
   [/^(?:fal-ai\/)?openai\/gpt-image-2(?:\/edit)?$/, "openai/gpt-image-2"],
   [/^fal-ai\/bytedance\/seedream\/v4\/(?:text-to-image|edit)$/, "bytedance/seedream-4.5"],
+  [/^fal-ai\/bytedance\/seedance-2\.0\/mini\/(.*)$/, "bytedance/seedance-2.0-mini/$1"],
+  [/^fal-ai\/bytedance\/seedance-2\.0\/fast\/(.*)$/, "bytedance/seedance-2.0-fast/$1"],
   [/^fal-ai\/bytedance\/seedance-2\.0\/(.*)$/, "bytedance/seedance-2.0/$1"],
   [/^fal-ai\/pika\/v2\.2\/(?:image-to-video|pikaframes|pikascenes)$/, "pika/pika-2.5"],
   [/^fal-ai\/pika\/v2\.2\/text-to-video$/, "pika/pika-2.5"],
@@ -94,8 +96,12 @@ export function normalizePikaModelPath(model: string): string {
   if (model.startsWith("google/") || model.startsWith("openai/") || model.startsWith("pika/") || model.startsWith("kling/") || model.startsWith("bytedance/") || model.startsWith("minimax/") || model.startsWith("elevenlabs/")) {
     if (model === "openai/gpt-image-2") return "openai/gpt-image-2/text-to-image";
     if (model === "openai/gpt-image-2/edit") return "openai/gpt-image-2/image-to-image";
-    if (model === "bytedance/seedance-2.0/mini/text-to-video") return "bytedance/seedance-2.0/text-to-video";
-    if (model === "bytedance/seedance-2.0/mini/reference-to-video") return "bytedance/seedance-2.0/reference-to-video";
+    if (model.includes("bytedance/seedance-2.0/mini/")) {
+      return model.replace("bytedance/seedance-2.0/mini/", "bytedance/seedance-2.0-mini/");
+    }
+    if (model.includes("bytedance/seedance-2.0/fast/")) {
+      return model.replace("bytedance/seedance-2.0/fast/", "bytedance/seedance-2.0-fast/");
+    }
     return model;
   }
   for (const [pattern, replacement] of MODEL_ALIASES) {
@@ -113,9 +119,17 @@ export function normalizePikaInput(model: string, input: Record<string, unknown>
   const path = normalizePikaModelPath(model);
   const body = cloneInput(input);
 
-  if (path.includes("seedance-2.0/")) {
+  if (path.includes("seedance-2.0")) {
     if (body.aspect_ratio !== undefined && body.ratio === undefined) body.ratio = body.aspect_ratio;
     delete body.aspect_ratio;
+    if (body.reference_images !== undefined && body.image_urls === undefined) {
+      body.image_urls = body.reference_images;
+    }
+    delete body.reference_images;
+    if (body.image_url !== undefined && body.image_urls === undefined) {
+      body.image_urls = [body.image_url];
+    }
+    delete body.image_url;
     if (body.duration !== undefined) {
       const n = Number(body.duration);
       body.duration = Number.isFinite(n) ? Math.max(4, Math.min(15, Math.round(n))) : 5;
@@ -130,7 +144,7 @@ export function normalizePikaInput(model: string, input: Record<string, unknown>
     }
     if (body.duration !== undefined) {
       const n = Number(body.duration);
-      body.duration_s = Number.isFinite(n) && n >= 7 ? 5 : 5;
+      body.duration_s = Number.isFinite(n) && n >= 7 ? 10 : 5;
       delete body.duration;
     }
     if (body.image_url !== undefined && body.image === undefined) {
@@ -161,6 +175,24 @@ export function normalizePikaInput(model: string, input: Record<string, unknown>
       delete body.image_url;
     }
   }
+  if (path.includes("kling/kling-v3/")) {
+    if (body.duration !== undefined) {
+      const n = Number(body.duration);
+      body.duration = Number.isFinite(n) && n >= 8 ? "10" : "5";
+    }
+  }
+
+  if (path.includes("google/veo-3.1")) {
+    if (body.image !== undefined && body.image_url === undefined) {
+      body.image_url = body.image;
+      delete body.image;
+    }
+    if (body.duration !== undefined) {
+      const n = Number(body.duration);
+      body.duration = !Number.isFinite(n) || n <= 5 ? 4 : n <= 7 ? 6 : 8;
+    }
+    if (body.aspect_ratio === "1:1") body.aspect_ratio = "16:9";
+  }
 
   if (path.endsWith("/image-to-image") && body.image_urls === undefined && body.image_url !== undefined) {
     body.image_urls = [body.image_url];
@@ -169,7 +201,7 @@ export function normalizePikaInput(model: string, input: Record<string, unknown>
 
   if (path.includes("elevenlabs/eleven-music/")) {
     if (body.duration !== undefined && body.music_length_ms === undefined) {
-      body.music_length_ms = Math.max(3000, Math.min(300000, Math.round(Number(body.duration) * 1000)));
+      body.music_length_ms = Math.max(3000, Math.min(600000, Math.round(Number(body.duration) * 1000)));
       delete body.duration;
     }
     if (body.text !== undefined && body.prompt === undefined) {
@@ -333,15 +365,25 @@ export function normalizeAspect(raw: string | undefined | null): "16:9" | "9:16"
 
 export async function pikaGenerateImage(args: { prompt: string; aspect?: string; referenceImageUrls?: string[] }): Promise<string> {
   const refs = (args.referenceImageUrls ?? []).filter((url) => /^https?:/.test(url));
-  const model = refs.length ? "google/gemini-3.1-flash-image/image-to-image" : "google/gemini-3.1-flash-image/text-to-image";
-  const out = await pikaRun(model, { prompt: args.prompt, aspect_ratio: normalizeAspect(args.aspect), num_images: 1, ...(refs.length ? { image_urls: refs } : {}) }, { label: model });
+  const model = refs.length ? "google/gemini-3-pro-image/image-to-image" : "google/gemini-3-pro-image/text-to-image";
+  const out = await pikaRun(
+    model,
+    {
+      prompt: args.prompt,
+      aspect_ratio: normalizeAspect(args.aspect),
+      resolution: "2K",
+      num_images: 1,
+      ...(refs.length ? { image_urls: refs } : {}),
+    },
+    { label: model },
+  );
   const url = pikaPickImageUrl(out);
   if (!url) throw new Error(`${model} returned no image URL`);
   return url;
 }
 
 export async function pikaAnimateImage(args: { prompt: string; imageUrl: string; durationSeconds: number; aspect?: string }): Promise<string> {
-  const out = await pikaRun("kling/kling-v3/standard/image-to-video", { prompt: args.prompt, image: args.imageUrl, duration: args.durationSeconds <= 6 ? 5 : 10, aspect_ratio: normalizeAspect(args.aspect) }, { label: "kling-i2v", timeoutMs: 15 * 60_000 });
+  const out = await pikaRun("kling/kling-v3/pro/image-to-video", { prompt: args.prompt, image: args.imageUrl, duration: args.durationSeconds <= 6 ? "5" : "10", aspect_ratio: normalizeAspect(args.aspect) }, { label: "kling-i2v", timeoutMs: 15 * 60_000 });
   const url = pikaPickVideoUrl(out);
   if (!url) throw new Error("kling-i2v returned no video URL");
   return url;

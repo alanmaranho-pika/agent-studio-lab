@@ -1415,16 +1415,20 @@ export function AgentShell(props: AgentShellProps) {
       if (answer.assets.length) {
         onPatch({ assetsAppend: answer.assets });
       }
-      const imageUrls = answer.assets
-        .filter((a) => a.mime.startsWith("image/") && /^https?:/.test(a.url))
-        .map((a) => a.url);
+      const imageAssets = answer.assets.filter(
+        (a) => a.mime.startsWith("image/") && /^https?:/.test(a.url),
+      );
       const trimmed = answer.summary.trim();
       if (!trimmed) return;
-      if (imageUrls.length) {
+      if (imageAssets.length) {
         await sendMessage({
           parts: [
             { type: "text", text: trimmed },
-            ...imageUrls.map((url) => ({ type: "file" as const, mediaType: "image/*", url })),
+            ...imageAssets.map((asset) => ({
+              type: "file" as const,
+              mediaType: asset.mime,
+              url: asset.url,
+            })),
           ],
         });
       } else {
