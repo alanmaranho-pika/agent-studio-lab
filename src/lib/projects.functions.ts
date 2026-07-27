@@ -181,6 +181,51 @@ function assetRowToProjectAsset(row: Record<string, unknown>, signedUrl: string)
   };
 }
 
+// Agent cards are persisted as JSON/HTML in project_messages, while scene
+// thumbnails and reference URLs also live inside project_state. Vercel Blob
+// keeps the canonical URLs private, so rewrite every occurrence with the
+// fresh signed URL we generated for this request before any of that persisted
+// content reaches the browser.
+function rewriteAssetUrls<T>(
+  value: T,
+  replacements: ReadonlyMap<string, string>,
+  replacementsByStoragePath: ReadonlyMap<string, string>,
+): T {
+  if (typeof value === "string") {
+    let rewritten: string = value;
+    for (const [rawUrl, signedUrl] of replacements) {
+      if (rawUrl !== signedUrl && rewritten.includes(rawUrl)) {
+        rewritten = rewritten.replaceAll(rawUrl, signedUrl);
+      }
+    }
+    // A URL embedded in a saved card can differ slightly from the one in
+    // project_assets (for example, it may be an older signed URL). Resolve
+    // every Vercel Blob URL by its canonical pathname as a second pass, so a
+    // private URL can never reach the browser just because its query string
+    // or host representation changed between saves.
+    rewritten = rewritten.replace(
+      /https:\/\/[^/\s"'<>]+\.blob\.vercel-storage\.com\/[^\s"'<>]+/g,
+      (url) => {
+        const storagePath = extractProjectAssetStoragePath(url);
+        return (storagePath && replacementsByStoragePath.get(storagePath)) || url;
+      },
+    );
+    return rewritten as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => rewriteAssetUrls(item, replacements, replacementsByStoragePath)) as T;
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+        key,
+        rewriteAssetUrls(item, replacements, replacementsByStoragePath),
+      ]),
+    ) as T;
+  }
+  return value;
+}
+
 // ---------- list ----------
 
 export const listProjects = createServerFn({ method: "GET" })
@@ -486,7 +531,23 @@ export const getProject = createServerFn({ method: "GET" })
     const signed = await signAssetUrls(assetRows ?? []);
     const assets = (assetRows ?? []).map((r, i) => assetRowToProjectAsset(r, signed[i]));
 
-    const baseState = (proj.project_state as ProjectState) ?? INITIAL_PROJECT;
+    const signedUrlByRawUrl = new Map<string, string>();
+    const signedUrlByStoragePath = new Map<string, string>();
+    for (let index = 0; index < (assetRows ?? []).length; index++) {
+      const assetRow = assetRows?.[index];
+      const rawUrl = (assetRow?.url as string | undefined) ?? "";
+      const signedUrl = signed[index];
+      if (rawUrl && signedUrl) signedUrlByRawUrl.set(rawUrl, signedUrl);
+      const storagePath =
+        assetRow?.storage_path || extractProjectAssetStoragePath(rawUrl);
+      if (storagePath && signedUrl) signedUrlByStoragePath.set(storagePath, signedUrl);
+    }
+
+    const baseState = rewriteAssetUrls(
+      (proj.project_state as ProjectState) ?? INITIAL_PROJECT,
+      signedUrlByRawUrl,
+      signedUrlByStoragePath,
+    );
     // Always serve fresh signed URLs for project_state.assets too.
     const stateAssets: ProjectAsset[] = baseState.assets ?? [];
     const idToSigned = new Map<string, string>(assets.map((a) => [a.id, a.url]));
@@ -537,7 +598,7 @@ export const getProject = createServerFn({ method: "GET" })
     const sourceMessages: ProjectMessageRow[] = (msgRows ?? []).map((m) => ({
       id: m.id,
       role: m.role as "user" | "assistant",
-      parts: m.parts as Json,
+      parts: rewriteAssetUrls(m.parts as Json, signedUrlByRawUrl, signedUrlByStoragePath),
       createdAt: m.created_at,
     }));
     const visibleMessages: ProjectMessageRow[] = [];
