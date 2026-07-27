@@ -2,18 +2,19 @@
 // Server-side Supabase client with service role key - bypasses RLS.
 // Use this for admin operations in server functions and server routes only.
 // For user-authenticated queries (with RLS), use the auth middleware instead.
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from './types';
-import { MY_SUPABASE_URL } from './my-config';
+import { createClient } from "@supabase/supabase-js";
+import { createNeonDataClient } from "@/lib/neon/supabase-adapter.server";
+import type { Database } from "./types";
+import { MY_SUPABASE_URL } from "./my-config";
 
 function isNewSupabaseApiKey(value: string): boolean {
-  return value.startsWith('sb_publishable_') || value.startsWith('sb_secret_');
+  return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
 }
 
 function createSupabaseFetch(supabaseKey: string): typeof fetch {
   return (input, init) => {
     const headers = new Headers(
-      typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined,
+      typeof Request !== "undefined" && input instanceof Request ? input.headers : undefined,
     );
 
     if (init?.headers) {
@@ -21,11 +22,14 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
     }
 
     // New Supabase API keys are opaque strings, not bearer JWTs.
-    if (isNewSupabaseApiKey(supabaseKey) && headers.get('Authorization') === `Bearer ${supabaseKey}`) {
-      headers.delete('Authorization');
+    if (
+      isNewSupabaseApiKey(supabaseKey) &&
+      headers.get("Authorization") === `Bearer ${supabaseKey}`
+    ) {
+      headers.delete("Authorization");
     }
 
-    headers.set('apikey', supabaseKey);
+    headers.set("apikey", supabaseKey);
     return fetch(input, { ...init, headers });
   };
 }
@@ -42,7 +46,7 @@ function createSupabaseAdminClient() {
     throw new Error(message);
   }
 
-  return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     global: {
       fetch: createSupabaseFetch(SUPABASE_SERVICE_ROLE_KEY),
     },
@@ -50,8 +54,13 @@ function createSupabaseAdminClient() {
       storage: undefined,
       persistSession: false,
       autoRefreshToken: false,
-    }
+    },
   });
+
+  // Database reads/writes for the migrated application tables go to Neon.
+  // Supabase remains the provider for Auth, Storage, and legacy tables until
+  // those surfaces are migrated independently.
+  return createNeonDataClient(supabase);
 }
 
 let _supabaseAdmin: ReturnType<typeof createSupabaseAdminClient> | undefined;
