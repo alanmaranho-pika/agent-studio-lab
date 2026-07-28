@@ -16,12 +16,14 @@
     "build:dev": "NODE_OPTIONS=--max-old-space-size=8192 vite build --mode development",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "verify:agent-router": "node --experimental-strip-types --experimental-transform-types scripts/verify-agent-router.mjs",
     "lint": "eslint .",
     "format": "prettier --write .",
     "migrate:storage": "node scripts/migrate-supabase-storage.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2",
+    "@ai-sdk/google": "^3.0.101",
     "@ai-sdk/mcp": "^1.0.43",
     "@ai-sdk/openai-compatible": "^2.0.48",
     "@ai-sdk/react": "^3.0.193",

@@ -180,6 +180,9 @@ type AgentMessageMetadata = {
   // Ground-truth debug markers stamped by the server (chat.ts messageMetadata).
   phase?: import("@/lib/agent/phase").AgentPhase;
   skill?: string;
+  model?: string;
+  modelTier?: string;
+  modelReason?: string;
 };
 
 type ToolPart = {
@@ -808,7 +811,7 @@ const PHASE_BADGE: Record<AgentPhase, string> = {
 // One entry in the debug HUD's full activity log (see `activityLog` below).
 type ActivityEntry = {
   id: string;
-  kind: "skill" | "tool" | "phase";
+  kind: "skill" | "tool" | "phase" | "model";
   label: string;
   detail?: string;
   state?: string;
@@ -852,6 +855,11 @@ export function AgentShell(props: AgentShellProps) {
     }),
   });
 
+  // Fallback timestamps for transient messages that predate persisted
+  // metadata. Keep this at the AgentShell level so closing and reopening the
+  // transcript panel cannot assign a new time to the same message.
+  const transcriptFirstSeenRef = useRef<Map<string, number>>(new Map());
+
   // Background job watcher — run_model_app only queues the Pika render (the
   // SSE turn closes before the clip is done). The poller persists the finished
   // asset and swaps its timeline placeholder server-side. Refresh that
@@ -873,6 +881,7 @@ export function AgentShell(props: AgentShellProps) {
         {
           id: `job-${job.jobId}`,
           role: "assistant",
+          metadata: { createdAt: new Date().toISOString() },
           parts: [{ type: "text", text: `⚠️ ${job.appLabel ?? "Render"} failed — ${job.error}` }],
         } as UIMessage,
       ]);
@@ -1051,6 +1060,26 @@ export function AgentShell(props: AgentShellProps) {
     return derivePhase(project, selectedApp?.appId ?? null, extractLatestUserText(messages));
   }, [messages, project, selectedApp]);
 
+  const debugModel = useMemo<{
+    model: string;
+    tier?: string;
+    reason?: string;
+  } | null>(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const message = messages[i];
+      if (message.role !== "assistant") continue;
+      const metadata = metadataOf(message);
+      if (metadata.model) {
+        return {
+          model: metadata.model,
+          tier: metadata.modelTier,
+          reason: metadata.modelReason,
+        };
+      }
+    }
+    return null;
+  }, [messages]);
+
   // Full session activity log — every skill call, tool/job call, and phase
   // transition, in order. Unlike the compact pills above (latest + count),
   // this is the complete history: nothing is summarized away. Derived purely
@@ -1065,6 +1094,17 @@ export function AgentShell(props: AgentShellProps) {
       if (phase && phase !== lastPhase) {
         out.push({ id: `${m.id}:phase`, kind: "phase", label: phase });
         lastPhase = phase;
+      }
+      const metadata = metadataOf(m);
+      if (metadata.model) {
+        out.push({
+          id: `${m.id}:model`,
+          kind: "model",
+          label: metadata.modelTier
+            ? `${metadata.modelTier} · ${metadata.model.replace(/^[^/]+\//, "")}`
+            : metadata.model,
+          detail: [metadata.model, metadata.modelReason].filter(Boolean).join(" — "),
+        });
       }
       for (const p of toolPartsOf(m)) {
         if (
@@ -1403,9 +1443,13 @@ export function AgentShell(props: AgentShellProps) {
               url: asset.url,
             })),
           ],
+          metadata: { createdAt: new Date().toISOString() },
         });
       } else {
-        await sendMessage({ text: trimmed });
+        await sendMessage({
+          text: trimmed,
+          metadata: { createdAt: new Date().toISOString() },
+        });
       }
     },
     [busy, onPatch, sendMessage],
@@ -1719,7 +1763,10 @@ export function AgentShell(props: AgentShellProps) {
           setChamberedAck(null);
           setTurnCursor(null);
           setNavDir(1);
-          void sendMessage({ text });
+          void sendMessage({
+            text,
+            metadata: { createdAt: new Date().toISOString() },
+          });
           return;
         }
         case "regenerate": {
@@ -1731,6 +1778,7 @@ export function AgentShell(props: AgentShellProps) {
           setNavDir(1);
           void sendMessage({
             text: `Regenerate ${target}: same intent, new take. Re-emit the same card with the new media; keep everything else identical.`,
+            metadata: { createdAt: new Date().toISOString() },
           });
           return;
         }
@@ -1743,6 +1791,7 @@ export function AgentShell(props: AgentShellProps) {
           setNavDir(1);
           void sendMessage({
             text: `Edit ${target}: ${intent.instruction}. Re-emit the same card with the updated media; keep everything else identical.`,
+            metadata: { createdAt: new Date().toISOString() },
           });
           return;
         }
@@ -2528,6 +2577,21 @@ export function AgentShell(props: AgentShellProps) {
               );
             })()}
 
+          {/* Model selected by the per-turn router. */}
+          {debugModel && (
+            <div
+              title={[debugModel.model, debugModel.reason].filter(Boolean).join(" — ")}
+              className="flex max-w-[18rem] items-center gap-1.5 rounded-full border border-border bg-card/80 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur"
+            >
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-fuchsia-500" aria-hidden />
+              <span className="uppercase tracking-wider opacity-60">Model</span>
+              <span className="truncate font-mono text-[10px]">
+                {debugModel.tier ? `${debugModel.tier} · ` : ""}
+                {debugModel.model.replace(/^[^/]+\//, "")}
+              </span>
+            </div>
+          )}
+
           {/* Phase the last turn ran in (server ground-truth, else recomputed). */}
           <div className="flex items-center gap-1.5 rounded-full border border-border bg-card/80 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur">
             <span className="uppercase tracking-wider opacity-60">Phase</span>
@@ -2548,7 +2612,7 @@ export function AgentShell(props: AgentShellProps) {
           <button
             type="button"
             onClick={() => setActivityLogOpen((v) => !v)}
-            title="Full activity log (skills, tool/job calls, phases)"
+            title="Full activity log (models, skills, tool/job calls, phases)"
             className={cn(
               "flex items-center gap-1.5 rounded-full border border-border bg-card/80 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur transition hover:bg-card hover:text-foreground",
               activityLogOpen && "text-foreground",
@@ -2590,11 +2654,13 @@ export function AgentShell(props: AgentShellProps) {
                               "h-1.5 w-1.5 shrink-0 rounded-full",
                               e.kind === "skill"
                                 ? "bg-emerald-500"
-                                : e.error
-                                  ? "bg-red-500"
-                                  : e.state === "output-available"
-                                    ? "bg-sky-500"
-                                    : "animate-pulse bg-amber-500",
+                                : e.kind === "model"
+                                  ? "bg-fuchsia-500"
+                                  : e.error
+                                    ? "bg-red-500"
+                                    : e.state === "output-available"
+                                      ? "bg-sky-500"
+                                      : "animate-pulse bg-amber-500",
                             )}
                             aria-hidden
                           />
@@ -2838,7 +2904,11 @@ export function AgentShell(props: AgentShellProps) {
 
       <AnimatePresence>
         {transcriptOpen && (
-          <TranscriptPanel messages={messages} onClose={() => setTranscriptOpen(false)} />
+          <TranscriptPanel
+            messages={messages}
+            onClose={() => setTranscriptOpen(false)}
+            firstSeenRef={transcriptFirstSeenRef}
+          />
         )}
         {skillEditorOpen && (
           <SkillEditorPanel selectedApp={selectedApp} onClose={() => setSkillEditorOpen(false)} />
@@ -2848,7 +2918,15 @@ export function AgentShell(props: AgentShellProps) {
   );
 }
 
-function TranscriptPanel({ messages, onClose }: { messages: UIMessage[]; onClose: () => void }) {
+function TranscriptPanel({
+  messages,
+  onClose,
+  firstSeenRef,
+}: {
+  messages: UIMessage[];
+  onClose: () => void;
+  firstSeenRef: { current: Map<string, number> };
+}) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -2857,11 +2935,8 @@ function TranscriptPanel({ messages, onClose }: { messages: UIMessage[]; onClose
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // Persisted messages carry a real `createdAt` (from project_messages).
-  // Messages still in-flight this session don't have one yet — stamp the
-  // moment we first see them so the panel always has a time to show, and
-  // reuse that stamp on every re-render (a ref, so it never drifts).
-  const firstSeenRef = useRef<Map<string, number>>(new Map());
+  // Persisted and newly-sent messages carry a real `createdAt`. Older or
+  // transient messages without metadata use a session-stable fallback.
   const timeOf = (m: UIMessage): number => {
     const iso = metadataOf(m).createdAt;
     if (iso) {
@@ -3001,7 +3076,14 @@ function formatToolRow(p: ToolPart): string {
     const input = p.input as { blocks?: Array<{ type?: string }> } | undefined;
     const output = p.output as
       { ok?: boolean; turn?: { blocks?: Array<{ type?: string }> } } | undefined;
-    const source = output?.turn?.blocks ?? input?.blocks ?? [];
+    // Tool payloads can be partial while a turn is still streaming, and old
+    // persisted messages may contain a non-array `blocks` value. The debug
+    // transcript must never bring down the entire studio for either case.
+    const source = Array.isArray(output?.turn?.blocks)
+      ? output.turn.blocks
+      : Array.isArray(input?.blocks)
+        ? input.blocks
+        : [];
     const types = source.map((b) => b?.type ?? "?").join(", ");
     return `render_turn · ${state}${types ? ` · blocks: [${types}]` : ""}`;
   }

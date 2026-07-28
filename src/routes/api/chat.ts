@@ -1,5 +1,4 @@
 // @ts-nocheck — legacy feature file; feature tables (characters, library_subjects, render_jobs, etc.) are not part of the projects-first Supabase migration.
-import { createPikaAiProvider, requirePikaApiKey } from "@/lib/ai-gateway.server";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   convertToModelMessages,
@@ -37,6 +36,8 @@ import { getPhasePrompt } from "@/lib/agent/prompt/phases";
 import { renderAppCatalogSummary, renderSelectedAppContext } from "@/lib/agent/prompt/catalog";
 import { derivePhase, extractLatestUserText, toolsForPhase } from "@/lib/agent/phase.server";
 import { createTurnGuard } from "@/lib/agent/turn-guard.server";
+import { routeAgentModel } from "@/lib/agent/model-router";
+import { createRoutedAgentModel } from "@/lib/agent/model-router.server";
 import { RenderTurnSchema, type RenderTurn } from "@/lib/agent/ui-schema";
 import {
   findAgentTool,
@@ -722,21 +723,6 @@ export const Route = createFileRoute("/api/chat")({
             { onConflict: "id" },
           );
         }
-        // Pika's OpenAI-compatible gateway is the single agent provider.
-        // Claude Sonnet 5 preserves the strong project-memory and tool-use
-        // behavior the studio relies on while keeping auth behind Pika.
-        let model;
-        try {
-          model = createPikaAiProvider(requirePikaApiKey())(
-            "anthropic/claude-sonnet-5",
-          );
-        } catch {
-          return new Response(
-            "AI is not configured. Add PIKA_API_KEY to .env.local, then restart the local server.",
-            { status: 500 },
-          );
-        }
-
         // Turn guard — tracks media produced by tools this turn and
         // validates/repairs the final render_turn payload (C4 invariants).
         const guard = createTurnGuard();
@@ -1826,11 +1812,52 @@ export const Route = createFileRoute("/api/chat")({
         // Phase machine (C5): derive the phase from durable state + the
         // latest user message; it selects the injected phase prompt and the
         // eager tool surface for this turn.
-        const phase = derivePhase(
-          projectState,
+        const latestUserText = extractLatestUserText(modelMessages);
+        const phase = derivePhase(projectState, selectedAppId, latestUserText);
+        const latestUserForRouting = [...modelMessages]
+          .reverse()
+          .find((message) => message?.role === "user");
+        const latestAttachmentMediaTypes = Array.isArray(latestUserForRouting?.parts)
+          ? latestUserForRouting.parts
+              .filter((part) => part?.type === "file" && typeof part.mediaType === "string")
+              .map((part) => part.mediaType)
+          : [];
+        const totalTextChars = modelMessages.reduce((total, message) => {
+          if (!Array.isArray(message?.parts)) return total;
+          return (
+            total +
+            message.parts.reduce(
+              (sum, part) =>
+                sum +
+                (part?.type === "text" && typeof part.text === "string" ? part.text.length : 0),
+              0,
+            )
+          );
+        }, 0);
+        const modelRoute = routeAgentModel({
+          phase,
+          latestUserText,
           selectedAppId,
-          extractLatestUserText(modelMessages),
-        );
+          hasSelectedSkill: !!projectSkillSlug,
+          selectedSkillBodyMd: projectSkillBodyMd,
+          inlineEditKind: inlineEdit?.kind ?? null,
+          latestAttachmentMediaTypes,
+          messageCount: modelMessages.length,
+          totalTextChars,
+          sceneCount: projectState.scenes.length,
+          assetCount: projectState.assets.length,
+          castCount: projectState.cast.length,
+          overrideModelId: process.env.AGENT_MODEL_OVERRIDE,
+        });
+        let model;
+        try {
+          model = createRoutedAgentModel(modelRoute);
+        } catch {
+          return new Response(
+            "AI is not configured. Add PIKA_API_KEY to .env.local, then restart the local server.",
+            { status: 500 },
+          );
+        }
         // Inline edits get a minimal toolset: patches only for field/piece
         // edits; media edits additionally get the render tools so an image
         // can regenerate (and a video queue) inside the popup loop.
@@ -1843,7 +1870,9 @@ export const Route = createFileRoute("/api/chat")({
               }
             : { commit_project_patch: tools.commit_project_patch }
           : toolsForPhase(phase, tools);
-        console.log(`[chat] phase=${phase} tools=${Object.keys(scopedTools).length}`);
+        console.log(
+          `[chat] phase=${phase} model=${modelRoute.modelId} tier=${modelRoute.tier} tools=${Object.keys(scopedTools).length} reason=${modelRoute.reason}`,
+        );
 
         // System prompt assembly. Inline edits get a tiny dedicated prompt;
         // normal turns get core + one phase module + catalog summary +
@@ -1857,7 +1886,10 @@ export const Route = createFileRoute("/api/chat")({
           : [
               buildCorePrompt(),
               getPhasePrompt(phase),
-              renderAppCatalogSummary(agentRegistry),
+              // A selected skill already contributes its complete playbook
+              // below. Do not make fast wizard turns pay to ingest every
+              // unrelated app summary as well.
+              selectedAppId ? "" : renderAppCatalogSummary(agentRegistry),
               renderSelectedAppContext(agentRegistry, selectedAppId),
               buildSelectedSkillContext(projectSkillSlug, projectSkillLabel),
               buildProjectStateContext(projectState),
@@ -1885,7 +1917,7 @@ export const Route = createFileRoute("/api/chat")({
           system,
           tools: scopedTools as never,
           stopWhen: [stepCountIs(50), stopOnRenderTurn] as never,
-          maxRetries: 4,
+          maxRetries: 2,
           messages: promoteImageFilesToImageParts(convertedMessages),
           abortSignal: request.signal,
           onError: async ({ error }) => {
@@ -1896,6 +1928,10 @@ export const Route = createFileRoute("/api/chat")({
           },
         });
 
+        // Stamp the assistant turn once at request start. The client uses this
+        // for the live transcript, while persisted messages later get their
+        // database created_at value on reload.
+        const turnCreatedAt = new Date().toISOString();
         const response = result.toUIMessageStreamResponse({
           originalMessages: messages as UIMessage[],
           messageMetadata: () =>
@@ -1904,10 +1940,21 @@ export const Route = createFileRoute("/api/chat")({
                   mode: "inline-edit",
                   requestId: inlineEdit.requestId,
                   inlineEdit,
+                  createdAt: turnCreatedAt,
+                  model: modelRoute.modelId,
+                  modelTier: modelRoute.tier,
+                  modelReason: modelRoute.reason,
                 }
               : // Ground-truth debug markers for the client HUD: the phase the
-                // server actually ran this turn + the skill it was scoped to.
-                { phase, skill: selectedAppId ?? undefined },
+                // server actually ran this turn + the skill/model it was scoped to.
+                {
+                  phase,
+                  skill: selectedAppId ?? undefined,
+                  createdAt: turnCreatedAt,
+                  model: modelRoute.modelId,
+                  modelTier: modelRoute.tier,
+                  modelReason: modelRoute.reason,
+                },
           onError: (error) => {
             console.error("[chat] toUIMessageStreamResponse error:", error);
             if (error == null) return "Unknown error";
