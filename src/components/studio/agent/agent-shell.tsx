@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import {
   History,
@@ -839,6 +840,7 @@ export function AgentShell(props: AgentShellProps) {
     onOpenHistory,
     onOpenArtifact,
   } = props;
+  const queryClient = useQueryClient();
 
   const { messages, setMessages, sendMessage, status, error, regenerate, clearError } = useChat({
     id: projectId,
@@ -850,53 +852,18 @@ export function AgentShell(props: AgentShellProps) {
     }),
   });
 
-  // Background job watcher — run_model_app only QUEUES the fal render (the SSE
-  // turn closes before the clip is done). Without this poll the clip renders
-  // on fal but never lands, so the stage sits on "…rendering" forever. On
-  // completion we append an assistant message carrying an `assetsAppend` patch
-  // (applied by the patch-walking effect below) so the finished clip enters
-  // project state — visible on the timeline/outputs and to the agent's next
-  // turn. Mirrors LegacyStudioShell's watcher.
+  // Background job watcher — run_model_app only queues the Pika render (the
+  // SSE turn closes before the clip is done). The poller persists the finished
+  // asset and swaps its timeline placeholder server-side. Refresh that
+  // persisted state here so the active timeline updates in place. Do not append
+  // a synthetic assistant media card: as the newest assistant message it would
+  // replace the timeline surface with a loose video.
   const announcedJobsRef = useRef<Set<string>>(new Set());
   useProjectJobs(projectId, {
     onComplete: (job) => {
       if (announcedJobsRef.current.has(job.jobId)) return;
       announcedJobsRef.current.add(job.jobId);
-      const label = job.appLabel ?? "Render";
-      const url = job.resultUrl ?? "";
-      const mode = (job.mode ?? "").toLowerCase();
-      const ext = url.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
-      const mime =
-        mode === "video" || ["mp4", "mov", "webm", "m4v"].includes(ext)
-          ? `video/${ext === "mov" ? "quicktime" : ext || "mp4"}`
-          : mode === "audio" || ["mp3", "wav", "m4a", "ogg", "flac"].includes(ext)
-            ? `audio/${ext || "mpeg"}`
-            : `image/${ext || "png"}`;
-      const patch = url
-        ? `<script type="application/json" data-project-patch>${JSON.stringify({
-            assetsAppend: [{ id: job.assetId, url, mime, label }],
-          })}</script>`
-        : "";
-      // Show the finished clip ON the stage as a media card (matches the
-      // `media` block's HTML so it renders inline), not just a text line.
-      const mediaTag = !url
-        ? ""
-        : mime.startsWith("video/")
-          ? `<video src="${url}" class="w-full h-auto rounded-2xl" controls autoplay muted playsinline></video>`
-          : mime.startsWith("audio/")
-            ? `<audio src="${url}" controls class="w-full"></audio>`
-            : `<img src="${url}" class="w-full h-auto rounded-2xl" />`;
-      const body = url
-        ? `<div data-card>${mediaTag}<p data-card-caption>${label} finished.</p></div>${patch}`
-        : `✅ ${label} finished.`;
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `job-${job.jobId}`,
-          role: "assistant",
-          parts: [{ type: "text", text: body }],
-        } as UIMessage,
-      ]);
+      void queryClient.invalidateQueries({ queryKey: ["project", projectId] });
     },
     onFail: (job) => {
       if (announcedJobsRef.current.has(job.jobId)) return;
@@ -1172,6 +1139,12 @@ export function AgentShell(props: AgentShellProps) {
           if (out.id && out.url) {
             onPatch({ assetsAppend: [out as ProjectAsset] });
             if (out.patch) onPatch(out.patch as ProjectPatch);
+          } else if (out.jobId) {
+            // Queued jobs create and persist their timeline placeholder on the
+            // server before this tool result returns. Pull that state now so
+            // the loading slot appears immediately instead of waiting for the
+            // render to complete (or for a page reload).
+            void queryClient.invalidateQueries({ queryKey: ["project", projectId] });
           }
         } else if (p.type === "tool-search_stock_media" && Array.isArray(out.assets)) {
           onPatch({ assetsAppend: out.assets });
@@ -2316,7 +2289,7 @@ export function AgentShell(props: AgentShellProps) {
                         <motion.div
                           key={`card-${activeAssistantId ?? "none"}`}
                           ref={cardZoneRef}
-                          className="col-span-10 col-start-4 mt-6 min-h-0 overflow-y-auto overscroll-contain pr-2 [scrollbar-gutter:stable]"
+                          className="col-span-10 col-start-4 mt-6 min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain pr-2 [scrollbar-gutter:stable]"
                           style={{ maxHeight: stageMaxHeight }}
                           variants={cardVariants}
                           custom={navDir}

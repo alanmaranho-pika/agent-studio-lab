@@ -421,39 +421,24 @@ export function enhanceOptionGrids(
       else if (childCount <= 3) grid.setAttribute("data-cols", "3");
       else grid.setAttribute("data-cols", "3");
     }
-    // Force 4 options into a single row to avoid vertical scroll on the stage.
-    if (childCount === 4) {
-      grid.setAttribute("data-cols", "4");
-    }
-
-    // LAYOUT (code-enforced, count-driven). The option area always spans the
-    // full viewport width (.gen-options--breakout). Card WIDTH scales by how
-    // many there are, and the grid never exceeds two rows — it grows sideways,
-    // not down, so it stays within the viewport height:
-    //   ≤2 cards → 25vw each, one centered row
-    //   3–5      → 20vw each, one centered row
-    //   >5       → fill the width evenly, columns = ceil(count/2) (two rows)
-    // vw widths are capped maxes (minmax(0, …)) so gaps/padding can never
-    // push a full row into horizontal overflow.
+    // LAYOUT (code-enforced, count-driven). Options stay inside the center
+    // card's width — never escape into a horizontal scroller. Two or three
+    // options use one row; larger sets wrap into comfortably sized columns.
+    // The card region itself handles vertical overflow when a multi-row set
+    // exceeds the available stage height.
     const n = childCount;
     let colCount: number;
-    let rows: number;
     if (n <= 2) {
       colCount = n;
-      rows = 1;
-      grid.style.gridTemplateColumns = `repeat(${n}, minmax(0, 25vw))`;
-    } else if (n <= 5) {
+    } else if (n <= 3) {
       colCount = n;
-      rows = 1;
-      grid.style.gridTemplateColumns = `repeat(${n}, minmax(0, 20vw))`;
     } else {
-      colCount = Math.min(6, Math.ceil(n / 2));
-      rows = Math.ceil(n / colCount);
-      grid.style.gridTemplateColumns = `repeat(${colCount}, minmax(0, 1fr))`;
+      colCount = Math.min(4, Math.ceil(n / 2));
     }
+    const rows = Math.ceil(n / colCount);
+    grid.style.gridTemplateColumns = `repeat(${colCount}, minmax(0, 1fr))`;
     grid.setAttribute("data-cols", String(colCount));
     grid.style.setProperty("--gen-rows", String(rows));
-    grid.classList.add("gen-options--breakout");
 
     const options = grid.querySelectorAll<HTMLElement>(
       ':scope > button[data-action="answer"], :scope > [data-action="answer"]',
@@ -1286,5 +1271,4 @@ export function enhanceVariantStrips(root: HTMLElement): void {
     });
   });
 }
-
 

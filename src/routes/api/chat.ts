@@ -744,7 +744,7 @@ export const Route = createFileRoute("/api/chat")({
         const tools: Record<string, unknown> = {
           render_turn: tool({
             description:
-              "REQUIRED FINAL STEP — call exactly once to end your turn. The payload IS the UI the user sees on the center stage (there is no other reply channel). Rules: at most ONE interactive block (options | form | upload); a stage block carries its own actions and must not be paired with an interactive block; media URLs must come from tool results or PROJECT MEMORY. If this returns { ok: false, errors }, fix the payload and call it again.",
+              "REQUIRED FINAL STEP — call exactly once to end your turn. The payload IS the UI the user sees on the center stage (there is no other reply channel). Rules: emit exactly ONE primary stage block; an optional actions block may accompany it. At most ONE interactive block (options | form | upload); a stage block carries its own actions and must not be paired with an interactive block; media URLs must come from tool results or PROJECT MEMORY. If this returns { ok: false, errors }, fix the payload and call it again.",
             inputSchema: RenderTurnSchema,
             execute: async (turn) => {
               const res = guard.finalize(turn as RenderTurn);

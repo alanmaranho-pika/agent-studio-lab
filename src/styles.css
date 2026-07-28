@@ -842,8 +842,11 @@
  * ─────────────────────────────────────────────────────────────── */
 .gen-options {
   display: grid !important;
+  box-sizing: border-box;
   gap: 32px;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   /* Rows center within the full-width area — a partial row (e.g. 2×25vw)
      sits in the middle rather than hugging the left edge. */
   justify-content: center;
@@ -852,8 +855,10 @@
      approximates the prose + status + composer + margins around the grid. */
   --gen-card-h: clamp(240px, calc((100dvh - 460px) / var(--gen-rows, 1)), 360px);
   grid-auto-rows: var(--gen-card-h);
-  padding-top: 20px;
-  padding-bottom: 20px;
+  /* The deterministic "fan" motion can extend an edge card slightly past
+     its layout box. This clearance keeps every option fully visible without
+     requiring the center card to expose horizontal overflow. */
+  padding: 20px 24px;
 }
 /* Fallback column templates for unenhanced SSR markup — the enhancer sets
    grid-template-columns inline (count-driven vw widths), which wins. */
@@ -868,21 +873,22 @@
 .gen-options[data-cols="4"] {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
-/* The option area always spans the full viewport, escaping the 10-col stage
-   column. The parent column is viewport-centered, so the 50%↔50vw trick
-   lands the 100vw block dead-center. Inner padding keeps cards off the
-   screen edges; card widths (vw-based) are set inline by the enhancer. */
+/* Compatibility for previously enhanced cards. New cards no longer break out
+   of the center column; keeping old markup bounded prevents horizontal crop
+   or scroll when a saved project is reopened. */
 .gen-options--breakout {
-  width: 100vw;
-  margin-left: calc(50% - 50vw);
-  padding-left: 32px;
-  padding-right: 32px;
+  width: 100%;
+  max-width: 100%;
+  margin-left: 0;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .gen-option {
   position: relative;
   isolation: isolate;
   box-sizing: border-box;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   justify-content: space-between;

@@ -4,7 +4,7 @@
 // missing media block) are fixed deterministically with zero retries.
 
 import type { RenderTurn, TurnBlock } from "./ui-schema";
-import { isInteractiveBlock } from "./ui-schema";
+import { isInteractiveBlock, isPrimaryStageBlock } from "./ui-schema";
 
 export type ProducedMedia = {
   url: string;
@@ -65,6 +65,18 @@ export function createTurnGuard(): TurnGuard {
           `One decision per turn: you sent ${interactive.length} interactive blocks (${interactive
             .map((b) => b.type)
             .join(", ")}). Keep the single most important one and ask the rest on later turns.`,
+        );
+      }
+
+      // The center stage is a single surface, not a vertical feed. A gallery
+      // plus a media card (or any other pair of primary blocks) competes for
+      // attention and can push the useful content underneath the composer.
+      const primaryStageBlocks = blocks.filter(isPrimaryStageBlock);
+      if (primaryStageBlocks.length > 1) {
+        errors.push(
+          `One primary stage surface per turn: you sent ${primaryStageBlocks.length} (${primaryStageBlocks
+            .map((b) => b.type)
+            .join(", ")}). Keep the one that represents the current decision; put its CTAs in that block's actions.`,
         );
       }
 

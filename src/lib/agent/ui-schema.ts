@@ -42,7 +42,7 @@ export const RenderTurnSchema = z.object({
     .max(2)
     .optional()
     .describe(
-      "The turn's UI. At most ONE interactive block (options/form/upload) — one decision per turn.",
+      "The turn's UI. Render exactly ONE primary stage block; an optional actions block may accompany it. At most ONE interactive block (options/form/upload) — one decision per turn.",
     ),
   next: NextHintSchema,
 });
@@ -51,4 +51,9 @@ export type RenderTurn = z.infer<typeof RenderTurnSchema>;
 
 export function isInteractiveBlock(block: TurnBlock): boolean {
   return block.type === "options" || block.type === "form" || block.type === "upload";
+}
+
+/** Every block except an actions row occupies the stage's primary surface. */
+export function isPrimaryStageBlock(block: TurnBlock): boolean {
+  return block.type !== "actions";
 }

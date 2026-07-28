@@ -16,9 +16,8 @@ import { PENDING_MIME, resolveThumb, type ProjectAsset } from "@/lib/project-sta
  * anymore.
  *
  * Rail contents: logo (leave project) · project title + meta (expanded) ·
- * surface switcher (Main Stage / Timeline Editor / …) · library summary of
- * the assets generated so far. Everything else renders inside the wrapper
- * via `children`.
+ * library summary of the assets generated so far. Everything else renders
+ * inside the wrapper via `children`.
  */
 
 export type ProjectSurface = {
@@ -53,9 +52,6 @@ export function ProjectChrome({
   projectTitle,
   projectMeta,
   assets,
-  surfaces,
-  activeSurface,
-  onSurfaceSelect,
   onLeaveProject,
   onTitleClick,
   children,
@@ -120,65 +116,17 @@ export function ProjectChrome({
   // auto-width.
   const railRef = useRef<HTMLDivElement | null>(null);
   const titleRef = useRef<HTMLButtonElement | null>(null);
-  const switcherRef = useRef<HTMLDivElement | null>(null);
-  const newViewRef = useRef<HTMLDivElement | null>(null);
   const libraryRef = useRef<HTMLDivElement | null>(null);
   const [openWidth, setOpenWidth] = useState(RAIL_OPEN);
   useLayoutEffect(() => {
     if (!open) return;
     const railLeft = railRef.current?.getBoundingClientRect().left ?? 0;
-    // newViewRef is measured explicitly because it's absolutely positioned —
-    // it doesn't expand switcherRef's own box, so it wouldn't be counted.
     const edges = [
       titleRef.current,
-      switcherRef.current,
-      newViewRef.current,
       libraryRef.current,
     ].map((el) => (el ? el.getBoundingClientRect().right - railLeft : 0));
     setOpenWidth(Math.ceil(Math.max(...edges, RAIL_CLOSED)) + 12);
-  }, [open, thumbs.length, projectTitle, projectMeta, surfaces]);
-
-  const renderSurface = (s: ProjectSurface) => {
-    const active = s.id === activeSurface;
-    return (
-      <button
-        type="button"
-        onClick={() => onSurfaceSelect(s.id)}
-        title={s.comingSoon ? `${s.label} — coming soon` : s.label}
-        className={cn(
-          "flex h-12 items-center gap-2 overflow-hidden rounded-[18px] py-2 pl-2 pr-5 transition-all duration-300",
-          active
-            ? "bg-[color:var(--surface-dark-7)]"
-            : "hover:bg-[color:var(--surface-dark-7)]/60",
-        )}
-        // Collapsed: fixed 48px icon square. Expanded: width auto so the pill
-        // hugs its label instead of filling the rail.
-        style={{ width: open ? "auto" : 48 }}
-      >
-        <span
-          className={cn(
-            "grid h-8 w-8 shrink-0 place-items-center",
-            active
-              ? "text-[color:var(--content-dark-secondary)]"
-              : "text-[color:var(--content-dark-quaternary)]",
-          )}
-        >
-          {s.icon}
-        </span>
-        <span
-          className={cn(
-            "whitespace-nowrap text-[15px] font-medium leading-[18px] transition-opacity duration-200",
-            open ? "opacity-100" : "opacity-0",
-            active
-              ? "text-[color:var(--content-dark-secondary)]"
-              : "text-[color:var(--content-dark-quaternary)]",
-          )}
-        >
-          {s.label}
-        </span>
-      </button>
-    );
-  };
+  }, [open, thumbs.length, projectTitle, projectMeta]);
 
   return (
     <div
@@ -245,40 +193,6 @@ export function ProjectChrome({
             ))}
           </span>
         </button>
-
-        {/* Surface switcher — vertically centered. Hidden while Main Stage is
-            the only surface; it only earns its place once the project has an
-            alternate view to switch to. */}
-        {surfaces.length > 1 && (
-        <div
-          ref={switcherRef}
-          className="absolute left-3 top-1/2 flex -translate-y-1/2 flex-col items-start gap-2"
-        >
-          {surfaces.filter((s) => !s.accent).map((s) => (
-            <div key={s.id}>{renderSurface(s)}</div>
-          ))}
-          {/* "New View" affordance: only shows while the rail is open, and is
-              positioned ABSOLUTELY below the in-flow surfaces so mounting it
-              never changes the (vertically-centered) column height — otherwise
-              the icons above would jump up when it appears. */}
-          {open &&
-            surfaces
-              .filter((s) => s.accent)
-              .map((s) => (
-                <div
-                  key={s.id}
-                  ref={newViewRef}
-                  className="absolute left-0 top-full flex flex-col items-start gap-2 pt-2"
-                >
-                  <span
-                    aria-hidden
-                    className="ml-2 h-px w-8 bg-[color:var(--surface-dark-5)]"
-                  />
-                  {renderSurface(s)}
-                </div>
-              ))}
-        </div>
-        )}
 
         {/* Library — bottom of the rail (Figma 27704-424131 / -425023).
             Empty: just the glyph. With assets: overlapping thumb stack +

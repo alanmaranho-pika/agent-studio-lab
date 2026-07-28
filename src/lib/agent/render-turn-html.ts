@@ -17,6 +17,17 @@ export function renderTurnToHtml(turn: RenderTurn): string {
   const parts: string[] = [];
   if (turn.ack) parts.push(`<p data-ack>${esc(turn.ack)}</p>`);
   parts.push(`<p data-prose>${esc(turn.prose)}</p>`);
-  for (const block of turn.blocks ?? []) parts.push(blockToHtml(block));
+  // A historical turn may predate the single-surface guard and contain more
+  // than one stage card (for example, a gallery followed by a media card).
+  // Keep the first primary block so resuming an existing project never stacks
+  // competing displays; an actions row remains an allowed adjunct.
+  let renderedPrimary = false;
+  for (const block of turn.blocks ?? []) {
+    if (block.type !== "actions") {
+      if (renderedPrimary) continue;
+      renderedPrimary = true;
+    }
+    parts.push(blockToHtml(block));
+  }
   return parts.join("\n");
 }
